@@ -1,0 +1,80 @@
+# ============================================================
+# Python / Backend
+# ============================================================
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Môi trường & secrets
+.env
+.env.*
+!.env.example
+*.secret
+
+# ============================================================
+# Database & Large Data Files
+# ============================================================
+# DrugBank XML gốc (~1.7GB) — KHÔNG push lên GitHub
+Back_end/Database/drugbank_full.xml
+Back_end/Database/drugbank.xsd
+
+# NDJSON files (quá lớn cho GitHub — drug_interactions.ndjson ~540MB)
+Back_end/Database/data/
+
+# SQLite
+*.sqlite3
+*.db
+
+# MySQL dumps
+*.sql.gz
+*.dump
+
+# ============================================================
+# Node.js / Frontend
+# ============================================================
+node_modules/
+Front-end/dist/
+Front-end/dist-ssr/
+*.local
+
+# ============================================================
+# Log files
+# ============================================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ============================================================
+# Editor / IDE
+# ============================================================
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
+*.sln
+
+# VS Code — giữ lại settings workspace hữu ích
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# ============================================================
+# Misc
+# ============================================================
+*.zip
+*.tar.gz
+*.bin
+*.exe
