@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Network Map - Digital Pharmacy</title>
+    <link rel="icon" type="image/png" href="/static/img/logo.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vis.js Network for graph visualization -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- SmilesDrawer for 2D structures (comparison) -->
+    <script src="https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    
+    <style>
+        html { scroll-behavior: smooth; }
+        .glass-panel { background: rgba(255, 255, 255, 0.98); }
+        #network-container {
+            width: 100%;
+            height: 70vh;
+            border: 2px solid #bfdbfe;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 50%, #f3f9ff 100%);
+        }
+        
+        /* Legend Colors */
+        .legend-drug { background-color: #3b82f6; }
+        .legend-target { background-color: #e74c3c; }
+        .legend-gene { background-color: #9b59b6; }
+        .legend-food { background-color: #27ae60; }
+        .legend-interact { background-color: #f39c12; }
+        .legend-enzyme { background-color: #1abc9c; }
+        .legend-transporter { background-color: #3498db; }
+        .legend-carrier { background-color: #e67e22; }
+        
+        /* Detail Panel */
+        .detail-panel {
+            transition: all 0.3s ease;
+        }
+        .detail-panel.hidden {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        
+        /* Filter Toggle */
+        .filter-toggle {
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 10px;
+        }
+        .filter-toggle.active {
+            background-color: #2563eb;
+            border-color: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        }
+        .filter-toggle:not(.active) {
+            background-color: #ffffff;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+
+        /* Filter legend dot (match node colors) */
+        .filter-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 9999px;
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.15);
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 6px;
+        }
+
+        .autocomplete-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            color: #1e293b;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .autocomplete-loading,
+        .autocomplete-empty {
+            padding: 10px 12px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .inference-ref-card {
+            background: #f8fbff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .inference-pair-card {
+            background: #f3f8ff;
+            border: 1px solid #cfe0ff;
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .inference-chip {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #334155;
+        }
+
+        .inference-chip-high { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+        .inference-chip-moderate { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+        .inference-chip-low { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+        .inference-chip-score-high { border-color: #e9d5ff; background: #faf5ff; color: #7e22ce; }
+        .inference-chip-score-moderate { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
+        .inference-chip-score-low { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
+
+        .inference-metric-chip {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #334155;
+        }
+
+        .inference-reason-card {
+            margin-top: 8px;
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            border-radius: 10px;
+            padding: 8px;
+        }
+
+        .inference-tech-details {
+            margin-top: 8px;
+            border: 1px solid #dbeafe;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 8px;
+        }
+
+        .inference-tech-details summary {
+            cursor: pointer;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .inference-ref-link {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+        
+        /* Disable legacy vis tooltip: keep only custom hover card */
+        .vis-tooltip {
+            display: none !important;
+        }
+
+        .entity-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            border: 1px solid #cbd5e1;
+            background: #eff6ff;
+            color: #1e3a8a;
+        }
+
+        .entity-row-btn {
+            width: 100%;
+            text-align: left;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 10px;
+            transition: all 0.2s;
+        }
+
+        .entity-row-btn:hover,
+        .entity-row-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .section-outline-link {
+            display: block;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .section-outline-link:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1e40af;
+        }
+
+        .hover-node-card {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 40;
+            width: min(320px, calc(100% - 32px));
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(239,246,255,0.98));
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(30, 64, 175, 0.16);
+            padding: 12px;
+            pointer-events: none;
+        }
+
+        .fresh-theme {
+            background: linear-gradient(180deg, #f5fbff 0%, #eef7ff 55%, #f8fbff 100%);
+            color: #0f172a;
+        }
+
+        .fresh-theme [class*="bg-slate-900/50"] { background-color: #e0ecff !important; }
+        .fresh-theme [class*="bg-slate-900/40"] { background-color: #edf4ff !important; }
+        .fresh-theme [class*="bg-slate-900/30"] { background-color: #f3f8ff !important; }
+        .fresh-theme [class*="bg-slate-900"] { background-color: #dbeafe !important; }
+        .fresh-theme [class*="bg-slate-800"] { background-color: #ffffff !important; }
+        .fresh-theme [class*="bg-slate-700/60"] { background-color: #e9f2ff !important; }
+        .fresh-theme [class*="bg-slate-700"] { background-color: #eff6ff !important; }
+        .fresh-theme [class*="bg-slate-600"] { background-color: #dbeafe !important; }
+        .fresh-theme [class*="border-slate-700"] { border-color: #cfe0ff !important; }
+        .fresh-theme [class*="border-slate-600"] { border-color: #bfdbfe !important; }
+        .fresh-theme [class*="text-slate-100"] { color: #0f172a !important; }
+        .fresh-theme [class*="text-slate-200"] { color: #1e293b !important; }
+        .fresh-theme [class*="text-slate-300"] { color: #334155 !important; }
+        .fresh-theme [class*="text-slate-400"] { color: #64748b !important; }
+        .fresh-theme [class*="text-slate-500"] { color: #475569 !important; }
+        .fresh-theme .text-white { color: #0f172a !important; }
+        .fresh-theme button.bg-blue-600,
+        .fresh-theme a.bg-blue-600,
+        .fresh-theme button.bg-blue-700,
+        .fresh-theme a.bg-blue-700 {
+            color: #ffffff !important;
+        }
+        .fresh-theme .placeholder-slate-400::placeholder { color: #94a3b8 !important; }
+        .fresh-theme .shadow-lg { box-shadow: 0 8px 20px rgba(37, 99, 235, 0.16) !important; }
+
+        .section-card {
+            border-radius: 14px;
+            border-width: 1px;
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
+        }
+
+        .section-tone-a { background: #ffffff !important; }
+        .section-tone-b { background: #f8fbff !important; }
+
+        .section-title {
+            position: relative;
+            padding-left: 12px;
+        }
+
+        .section-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 4px;
+            bottom: 4px;
+            width: 4px;
+            border-radius: 9999px;
+            background: linear-gradient(180deg, #2563eb, #22d3ee);
+        }
+
+        .map-action-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .map-action-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .map-primary-btn {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .map-primary-btn:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+
+        .map-export-select {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .map-toolbar {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+        }
+
+        #mapWorkspaceView:fullscreen {
+            background: #f8fafc;
+            padding: 16px;
+            overflow: auto;
+            border: none;
+            box-shadow: none;
+            max-width: none;
+        }
+
+        #mapWorkspaceView:fullscreen #network-container {
+            height: calc(100vh - 260px) !important;
+            min-height: 520px;
+        }
+
+        .hover-node-card {
+            max-height: 55vh;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body class="fresh-theme min-h-screen text-slate-800 font-sans">
+
+    {% set subtitle = 'Molecular Drug Network Map' %}
+    {% include 'drugs/_header.html' %}
+
+    <div class="container mx-auto px-4 py-6">
+        <!-- HEADER -->
+
+
+
+
+        <!-- SEARCH & FILTERS -->
+        <div id="mapWorkspaceView" class="space-y-6">
+        <div id="section-query" class="section-card section-tone-b glass-panel rounded-xl p-6 mb-6 bg-slate-800 border border-slate-700">
+            <form method="GET" action="/network-map/" id="searchForm" class="space-y-4">
+                <!-- Multi Drug Inputs (max 6) -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Select up to 6 drugs (name or DrugBank ID)</label>
+                    <div id="drugInputs" class="space-y-2">
+                        {% if selected_display_inputs %}
+                            {% for val in selected_display_inputs %}
+                            <div class="flex gap-2 relative">
+                                <input type="text" name="drug" value="{{ val }}" placeholder="Example: DB00001 or Warfarin"
+                                       class="drug-input w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       autocomplete="off">
+                                <button type="button" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
+                                        onclick="removeDrugInput(this)">✕</button>
+                                <div class="autocomplete-items hidden"></div>
+                            </div>
+                            <div class="drug-meta text-[11px] text-slate-400 pl-1"></div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="flex gap-2 relative">
+                                <input type="text" name="drug" placeholder="Drug 1 (example: DB00001 / Warfarin)"
+                                       class="drug-input w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       autocomplete="off">
+                                <button type="button" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200"
+                                        onclick="removeDrugInput(this)">✕</button>
+                                <div class="autocomplete-items hidden"></div>
+                            </div>
+                            <div class="drug-meta text-[11px] text-slate-400 pl-1"></div>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mt-3">
+                        <button type="button" onclick="addDrugInput()" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            + Add Drug
+                        </button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-lg">
+                            Visualize
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2">Tip: Double-click a drug node to add it to selection (max 6).</p>
+                </div>
+                
+                <!-- Filter Toggles -->
+                <div class="border-t border-slate-600 pt-4">
+                    <label class="block text-sm font-medium text-slate-300 mb-3">Display Filters</label>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_targets %}active{% endif %}">
+                            <input type="hidden" name="show_targets" value="0">
+                            <input type="checkbox" name="show_targets" value="1" {% if show_targets %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-target"></span>
+                            Protein Target
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_genes %}active{% endif %}">
+                            <input type="hidden" name="show_genes" value="0">
+                            <input type="checkbox" name="show_genes" value="1" {% if show_genes %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-gene"></span>
+                            Gene/Genomics
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_food %}active{% endif %}">
+                            <input type="hidden" name="show_food" value="0">
+                            <input type="checkbox" name="show_food" value="1" {% if show_food %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-food"></span>
+                            Food
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_drug_interactions %}active{% endif %}">
+                            <input type="hidden" name="show_drug_interactions" value="0">
+                            <input type="checkbox" name="show_drug_interactions" value="1" {% if show_drug_interactions %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-interact"></span>
+                            Drug Interactions
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if include_neighbor_drugs %}active{% endif %}">
+                            <input type="hidden" name="include_neighbor_drugs" value="0">
+                            <input type="checkbox" name="include_neighbor_drugs" value="1" {% if include_neighbor_drugs %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-drug"></span>
+                            ➕ Neighbor Drugs
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_enzymes %}active{% endif %}">
+                            <input type="hidden" name="show_enzymes" value="0">
+                            <input type="checkbox" name="show_enzymes" value="1" {% if show_enzymes %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-enzyme"></span>
+                            Enzymes
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_transporters %}active{% endif %}">
+                            <input type="hidden" name="show_transporters" value="0">
+                            <input type="checkbox" name="show_transporters" value="1" {% if show_transporters %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-transporter"></span>
+                            Transporter
+                        </label>
+                        <label class="filter-toggle cursor-pointer px-4 py-2 rounded-full border text-sm font-medium {% if show_carriers %}active{% endif %}">
+                            <input type="hidden" name="show_carriers" value="0">
+                            <input type="checkbox" name="show_carriers" value="1" {% if show_carriers %}checked{% endif %} class="hidden" onchange="this.form.submit()">
+                            <span class="filter-dot legend-carrier"></span>
+                            Carrier
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Max Nodes Slider -->
+                <div class="flex items-center gap-4">
+                    <label class="text-sm text-slate-300">Max Nodes:</label>
+                    <input type="range" id="maxNodesRange" name="max_nodes" min="20" max="250" value="{{ max_nodes }}" 
+                           class="w-48" oninput="onMaxNodesInput(this)">
+                    <span id="maxNodesValue" class="text-slate-100 font-bold">{{ max_nodes }}</span>
+                </div>
+            </form>
+        </div>
+
+        {% if selected_drugs %}
+        <div id="mapWorkspaceCard" class="map-toolbar section-card section-tone-a rounded-xl p-4 bg-slate-800 border border-slate-700 -mt-2">
+            <div class="flex flex-wrap items-start justify-between gap-4 mb-3">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Map Workspace</h3>
+                    <p class="text-xs text-slate-600">Unified control center for map context, legend, and export actions.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button type="button" id="workspaceFullscreenBtn" onclick="toggleWorkspaceCardFullscreen()" class="map-action-btn">Card Full View</button>
+                    <span class="stat-badge bg-blue-100 text-blue-700 border border-blue-200">{{ node_count }} Nodes</span>
+                    <span class="stat-badge bg-emerald-100 text-emerald-700 border border-emerald-200">{{ edge_count }} Edges</span>
+                </div>
+            </div>
+
+            <div class="mb-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                <div class="text-xs text-slate-500">Primary Drug</div>
+                <div class="text-lg font-bold text-slate-900 leading-tight">{{ drug.name }}</div>
+                <div class="text-sm text-slate-600 font-mono">{{ drug.drugbank_id }} • {{ drug.drug_type|default("Unknown Type") }}</div>
+            </div>
+
+            <div class="mb-3">
+                <div class="text-xs font-semibold text-slate-700 mb-2">Legend (Active Components)</div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700"><span class="w-2.5 h-2.5 legend-drug rounded-sm"></span>Primary Drug</span>
+                    {% if show_targets %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-red-200 bg-red-50 text-red-700"><span class="w-2.5 h-2.5 legend-target rounded-sm"></span>Protein Target</span>{% endif %}
+                    {% if show_genes %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-purple-200 bg-purple-50 text-purple-700"><span class="w-2.5 h-2.5 legend-gene rounded-sm"></span>Gene/Genomics</span>{% endif %}
+                    {% if show_food %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700"><span class="w-2.5 h-2.5 legend-food rounded-sm"></span>Food</span>{% endif %}
+                    {% if show_drug_interactions or include_neighbor_drugs %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-700"><span class="w-2.5 h-2.5 legend-interact rounded-sm"></span>Interaction Drugs</span>{% endif %}
+                    {% if show_enzymes %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-teal-200 bg-teal-50 text-teal-700"><span class="w-2.5 h-2.5 legend-enzyme rounded-sm"></span>Enzymes</span>{% endif %}
+                    {% if show_transporters %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700"><span class="w-2.5 h-2.5 legend-transporter rounded-sm"></span>Transporter</span>{% endif %}
+                    {% if show_carriers %}<span class="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-orange-200 bg-orange-50 text-orange-700"><span class="w-2.5 h-2.5 legend-carrier rounded-sm"></span>Carrier</span>{% endif %}
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 items-center">
+                <button type="button" onclick="network && network.fit()" class="map-action-btn">Reset View</button>
+                <button type="button" onclick="togglePhysics()" class="map-action-btn">Toggle Physics</button>
+                <button type="button" onclick="toggleFullscreen()" class="map-action-btn">Fullscreen</button>
+                <select id="exportScale" class="map-export-select" title="Export quality multiplier">
+                    <option value="2">Export Quality: 2x</option>
+                    <option value="3">Export Quality: 3x</option>
+                    <option value="4">Export Quality: 4x</option>
+                    <option value="6">Export Quality: 6x</option>
+                    <option value="8">Export Quality: 8x</option>
+                    <option value="10" selected>Export Quality: 10x (Highest)</option>
+                </select>
+                <button type="button" onclick="exportImageHighRes()" class="map-action-btn map-primary-btn">Export PNG (High-Res)</button>
+                <button type="button" onclick="exportPdfHighRes()" class="map-action-btn">Export PDF (High-Res)</button>
+            </div>
+            
+        </div>
+        {% endif %}
+
+        <div class="flex items-center justify-between gap-3 -mt-2">
+            <h3 class="text-sm font-bold text-slate-700">Map Section</h3>
+            <button type="button" id="mapSectionToggleBtn" onclick="toggleMapSection()" class="map-action-btn">Hide Map Section</button>
+        </div>
+
+        <!-- MAIN CONTENT: Graph + Detail Panel -->
+        <div id="mapSectionBody" class="flex gap-4">
+            <!-- GRAPH CONTAINER -->
+            <div id="section-graph" class="flex-1 relative">
+                <div id="network-container" class="rounded-xl overflow-hidden">
+                    {% if not drug %}
+                    <div class="flex items-center justify-center h-full text-slate-400">
+                        <div class="text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            <p class="text-lg">Search for drugs to render the interaction network map</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="hoverNodeCard" class="hover-node-card hidden"></div>
+
+                {% if selected_drugs %}
+                <div id="section-entity-access" class="section-card section-tone-b mt-4 glass-panel rounded-lg p-4 bg-slate-800 border border-slate-700">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-200">Entity Access</h3>
+                            <p class="text-xs text-slate-400">Search and open any entity on the map (drug, receptor/target, gene, enzyme, transporter, carrier, food).</p>
+                        </div>
+                        <div id="entityAccessCount" class="text-xs px-3 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300">0 entities</div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                        <input id="entityAccessSearch" type="text" placeholder="Search entity name or ID..."
+                               class="md:col-span-2 w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400">
+                        <select id="entityAccessType" class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white">
+                            <option value="all">All Types</option>
+                            <option value="drug">Drug</option>
+                            <option value="target">Target / Receptor</option>
+                            <option value="gene">Gene</option>
+                            <option value="enzyme">Enzyme</option>
+                            <option value="transporter">Transporter</option>
+                            <option value="carrier">Carrier</option>
+                            <option value="food">Food</option>
+                        </select>
+                    </div>
+                    <div id="entityAccessList" class="space-y-2 max-h-72 overflow-auto pr-1"></div>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <!-- DETAIL PANEL (Side) -->
+            <div id="detailPanel" class="w-96 detail-panel hidden">
+                <div class="section-card section-tone-a glass-panel rounded-xl p-4 bg-slate-800 border border-slate-700 sticky top-24">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-slate-900">Detail Node</h3>
+                        <button onclick="closeDetailPanel()" class="text-slate-500 hover:text-slate-800">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="detailContent">
+                        <p class="text-slate-600">Click a node to view details.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- STATISTICS TABLE -->
+        {% if selected_drugs %}
+        <div id="section-interaction-summary" class="section-card section-tone-b mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-lg font-bold text-white">Interaction Summary (Selected Drugs)</h3>
+                <span class="text-xs px-3 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300">{{ summary_totals.selected_drugs }} drugs selected</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-red-400">{{ summary_totals.targets }}</div>
+                    <div class="text-sm text-slate-400">Targets</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-purple-400">{{ summary_totals.genomics }}</div>
+                    <div class="text-sm text-slate-400">Genomics</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-green-400">{{ summary_totals.food }}</div>
+                    <div class="text-sm text-slate-400">Food Int.</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-yellow-400">{{ summary_totals.drug_interactions }}</div>
+                    <div class="text-sm text-slate-400">Drug Int.</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-teal-400">{{ summary_totals.enzymes }}</div>
+                    <div class="text-sm text-slate-400">Enzymes</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-blue-400">{{ summary_totals.transporters }}</div>
+                    <div class="text-sm text-slate-400">Transporters</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-orange-400">{{ summary_totals.carriers }}</div>
+                    <div class="text-sm text-slate-400">Carriers</div>
+                </div>
+                <div class="bg-slate-700 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-cyan-400">{{ reference_metrics.general_references_total }}</div>
+                    <div class="text-sm text-slate-400">Ref Items</div>
+                </div>
+            </div>
+
+            <div class="mt-4 overflow-x-auto border border-slate-700 rounded-lg">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead class="bg-slate-900 border-b border-slate-700">
+                        <tr>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Drug</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Targets</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Genomics</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Drug Int.</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Food Int.</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Refs</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for d in selected_drugs %}
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-100 font-medium">{{ d.name }} <span class="text-slate-400 font-mono">({{ d.drugbank_id }})</span></td>
+                            <td class="px-4 py-3 text-slate-300">{{ d.targets|length }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ d.genomics|length }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ d.interactions|length }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ d.food_interactions|length }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ d.general_references|length }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="section-cross-interactions" class="section-card section-tone-a mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-lg font-bold text-white">Cross-Interaction Summary (Among Selected Drugs)</h3>
+                <span class="text-xs px-3 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300">{{ cross_interactions|length }} pairs</span>
+            </div>
+
+            <div class="inference-ref-card mb-3">
+                <div class="text-sm font-semibold text-slate-800">Scoring Method & References</div>
+                <p class="text-xs text-slate-600 mt-1">Inference score combines target overlap, pathway similarity (Jaccard), and metabolic competition overlap:</p>
+                <div class="text-xs text-slate-700 mt-1">Score = (0.45 × Target Jaccard) + (0.35 × Pathway Jaccard) + (0.20 × Metabolic Jaccard), scaled to 0–100.</div>
+                <details class="mt-2">
+                    <summary class="text-xs font-semibold text-blue-700 cursor-pointer">Show references</summary>
+                    <ul class="mt-2 list-disc pl-5 text-xs text-slate-700 space-y-1">
+                        <li>Jaccard, P. (1901). Étude comparative de la distribution florale. Bull. Soc. Vaud. Sci. Nat.</li>
+                        <li>FDA. In Vitro Drug Interaction Studies — Cytochrome P450 Enzyme- and Transporter-Mediated Drug Interactions Guidance.</li>
+                        <li>DrugBank knowledge model for targets, enzymes, transporters, carriers, and interaction annotations.</li>
+                    </ul>
+                </details>
+            </div>
+
+            {% if cross_interactions %}
+            <div class="space-y-3">
+                {% for pair in cross_interactions[:30] %}
+                <div class="inference-pair-card">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="text-slate-800 font-semibold">
+                            {{ pair.drug_a_name }} <span class="text-slate-400 font-mono">({{ pair.drug_a_id }})</span>
+                            <span class="text-slate-500">↔</span>
+                            {{ pair.drug_b_name }} <span class="text-slate-400 font-mono">({{ pair.drug_b_id }})</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if pair.severity == 'High' %}
+                                <span class="inference-chip inference-chip-high">{{ pair.severity }}</span>
+                            {% elif pair.severity == 'Moderate' %}
+                                <span class="inference-chip inference-chip-moderate">{{ pair.severity }}</span>
+                            {% else %}
+                                <span class="inference-chip inference-chip-low">{{ pair.severity }}</span>
+                            {% endif %}
+                            {% if pair.inference_band == 'High' %}
+                                <span class="inference-chip inference-chip-score-high">Inference {{ pair.inference_score|round(1) }}% ({{ pair.inference_band }})</span>
+                            {% elif pair.inference_band == 'Moderate' %}
+                                <span class="inference-chip inference-chip-score-moderate">Inference {{ pair.inference_score|round(1) }}% ({{ pair.inference_band }})</span>
+                            {% else %}
+                                <span class="inference-chip inference-chip-score-low">Inference {{ pair.inference_score|round(1) }}% ({{ pair.inference_band }})</span>
+                            {% endif %}
+                            <span class="inference-chip">{{ pair.evidence_count }} evidence</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
+                        <span class="inference-metric-chip">Target overlap: {{ pair.target_overlap_count }} (J={{ pair.target_jaccard|round(2) }})</span>
+                        <span class="inference-metric-chip">Pathway Jaccard: {{ pair.pathway_jaccard|round(2) }}</span>
+                        <span class="inference-metric-chip">Metabolic overlap: {{ pair.metabolic_overlap_count }}</span>
+                        {% if pair.metabolic_overlap_markers %}
+                        <span class="inference-metric-chip">Markers: {{ pair.metabolic_overlap_markers|join(", ") }}</span>
+                        {% endif %}
+                    </div>
+                    {% if pair.inference_reasons %}
+                    <div class="inference-reason-card">
+                        <div class="text-[11px] font-semibold text-indigo-900 mb-1">Why this score?</div>
+                        <ul class="list-disc pl-5 space-y-0.5 text-[11px] text-indigo-800">
+                            {% for reason in pair.inference_reasons %}
+                            <li>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    <details class="inference-tech-details">
+                        <summary>Show technical details</summary>
+                        <div class="mt-2 text-[11px] text-slate-700">
+                            <div>Formula: (0.45 × Target Jaccard) + (0.35 × Pathway Jaccard) + (0.20 × Metabolic Jaccard)</div>
+                            <ul class="mt-1 list-disc pl-5 space-y-0.5">
+                                <li>Target component: {{ pair.inference_target_component|round(1) }}</li>
+                                <li>Pathway component: {{ pair.inference_pathway_component|round(1) }}</li>
+                                <li>Metabolic component: {{ pair.inference_metabolic_component|round(1) }}</li>
+                            </ul>
+                        </div>
+                    </details>
+                    {% if pair.descriptions %}
+                    <ul class="mt-2 list-disc pl-5 space-y-1 text-sm text-slate-700">
+                        {% for desc in pair.descriptions %}
+                        <li class="whitespace-pre-wrap break-words">{{ desc }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">No direct cross-interaction records found among current selected drugs.</p>
+            {% endif %}
+        </div>
+
+        <div id="section-explorer" class="section-card section-tone-b mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Drug Interaction Explorer</h3>
+                    <p class="text-sm text-slate-400">Interactive list for drug-drug interactions with search and quick severity cues.</p>
+                </div>
+                <div id="interactionCountBadge" class="text-xs px-3 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300">0 results</div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Source Drug</label>
+                    <select id="interactionDrugSelect" class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white">
+                        {% for d in selected_drugs %}
+                        <option value="{{ d.drugbank_id }}">{{ d.name }} ({{ d.drugbank_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-slate-400 mb-1">Search counterpart or description</label>
+                    <input id="interactionSearch" type="text" placeholder="Type a drug name, ID, or keyword..."
+                           class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-700 rounded-lg">
+                <table class="w-full min-w-[900px] text-sm">
+                    <thead class="bg-slate-900 border-b border-slate-700">
+                        <tr>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-44">Counterpart</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-40">DrugBank ID</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-32">Severity</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody id="interactionTableBody" class="divide-y divide-slate-700"></tbody>
+                </table>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between">
+                <div id="interactionPageInfo" class="text-xs text-slate-400">Page 1</div>
+                <div class="flex items-center gap-2">
+                    <button id="interactionPrevBtn" type="button" class="px-3 py-1 rounded bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600">Prev</button>
+                    <button id="interactionNextBtn" type="button" class="px-3 py-1 rounded bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-pharmacogenomics" class="section-card section-tone-b mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-lg font-bold text-white">Pharmacogenomics Highlights</h3>
+                <span class="text-xs px-3 py-1 rounded-full border border-slate-600 bg-slate-900 text-slate-300">{{ pharmacogenomic_highlights|length }} genes</span>
+            </div>
+
+            {% if pharmacogenomic_highlights %}
+            <div class="overflow-x-auto border border-slate-700 rounded-lg">
+                <table class="w-full min-w-[900px] text-sm">
+                    <thead class="bg-slate-900 border-b border-slate-700">
+                        <tr>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-40">Gene</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-32">Drugs</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-44">Variants</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold w-40">Type</th>
+                            <th class="text-left px-4 py-3 text-slate-300 font-semibold">Example</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        {% for item in pharmacogenomic_highlights[:50] %}
+                        <tr class="bg-slate-800 align-top">
+                            <td class="px-4 py-3 text-slate-100 font-mono font-semibold">{{ item.gene }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ item.drug_count }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ item.variants|join(", ")|default("-") }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ item.types|join(", ")|default("-") }}</td>
+                            <td class="px-4 py-3 text-slate-300 whitespace-pre-wrap break-words">{% if item.examples %}{{ item.examples.0 }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">No pharmacogenomic records available for selected drugs.</p>
+            {% endif %}
+        </div>
+
+        <div id="section-comparative" class="section-card section-tone-a mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <h3 class="text-lg font-bold text-white mb-1">Comparative Matrix for Selected Drugs</h3>
+            <p class="text-sm text-slate-400 mb-4">Quick comparison of 2D chemical structures and protein targets for selected drugs.</p>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-[900px] w-full text-sm border border-slate-700 rounded-lg overflow-hidden">
+                    <thead class="bg-slate-900">
+                        <tr>
+                            <th class="text-left px-4 py-3 text-slate-300 font-bold w-56">Component</th>
+                            {% for d in selected_drugs %}
+                                <th class="text-left px-4 py-3 text-white font-bold">
+                                    <div class="leading-tight">{{ d.name }}</div>
+                                    <div class="text-xs text-slate-400 font-mono">{{ d.drugbank_id }}</div>
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700">
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-300 font-semibold">2D Structure</td>
+                            {% for d in selected_drugs %}
+                                <td class="px-4 py-3">
+                                    {% if d.smiles %}
+                                        <canvas id="mol_{{ d.drugbank_id }}" width="220" height="150" class="bg-white rounded border border-slate-700"></canvas>
+                                        <div class="mt-2 text-[11px] text-slate-500">SMILES available • auto-rendered</div>
+                                    {% else %}
+                                        <div class="text-slate-500 text-sm italic">Structure not available</div>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-300 font-semibold">Mechanism of Action</td>
+                            {% for d in selected_drugs %}
+                                <td class="px-4 py-3">
+                                    {% if d.mechanism_of_action %}
+                                        <div class="text-slate-200 text-xs leading-relaxed break-words">{{ d.mechanism_of_action|format_drug_text }}</div>
+                                    {% else %}
+                                        <span class="text-slate-500">-</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-300 font-semibold">Safety (Summary)</td>
+                            {% for d in selected_drugs %}
+                                <td class="px-4 py-3">
+                                    {% if d.toxicity %}
+                                        <div class="text-slate-200 text-xs leading-relaxed break-words">{{ d.toxicity|format_drug_text }}</div>
+                                    {% else %}
+                                        <div class="text-slate-500 text-xs">No toxicity summary available.</div>
+                                    {% endif %}
+                                    <div class="mt-2 text-[11px] text-slate-400">
+                                        Drug interactions: <span class="text-slate-200">{{ d.interactions|length }}</span> •
+                                        Food interactions: <span class="text-slate-200">{{ d.food_interactions|length }}</span>
+                                    </div>
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-300 font-semibold">SMILES</td>
+                            {% for d in selected_drugs %}
+                                <td class="px-4 py-3">
+                                    {% if d.smiles %}
+                                        <details class="bg-slate-900/30 border border-slate-700 rounded p-3">
+                                            <summary class="cursor-pointer text-slate-200">View SMILES</summary>
+                                            <pre class="mt-2 text-[11px] whitespace-pre-wrap break-words text-slate-200">{{ d.smiles }}</pre>
+                                        </details>
+                                    {% else %}
+                                        <span class="text-slate-500">-</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+
+                        <tr class="bg-slate-800">
+                            <td class="px-4 py-3 text-slate-300 font-semibold">Protein Targets (Summary)</td>
+                            {% for d in selected_drugs %}
+                                <td class="px-4 py-3">
+                                    {% if d.targets %}
+                                        <ul class="space-y-1 text-xs">
+                                            {% for t in d.targets[:10] %}
+                                                <li class="bg-slate-900/30 border border-slate-700 rounded p-2">
+                                                    <div class="text-slate-100 font-semibold">{{ t.name }}</div>
+                                                    <div class="text-[11px] text-slate-400">Gene: {{ t.gene_name|default("N/A") }}{% if t.uniprot_id %} • UniProt: {{ t.uniprot_id }}{% endif %}</div>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% if d.targets|length > 10 %}
+                                            <div class="mt-2 text-[11px] text-slate-500">Showing 10 of {{ d.targets|length }} targets.</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-slate-500">No target data available.</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {% if comparative_targets and comparative_targets.rows %}
+            <div class="mt-6">
+                <div class="flex items-center justify-between gap-4 mb-3">
+                    <div>
+                        <h4 class="text-base font-bold text-white">Aligned Protein Targets</h4>
+                        <p class="text-xs text-slate-400">Shared proteins are prioritized at the top and highlighted.</p>
+                    </div>
+                    <div class="text-xs text-slate-400">
+                        Shared: <span class="text-slate-200 font-semibold">{{ comparative_targets.shared_count }}</span> •
+                        Total unique: <span class="text-slate-200 font-semibold">{{ comparative_targets.total_count }}</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-[900px] w-full text-sm border border-slate-700 rounded-lg overflow-hidden">
+                        <thead class="bg-slate-900">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-slate-300 font-bold w-72">Protein</th>
+                                {% for d in selected_drugs %}
+                                    <th class="text-left px-4 py-3 text-white font-bold">
+                                        <div class="leading-tight">{{ d.name }}</div>
+                                        <div class="text-xs text-slate-400 font-mono">{{ d.drugbank_id }}</div>
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for row in comparative_targets.rows[:80] %}
+                                <tr class="{% if row.is_shared %}bg-slate-900/50{% else %}bg-slate-800{% endif %}">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div class="text-slate-100 font-semibold leading-tight">{{ row.name }}</div>
+                                                <div class="text-[11px] text-slate-400">
+                                                    Gene: <span class="font-mono">{{ row.gene_name|default("N/A") }}</span>
+                                                    {% if row.uniprot_id %}
+                                                        • UniProt: <a class="underline text-sky-300" href="https://www.uniprot.org/uniprotkb/{{ row.uniprot_id|urlencode }}/entry" target="_blank" rel="noreferrer">{{ row.uniprot_id }}</a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% if row.is_shared %}
+                                                <span class="text-[11px] px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-200">Shared ×{{ row.shared_count }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    {% for d in selected_drugs %}
+                                        <td class="px-4 py-3 align-top">
+                                            {% with t=row.per_drug|get_item(d.drugbank_id) %}
+                                                {% if t %}
+                                                    <div class="text-xs text-slate-200 font-semibold">Present</div>
+                                                    {% if t.actions %}
+                                                        <div class="text-[11px] text-slate-400">Actions: {{ t.actions|join(", ") }}</div>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-slate-500">-</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if comparative_targets.total_count > 80 %}
+                    <div class="mt-2 text-[11px] text-slate-500">Showing 80 of {{ comparative_targets.total_count }} unique proteins (performance cap).</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="section-references" class="section-card section-tone-a mt-6 glass-panel rounded-xl p-6 bg-slate-800 border border-slate-700">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-lg font-bold text-white">References & External Evidence</h3>
+                <div class="text-xs text-slate-400">General refs: <span class="text-slate-200">{{ reference_metrics.general_references_total }}</span> • External IDs: <span class="text-slate-200">{{ reference_metrics.external_identifiers_total }}</span> • External links: <span class="text-slate-200">{{ reference_metrics.external_links_total }}</span></div>
+            </div>
+
+            {% if reference_metrics.general_reference_entries %}
+            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <h4 class="text-sm font-semibold text-slate-100 mb-2">General Reference Entries</h4>
+                <div class="max-h-72 overflow-auto space-y-2 pr-1">
+                    {% for ref in reference_metrics.general_reference_entries %}
+                    <div class="rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
+                        <div class="text-[11px] text-slate-400 mb-1">{{ ref.drug_name }} <span class="font-mono">({{ ref.drugbank_id }})</span> • {{ ref.section }}</div>
+                        <div class="text-sm text-slate-200 whitespace-pre-wrap break-words">
+                            {% if ref.url %}
+                            <a href="{{ ref.url }}" target="_blank" rel="noreferrer" class="text-sky-300 hover:text-sky-200 underline">{{ ref.text }}</a>
+                            {% else %}
+                            {{ ref.text }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if reference_metrics.external_identifier_entries %}
+            <div class="mb-4 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+                <h4 class="text-sm font-semibold text-slate-100 mb-2">External Identifier Entries</h4>
+                <div class="max-h-72 overflow-auto space-y-2 pr-1">
+                    {% for ext in reference_metrics.external_identifier_entries %}
+                    <div class="rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
+                        <div class="text-[11px] text-slate-400 mb-1">{{ ext.drug_name }} <span class="font-mono">({{ ext.drugbank_id }})</span></div>
+                        <div class="text-sm text-slate-200 break-all"><span class="text-slate-300 font-semibold">{{ ext.resource }}:</span> {{ ext.value }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if reference_metrics.top_links %}
+            <div class="space-y-2">
+                {% for ref in reference_metrics.top_links %}
+                <div class="bg-slate-900/40 border border-slate-700 rounded-lg p-3">
+                    <a href="{{ ref.url }}" target="_blank" rel="noreferrer" class="text-sky-300 hover:text-sky-200 underline text-sm font-semibold">{{ ref.label }}</a>
+                    <div class="text-xs text-slate-400 mt-1">{{ ref.drug_name }} <span class="font-mono">({{ ref.drugbank_id }})</span></div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400">No external references found for selected drugs.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // Auto-submit slider (debounced) so user doesn't need extra clicks
+        let __maxNodesSubmitTimer = null;
+        function onMaxNodesInput(el) {
+            const valueEl = document.getElementById('maxNodesValue');
+            if (valueEl) valueEl.textContent = el.value;
+            if (__maxNodesSubmitTimer) {
+                clearTimeout(__maxNodesSubmitTimer);
+            }
+            __maxNodesSubmitTimer = setTimeout(() => {
+                const form = document.getElementById('searchForm');
+                if (form) form.submit();
+            }, 450);
+        }
+
+        // Data from backend
+        const graphData = {{ graph_data|safe }};
+        const autocompleteCache = new Map();
+        const autocompletePending = new Map();
+
+        async function fetchDrugSuggestions(term) {
+            const q = String(term || '').trim();
+            if (q.length < 2) return [];
+
+            const key = q.toLowerCase();
+            if (autocompleteCache.has(key)) {
+                return autocompleteCache.get(key);
+            }
+
+            const prefixKey = key.slice(0, -1);
+            if (prefixKey.length >= 2 && autocompleteCache.has(prefixKey)) {
+                const prefixResults = autocompleteCache.get(prefixKey) || [];
+                const narrowed = prefixResults.filter((item) => {
+                    const name = String(item.name || '').toLowerCase();
+                    const id = String(item.drugbank_id || '').toLowerCase();
+                    return name.includes(key) || id.includes(key);
+                });
+                if (narrowed.length >= 10 || prefixResults.length < 20) {
+                    autocompleteCache.set(key, narrowed);
+                    return narrowed;
+                }
+            }
+
+            if (autocompletePending.has(key)) {
+                return autocompletePending.get(key);
+            }
+
+            try {
+                const pendingPromise = fetch(`/api/drug-autocomplete/?q=${encodeURIComponent(q)}`)
+                    .then((resp) => {
+                        if (!resp.ok) return [];
+                        return resp.json();
+                    })
+                    .then((payload) => {
+                        const results = Array.isArray(payload.results) ? payload.results : [];
+                        autocompleteCache.set(key, results);
+                        return results;
+                    })
+                    .catch(() => [])
+                    .finally(() => {
+                        autocompletePending.delete(key);
+                    });
+
+                autocompletePending.set(key, pendingPromise);
+                return await pendingPromise;
+            } catch (e) {
+                return [];
+            }
+        }
+
+        {% if selected_drugs %}
+        const interactionExplorerData = {
+            {% for d in selected_drugs %}
+            "{{ d.drugbank_id }}": {
+                id: "{{ d.drugbank_id }}",
+                name: "{{ d.name|escapejs }}",
+                interactions: [
+                    {% for inter in d.interactions %}
+                    {
+                        drugbank_id: "{{ inter.drugbank_id|default('')|escapejs }}",
+                        name: "{{ inter.name|default('')|escapejs }}",
+                        description: "{{ inter.description|default('')|escapejs }}"
+                    },
+                    {% endfor %}
+                ]
+            },
+            {% endfor %}
+        };
+        {% endif %}
+
+        let network = null;
+        let physicsEnabled = true;
+
+        {% if selected_drugs %}
+        const interactionUiState = {
+            selectedDrug: "{{ selected_drugs.0.drugbank_id }}",
+            query: "",
+            page: 1,
+            pageSize: 25,
+        };
+
+        const entityAccessState = {
+            query: "",
+            type: "all",
+            pageSize: 60,
+        };
+        {% endif %}
+
+        // Initialize Network Graph
+        {% if selected_drugs %}
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('network-container');
+            
+
+            // Map tipe node ke icon
+            const iconMap = {
+                food: "/static/img/food.png",
+                enzyme: "/static/img/enzyme.png",
+                gene: "/static/img/gene.png",
+                protein: "/static/img/protein.png",
+                target: "/static/img/protein.png" // node protein biasanya group/type 'target'
+            };
+
+            // Clone dan modifikasi nodes agar tipe tertentu pakai icon
+            const nodesWithIcons = graphData.nodes.map(node => {
+                // Asumsi node.group atau node.data.type berisi tipe node
+                let type = node.group || (node.data && node.data.type);
+                if (iconMap[type]) {
+                    return {
+                        ...node,
+                        shape: 'image',
+                        image: iconMap[type],
+                        size: 32 // Ukuran icon, bisa disesuaikan
+                    };
+                }
+                return node;
+            });
+
+            const data = {
+                nodes: new vis.DataSet(nodesWithIcons),
+                edges: new vis.DataSet(graphData.edges)
+            };
+
+            const options = {
+                nodes: {
+                    borderWidth: 2,
+                    shadow: true,
+                    chosen: {
+                        node: function(values) {
+                            values.borderWidth = 4;
+                            values.shadow = {
+                                enabled: true,
+                                color: 'rgba(59,130,246,0.8)',
+                                size: 22,
+                                x: 0,
+                                y: 0,
+                            };
+                        }
+                    },
+                    font: {
+                        color: '#ffffff',
+                        size: 13,
+                        face: 'Inter, Segoe UI, Arial, sans-serif',
+                        strokeWidth: 4,
+                        strokeColor: '#0f172a'
+                    }
+                },
+                edges: {
+                    width: 2,
+                    shadow: true,
+                    smooth: {
+                        type: 'continuous'
+                    },
+                    font: {
+                        color: '#1e293b',
+                        size: 11,
+                        strokeWidth: 0,
+                        background: 'rgba(255, 255, 255, 0.88)'
+                    }
+                },
+                groups: {
+                    drug_main: {
+                        color: { background: '#3b82f6', border: '#1d4ed8' }
+                    },
+                    target: {
+                        color: { background: '#e74c3c', border: '#c0392b' }
+                    },
+                    gene: {
+                        color: { background: '#9b59b6', border: '#8e44ad' }
+                    },
+                    food: {
+                        color: { background: '#27ae60', border: '#229954' }
+                    },
+                    drug_interact: {
+                        color: { background: '#f39c12', border: '#d68910' }
+                    },
+                    enzyme: {
+                        color: { background: '#1abc9c', border: '#16a085' }
+                    },
+                    transporter: {
+                        color: { background: '#3498db', border: '#2980b9' }
+                    },
+                    carrier: {
+                        color: { background: '#e67e22', border: '#d35400' }
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        iterations: 200
+                    },
+                    barnesHut: {
+                        gravitationalConstant: -3000,
+                        centralGravity: 0.3,
+                        springLength: 150,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    hoverConnectedEdges: true,
+                    multiselect: true,
+                    tooltipDelay: 200,
+                    zoomView: true,
+                    dragView: true
+                },
+                layout: {
+                    improvedLayout: true
+                }
+            };
+
+            network = new vis.Network(container, data, options);
+
+            // Render 2D structures for selected drugs (comparative matrix)
+            (function renderComparativeStructures(){
+                const drawer = new SmilesDrawer.Drawer({ width: 220, height: 150, padding: 12 });
+                const smilesMap = {
+                    {% for d in selected_drugs %}
+                        "{{ d.drugbank_id }}": "{{ d.smiles|default('')|escapejs }}",
+                    {% endfor %}
+                };
+                Object.entries(smilesMap).forEach(([drugId, smiles]) => {
+                    if (!smiles) return;
+                    const canvasId = 'mol_' + drugId;
+                    const canvasEl = document.getElementById(canvasId);
+                    if (!canvasEl) return;
+                    try {
+                        SmilesDrawer.parse(smiles, function(tree) {
+                            drawer.draw(tree, canvasId, 'light', false);
+                        });
+                    } catch (e) {
+                        // ignore parse errors; keep cell readable
+                    }
+                });
+            })();
+
+            // Event: Click on Node
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = graphData.nodes.find(n => n.id === nodeId);
+                    if (node) {
+                        showNodeDetail(node);
+                    }
+                }
+            });
+
+            network.on('hoverNode', function(params) {
+                if (!params || !params.node) return;
+                const node = graphData.nodes.find(n => n.id === params.node);
+                renderHoverNodeCard(node);
+            });
+
+            network.on('blurNode', function() {
+                hideHoverNodeCard();
+            });
+
+            // Event: Double Click to Navigate
+            network.on('doubleClick', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = graphData.nodes.find(n => n.id === nodeId);
+                    if (node && node.data && node.data.type === 'drug' && node.data.drugbank_id) {
+                        // Add this drug into selection (max 6) while preserving filters
+                        const paramsObj = new URLSearchParams(window.location.search);
+                        const current = paramsObj.getAll('drug');
+                        const next = [];
+                        const seen = new Set();
+
+                        for (const v of current) {
+                            const t = (v || '').trim();
+                            if (!t) continue;
+                            const k = t.toLowerCase();
+                            if (seen.has(k)) continue;
+                            seen.add(k);
+                            next.push(t);
+                        }
+
+                        const newId = String(node.data.drugbank_id || '').trim();
+                        if (newId) {
+                            const k = newId.toLowerCase();
+                            if (!seen.has(k) && next.length < 6) {
+                                next.push(newId);
+                            }
+                        }
+
+                        paramsObj.delete('drug');
+                        next.slice(0, 6).forEach(v => paramsObj.append('drug', v));
+                        window.location.search = paramsObj.toString();
+                    }
+                }
+            });
+
+            // Stabilization done
+            network.on('stabilizationIterationsDone', function() {
+                network.setOptions({ physics: { enabled: physicsEnabled } });
+            });
+
+            initInteractionExplorer();
+            initEntityAccess();
+            refreshDrugInputMeta();
+            updateWorkspaceFullscreenBtn();
+        });
+        {% endif %}
+
+        // Show Node Detail in Side Panel
+        function renderHoverNodeCard(node) {
+            const card = document.getElementById('hoverNodeCard');
+            if (!card || !node) return;
+
+            const data = node.data || {};
+            const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+            const type = String(data.type || node.group || 'entity').toUpperCase();
+            const title = escapeHtml(data.name || node.label || node.id || 'Entity');
+            const sub = escapeHtml(data.drugbank_id || data.uniprot_id || data.gene_name || node.id || '-');
+            const description = escapeHtml(data.description || data.function || data.mechanism || '');
+
+            card.innerHTML = `
+                <div class="space-y-2">
+                    <div class="text-[11px] text-slate-500">${type}</div>
+                    <div class="text-sm font-bold text-slate-900 leading-tight">${title}</div>
+                    <div class="text-xs text-slate-600 font-mono">${sub}</div>
+                    ${description ? `<div class="text-xs text-slate-700 leading-relaxed">${description}</div>` : ''}
+                    <div class="text-[11px] text-slate-500">Click node for full detail panel.</div>
+                </div>
+            `;
+            card.classList.remove('hidden');
+        }
+
+        function hideHoverNodeCard() {
+            const card = document.getElementById('hoverNodeCard');
+            if (!card) return;
+            card.classList.add('hidden');
+        }
+
+        function showNodeDetail(node) {
+            const panel = document.getElementById('detailPanel');
+            const content = document.getElementById('detailContent');
+            
+            panel.classList.remove('hidden');
+            
+            const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+            const formatRichDrugText = (value) => {
+                let text = escapeHtml(String(value || ''));
+                if (!text) return '';
+
+                text = text
+                    .replace(/&lt;sub&gt;/gi, '<sub>')
+                    .replace(/&lt;\/sub&gt;/gi, '</sub>')
+                    .replace(/&lt;sup&gt;/gi, '<sup>')
+                    .replace(/&lt;\/sup&gt;/gi, '</sup>');
+
+                text = text.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-900 font-semibold">$1</strong>');
+                text = text.replace(/_(.+?)_/g, '<em class="italic">$1</em>');
+
+                text = text.replace(/\[((?:A|F|L)\d+|FDA label)\]/gi, '<sup class="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 ml-0.5">$1</sup>');
+                text = text.replace(/\[([^\]]+)\]/g, '<span class="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 ml-0.5">$1</span>');
+
+                text = text.replace(/\r\n|\r|\n/g, '<br>');
+                return text;
+            };
+            let html = '';
+            const data = node.data || {};
+
+            const nodeById = new Map((graphData.nodes || []).map(n => [n.id, n]));
+            const connectedIds = (network && node && node.id) ? (network.getConnectedNodes(node.id) || []) : [];
+            const connectedNodes = connectedIds.map(id => nodeById.get(id)).filter(Boolean);
+            const connectedDrugs = connectedNodes
+                .filter(n => (n.data && n.data.type === 'drug') || (String(n.id || '').startsWith('DB')))
+                .slice(0, 8);
+            
+            switch(data.type) {
+                case 'drug':
+                    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                    html = `
+                        <div class="space-y-3">
+                            <div class="text-xs text-slate-500">Node: Drug</div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Drug')}</div>
+                            <div class="text-sm text-slate-600">DrugBank ID: <span class="font-mono">${escapeHtml(data.drugbank_id || 'N/A')}</span></div>
+                            ${data.drugbank_id ? `<a href="/drugs/${encodeURIComponent(data.drugbank_id)}/?return_to=${returnTo}" class="inline-flex items-center px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition">Open Monograph</a>` : ''}
+                            ${data.description ? `<div class="text-sm text-slate-700 bg-slate-100 p-3 rounded border border-slate-200 leading-relaxed break-words">${formatRichDrugText(data.description)}</div>` : ''}
+                            ${data.mechanism ? `<div class="text-sm text-slate-700 leading-relaxed break-words"><span class="font-bold text-slate-700">Mechanism (summary):</span><div class="mt-1">${formatRichDrugText(data.mechanism)}</div></div>` : ''}
+                            <div class="text-xs text-slate-500">Tip: double-click a drug node to add it to comparison (max 6).</div>
+                        </div>
+                    `;
+                    break;
+                case 'target':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="text-xs text-slate-500">Node: Protein Target</div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Target')}</div>
+                            <div class="text-sm text-slate-600">Gene: <span class="font-mono">${escapeHtml(data.gene_name || data.gene || 'N/A')}</span></div>
+                            ${data.uniprot_id ? `<div class="text-sm text-slate-600">UniProt: <a class="text-blue-700 underline" target="_blank" href="https://www.uniprot.org/uniprot/${encodeURIComponent(data.uniprot_id)}">${escapeHtml(data.uniprot_id)}</a></div>` : ''}
+                            ${data.organism ? `<div class="text-sm text-slate-600">Organism: ${escapeHtml(data.organism)}</div>` : ''}
+                            ${data.actions && data.actions.length ? `<div class="text-sm"><span class="font-bold text-slate-700">Relation (actions):</span> <span class="text-slate-700">${escapeHtml(data.actions.join(', '))}</span></div>` : ''}
+                            ${data.function ? `<div class="text-sm text-slate-700 bg-slate-100 p-3 rounded border border-slate-200 whitespace-pre-wrap break-words">${escapeHtml(String(data.function))}</div>` : ''}
+                        </div>
+                    `;
+                    break;
+                case 'gene':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="text-xs text-slate-500">Node: Gene</div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Gene')}</div>
+                            <div class="text-sm text-slate-700">Gene nodes can come from genomic relationships (SNP) or protein expression links (protein → gene).</div>
+                            <div class="text-sm text-slate-600">Connected to: ${connectedNodes.length} nodes</div>
+                            ${connectedDrugs.length ? `
+                                <div class="text-sm">
+                                    <div class="font-bold text-slate-700 mb-1">Related drugs (summary)</div>
+                                    <ul class="space-y-1 text-xs">
+                                        ${connectedDrugs.map(d => {
+                                            const name = (d.data && d.data.name) ? d.data.name : d.label || d.id;
+                                            const id = (d.data && d.data.drugbank_id) ? d.data.drugbank_id : d.id;
+                                            return `<li class="bg-slate-100 border border-slate-200 rounded p-2 text-slate-700">${escapeHtml(String(name))} <span class="text-slate-500 font-mono">(${escapeHtml(String(id))})</span></li>`;
+                                        }).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    break;
+                case 'food':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="text-xs text-slate-500">Node: Food</div>
+                            <div class="text-sm text-slate-700 bg-slate-100 border border-slate-200 p-3 rounded">${escapeHtml(data.description || node.label || '')}</div>
+                        </div>
+                    `;
+                    break;
+                case 'enzyme':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 text-teal-700">
+                                <span class="font-bold">Enzyme</span>
+                            </div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Enzyme')}</div>
+                            <div class="text-sm text-slate-600">Gene: <span class="font-mono">${escapeHtml(data.gene_name || data.gene || 'N/A')}</span></div>
+                            ${data.uniprot_id ? `<div class="text-sm text-slate-600">UniProt: <a class="text-blue-700 underline" target="_blank" href="https://www.uniprot.org/uniprot/${encodeURIComponent(data.uniprot_id)}">${escapeHtml(data.uniprot_id)}</a></div>` : ''}
+                            ${data.actions && data.actions.length ? `<div class="text-sm"><span class="font-bold text-slate-700">Relation (actions):</span> <span class="text-slate-700">${escapeHtml(data.actions.join(', '))}</span></div>` : ''}
+                        </div>
+                    `;
+                    break;
+                case 'transporter':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 text-blue-700">
+                                <span class="font-bold">Transporter</span>
+                            </div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Transporter')}</div>
+                            <div class="text-sm text-slate-600">Gene: <span class="font-mono">${escapeHtml(data.gene_name || data.gene || 'N/A')}</span></div>
+                            ${data.uniprot_id ? `<div class="text-sm text-slate-600">UniProt: <a class="text-blue-700 underline" target="_blank" href="https://www.uniprot.org/uniprot/${encodeURIComponent(data.uniprot_id)}">${escapeHtml(data.uniprot_id)}</a></div>` : ''}
+                            ${data.actions && data.actions.length ? `<div class="text-sm"><span class="font-bold text-slate-700">Relation (actions):</span> <span class="text-slate-700">${escapeHtml(data.actions.join(', '))}</span></div>` : ''}
+                        </div>
+                    `;
+                    break;
+                case 'carrier':
+                    html = `
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 text-orange-700">
+                                <span class="font-bold">Carrier</span>
+                            </div>
+                            <div class="text-lg font-bold text-slate-900">${escapeHtml(data.name || node.label || 'Carrier')}</div>
+                            <div class="text-sm text-slate-600">Gene: <span class="font-mono">${escapeHtml(data.gene_name || data.gene || 'N/A')}</span></div>
+                            ${data.uniprot_id ? `<div class="text-sm text-slate-600">UniProt: <a class="text-blue-700 underline" target="_blank" href="https://www.uniprot.org/uniprot/${encodeURIComponent(data.uniprot_id)}">${escapeHtml(data.uniprot_id)}</a></div>` : ''}
+                            ${data.actions && data.actions.length ? `<div class="text-sm"><span class="font-bold text-slate-700">Relation (actions):</span> <span class="text-slate-700">${escapeHtml(data.actions.join(', '))}</span></div>` : ''}
+                        </div>
+                    `;
+                    break;
+                default:
+                    html = `<div class="text-slate-600">No detailed info available</div>`;
+            }
+            
+            content.innerHTML = html;
+        }
+
+        function closeDetailPanel() {
+            document.getElementById('detailPanel').classList.add('hidden');
+        }
+
+        function togglePhysics() {
+            physicsEnabled = !physicsEnabled;
+            if (network) {
+                network.setOptions({ physics: { enabled: physicsEnabled } });
+            }
+        }
+
+        function getExportScaleFactor() {
+            const select = document.getElementById('exportScale');
+            const parsed = select ? parseInt(select.value, 10) : 10;
+            return Number.isFinite(parsed) ? Math.max(1, Math.min(10, parsed)) : 10;
+        }
+
+        function waitForAnimationFrame() {
+            return new Promise(function (resolve) {
+                requestAnimationFrame(function () {
+                    resolve();
+                });
+            });
+        }
+
+        function getGraphDomBounds() {
+            if (!network || !network.body || !network.body.data || !network.body.data.nodes) return null;
+
+            const nodeIds = network.body.data.nodes.getIds();
+            if (!nodeIds || !nodeIds.length) return null;
+
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            let hasBounds = false;
+
+            nodeIds.forEach(function (nodeId) {
+                const bbox = network.getBoundingBox(nodeId);
+                if (!bbox || !Number.isFinite(bbox.left) || !Number.isFinite(bbox.top) || !Number.isFinite(bbox.right) || !Number.isFinite(bbox.bottom)) {
+                    return;
+                }
+
+                minX = Math.min(minX, bbox.left);
+                minY = Math.min(minY, bbox.top);
+                maxX = Math.max(maxX, bbox.right);
+                maxY = Math.max(maxY, bbox.bottom);
+                hasBounds = true;
+            });
+
+            if (!hasBounds) return null;
+
+            const topLeft = network.canvasToDOM({ x: minX, y: minY });
+            const bottomRight = network.canvasToDOM({ x: maxX, y: maxY });
+
+            if (!topLeft || !bottomRight) return null;
+
+            return {
+                left: Math.min(topLeft.x, bottomRight.x),
+                top: Math.min(topLeft.y, bottomRight.y),
+                right: Math.max(topLeft.x, bottomRight.x),
+                bottom: Math.max(topLeft.y, bottomRight.y)
+            };
+        }
+
+        function cropCanvasToGraphBounds(sourceCanvas, graphBoundsDom, containerWidthPx, containerHeightPx, scaleFactor) {
+            if (!sourceCanvas || !graphBoundsDom || !containerWidthPx || !containerHeightPx) return sourceCanvas;
+
+            const ratioX = sourceCanvas.width / containerWidthPx;
+            const ratioY = sourceCanvas.height / containerHeightPx;
+            const padding = Math.max(24, Math.round((scaleFactor || 1) * 28));
+
+            let cropLeft = Math.floor(graphBoundsDom.left * ratioX) - padding;
+            let cropTop = Math.floor(graphBoundsDom.top * ratioY) - padding;
+            let cropRight = Math.ceil(graphBoundsDom.right * ratioX) + padding;
+            let cropBottom = Math.ceil(graphBoundsDom.bottom * ratioY) + padding;
+
+            cropLeft = Math.max(0, cropLeft);
+            cropTop = Math.max(0, cropTop);
+            cropRight = Math.min(sourceCanvas.width, cropRight);
+            cropBottom = Math.min(sourceCanvas.height, cropBottom);
+
+            const cropWidth = Math.max(1, cropRight - cropLeft);
+            const cropHeight = Math.max(1, cropBottom - cropTop);
+
+            const cropped = document.createElement('canvas');
+            cropped.width = cropWidth;
+            cropped.height = cropHeight;
+
+            const ctx = cropped.getContext('2d');
+            if (!ctx) return sourceCanvas;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, cropWidth, cropHeight);
+            ctx.drawImage(sourceCanvas, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+            return cropped;
+        }
+
+        async function captureNetworkCanvas(scaleFactor) {
+            if (!network) return null;
+
+            const container = document.getElementById('network-container');
+            const sourceCanvas = container ? container.querySelector('canvas') : null;
+            if (!container || !sourceCanvas) return null;
+
+            const scale = Math.max(1, scaleFactor || 1);
+            const rect = container.getBoundingClientRect();
+            const baseWidth = Math.max(1, Math.round(rect.width));
+            const baseHeight = Math.max(1, Math.round(rect.height));
+            const exportWidth = Math.max(1, Math.round(baseWidth * scale));
+            const exportHeight = Math.max(1, Math.round(baseHeight * scale));
+
+            const originalInlineWidth = container.style.width;
+            const originalInlineHeight = container.style.height;
+            const originalScale = network.getScale();
+            const originalPosition = network.getViewPosition();
+
+            try {
+                container.style.width = `${exportWidth}px`;
+                container.style.height = `${exportHeight}px`;
+                network.setSize(`${exportWidth}px`, `${exportHeight}px`);
+                network.fit({
+                    animation: false,
+                    padding: Math.max(36, Math.round(scale * 20))
+                });
+                network.redraw();
+
+                await waitForAnimationFrame();
+                await waitForAnimationFrame();
+                await waitForAnimationFrame();
+
+                const highResCanvas = container.querySelector('canvas');
+                if (!highResCanvas) return null;
+                const graphBoundsDom = getGraphDomBounds();
+
+                const outputCanvas = document.createElement('canvas');
+                outputCanvas.width = highResCanvas.width;
+                outputCanvas.height = highResCanvas.height;
+
+                const ctx = outputCanvas.getContext('2d');
+                if (!ctx) return null;
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+                ctx.drawImage(highResCanvas, 0, 0);
+
+                const croppedCanvas = cropCanvasToGraphBounds(outputCanvas, graphBoundsDom, exportWidth, exportHeight, scale);
+                return croppedCanvas || outputCanvas;
+            } finally {
+                container.style.width = originalInlineWidth;
+                container.style.height = originalInlineHeight;
+                network.setSize(`${baseWidth}px`, `${baseHeight}px`);
+                network.moveTo({
+                    position: originalPosition,
+                    scale: originalScale,
+                    animation: false
+                });
+                network.redraw();
+            }
+        }
+
+        async function exportImageHighRes() {
+            if (!network) return;
+            const scale = getExportScaleFactor();
+            const canvas = await captureNetworkCanvas(scale);
+            if (!canvas) return;
+
+            const link = document.createElement('a');
+            link.download = `drug_network_map_${scale}x.png`;
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        }
+
+        async function exportPdfHighRes() {
+            if (!network || !window.jspdf || !window.jspdf.jsPDF) return;
+            const scale = getExportScaleFactor();
+            const canvas = await captureNetworkCanvas(scale);
+            if (!canvas) return;
+
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            const pdf = new window.jspdf.jsPDF({
+                orientation: canvas.width >= canvas.height ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [canvas.width, canvas.height],
+                compress: false
+            });
+
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height, undefined, 'NONE');
+            pdf.save(`drug_network_map_${scale}x.pdf`);
+        }
+
+        function toggleFullscreen() {
+            const container = document.getElementById('network-container');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleMapSection() {
+            const body = document.getElementById('mapSectionBody');
+            const btn = document.getElementById('mapSectionToggleBtn');
+            if (!body || !btn) return;
+
+            const willHide = !body.classList.contains('hidden');
+            body.classList.toggle('hidden', willHide);
+            btn.textContent = willHide ? 'Expand Map Section' : 'Hide Map Section';
+
+            if (!willHide && network) {
+                setTimeout(function () {
+                    network.redraw();
+                    network.fit({ animation: true });
+                }, 120);
+            }
+        }
+
+        function updateWorkspaceFullscreenBtn() {
+            const btn = document.getElementById('workspaceFullscreenBtn');
+            const view = document.getElementById('mapWorkspaceView');
+            if (!btn || !view) return;
+            btn.textContent = document.fullscreenElement === view ? 'Exit Card Full View' : 'Card Full View';
+        }
+
+        function toggleWorkspaceCardFullscreen() {
+            const view = document.getElementById('mapWorkspaceView');
+            if (!view) return;
+
+            if (document.fullscreenElement === view) {
+                document.exitFullscreen().catch(function () {});
+            } else {
+                view.requestFullscreen().catch(function () {});
+            }
+        }
+
+        document.addEventListener('fullscreenchange', function () {
+            updateWorkspaceFullscreenBtn();
+            if (network) {
+                setTimeout(function () {
+                    network.redraw();
+                    network.fit({ animation: true });
+                }, 120);
+            }
+        });
+
+        {% if selected_drugs %}
+        function inferInteractionSeverity(description) {
+            const text = String(description || '').toLowerCase();
+            if (/contraindicat|avoid|fatal|life[- ]?threat|severe|major/.test(text)) {
+                return { label: 'High', cls: 'bg-red-900/40 text-red-300 border-red-700' };
+            }
+            if (/moderate|monitor|caution|dose adjustment|increase|decrease/.test(text)) {
+                return { label: 'Moderate', cls: 'bg-amber-900/40 text-amber-300 border-amber-700' };
+            }
+            return { label: 'Low', cls: 'bg-emerald-900/40 text-emerald-300 border-emerald-700' };
+        }
+
+        function getFilteredInteractions() {
+            const bucket = interactionExplorerData[interactionUiState.selectedDrug] || { interactions: [] };
+            const q = interactionUiState.query.trim().toLowerCase();
+            if (!q) return bucket.interactions;
+
+            return (bucket.interactions || []).filter((item) => {
+                const id = String(item.drugbank_id || '').toLowerCase();
+                const name = String(item.name || '').toLowerCase();
+                const desc = String(item.description || '').toLowerCase();
+                return id.includes(q) || name.includes(q) || desc.includes(q);
+            });
+        }
+
+        function renderInteractionExplorer() {
+            const tbody = document.getElementById('interactionTableBody');
+            const pageInfo = document.getElementById('interactionPageInfo');
+            const badge = document.getElementById('interactionCountBadge');
+            const prevBtn = document.getElementById('interactionPrevBtn');
+            const nextBtn = document.getElementById('interactionNextBtn');
+            if (!tbody || !pageInfo || !badge || !prevBtn || !nextBtn) return;
+
+            const rows = getFilteredInteractions();
+            const total = rows.length;
+            const pages = Math.max(1, Math.ceil(total / interactionUiState.pageSize));
+            interactionUiState.page = Math.max(1, Math.min(interactionUiState.page, pages));
+
+            const start = (interactionUiState.page - 1) * interactionUiState.pageSize;
+            const pageRows = rows.slice(start, start + interactionUiState.pageSize);
+
+            badge.textContent = `${total.toLocaleString()} results`;
+            pageInfo.textContent = `Page ${interactionUiState.page} of ${pages}`;
+            prevBtn.disabled = interactionUiState.page <= 1;
+            nextBtn.disabled = interactionUiState.page >= pages;
+
+            if (!pageRows.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-4 py-6 text-center text-slate-400">No interactions found for current filters.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+            tbody.innerHTML = pageRows.map((item) => {
+                const severity = inferInteractionSeverity(item.description);
+                const counterpartId = String(item.drugbank_id || '').trim();
+                return `
+                    <tr class="bg-slate-800 hover:bg-slate-700/50 cursor-pointer interaction-row" data-node-id="${escapeHtml(counterpartId)}">
+                        <td class="px-4 py-3 text-slate-100 font-medium">${escapeHtml(item.name || 'Unknown')}</td>
+                        <td class="px-4 py-3 text-slate-300 font-mono">${escapeHtml(item.drugbank_id || '-')}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex text-xs px-2 py-1 rounded border ${severity.cls}">${severity.label}</span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-300 leading-relaxed">${escapeHtml(item.description || '-')}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function focusInteractionNode(nodeId) {
+            if (!nodeId || !network || !graphData || !Array.isArray(graphData.nodes)) return;
+            const found = graphData.nodes.find((n) => String(n.id) === String(nodeId));
+            if (!found) {
+                return;
+            }
+
+            try {
+                network.focus(found.id, {
+                    scale: 1.15,
+                    animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+                });
+                network.selectNodes([found.id]);
+                showNodeDetail(found);
+            } catch (e) {
+                // keep UI stable if focus/select is unavailable
+            }
+        }
+
+        function initInteractionExplorer() {
+            const select = document.getElementById('interactionDrugSelect');
+            const search = document.getElementById('interactionSearch');
+            const tbody = document.getElementById('interactionTableBody');
+            const prevBtn = document.getElementById('interactionPrevBtn');
+            const nextBtn = document.getElementById('interactionNextBtn');
+            if (!select || !search || !tbody || !prevBtn || !nextBtn) return;
+
+            select.value = interactionUiState.selectedDrug;
+            select.addEventListener('change', () => {
+                interactionUiState.selectedDrug = select.value;
+                interactionUiState.page = 1;
+                renderInteractionExplorer();
+            });
+
+            let typingTimer = null;
+            search.addEventListener('input', () => {
+                if (typingTimer) clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    interactionUiState.query = search.value || '';
+                    interactionUiState.page = 1;
+                    renderInteractionExplorer();
+                }, 150);
+            });
+
+            prevBtn.addEventListener('click', () => {
+                interactionUiState.page -= 1;
+                renderInteractionExplorer();
+            });
+
+            nextBtn.addEventListener('click', () => {
+                interactionUiState.page += 1;
+                renderInteractionExplorer();
+            });
+
+            tbody.addEventListener('click', (event) => {
+                const row = event.target.closest('tr.interaction-row');
+                if (!row) return;
+                const nodeId = row.getAttribute('data-node-id');
+                focusInteractionNode(nodeId);
+            });
+
+            renderInteractionExplorer();
+        }
+        {% endif %}
+
+        // Multi-input helpers (max 6)
+        function addDrugInput() {
+            const container = document.getElementById('drugInputs');
+            const inputs = container.querySelectorAll('input[name="drug"]');
+            if (inputs.length >= 6) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex gap-2 relative';
+            wrapper.innerHTML = `
+                <input type="text" name="drug" placeholder="Drug ${inputs.length + 1} (example: DB00001 / Warfarin)"
+                       class="drug-input w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       autocomplete="off">
+                <button type="button" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200">✕</button>
+                <div class="autocomplete-items hidden"></div>
+            `;
+            container.appendChild(wrapper);
+            wrapper.querySelector('button').addEventListener('click', () => wrapper.remove());
+            attachAutocomplete(wrapper.querySelector('input.drug-input'));
+
+            const meta = document.createElement('div');
+            meta.className = 'drug-meta text-[11px] text-slate-400 pl-1';
+            container.appendChild(meta);
+            refreshDrugInputMeta();
+        }
+
+        function removeDrugInput(btn) {
+            const row = btn.closest('.flex');
+            if (!row) return;
+            const container = document.getElementById('drugInputs');
+            const rows = Array.from(container.querySelectorAll('.flex.gap-2.relative'));
+            const rowIndex = rows.indexOf(row);
+            row.remove();
+            const metas = container.querySelectorAll('.drug-meta');
+            if (rowIndex > -1 && metas[rowIndex]) {
+                metas[rowIndex].remove();
+            }
+            refreshDrugInputMeta();
+        }
+
+        function parseDrugInputLabel(value) {
+            const text = String(value || '').trim();
+            const match = text.match(/^(.*?)\s*\((DB\d{4,})\)\s*$/i);
+            if (match) {
+                return {
+                    name: (match[1] || '').trim(),
+                    id: (match[2] || '').toUpperCase(),
+                };
+            }
+            const idOnly = text.match(/^(DB\d{4,})$/i);
+            if (idOnly) {
+                return { name: '', id: idOnly[1].toUpperCase() };
+            }
+            return { name: text, id: '' };
+        }
+
+        function refreshDrugInputMeta() {
+            const container = document.getElementById('drugInputs');
+            if (!container) return;
+
+            const rows = container.querySelectorAll('.flex.gap-2.relative');
+            const metas = container.querySelectorAll('.drug-meta');
+            rows.forEach((row, idx) => {
+                const input = row.querySelector('input.drug-input');
+                const meta = metas[idx];
+                if (!input || !meta) return;
+
+                const parsed = parseDrugInputLabel(input.value);
+                if (!input.value || (!parsed.name && !parsed.id)) {
+                    meta.innerHTML = '';
+                    return;
+                }
+
+                const nameLabel = parsed.name ? `<span class="entity-pill">Name: ${parsed.name}</span>` : '';
+                const idLabel = parsed.id ? `<span class="entity-pill">ID: ${parsed.id}</span>` : '';
+                meta.innerHTML = `${nameLabel} ${idLabel}`.trim();
+            });
+        }
+
+        // Autocomplete per input (shared suggestion list)
+        function attachAutocomplete(inputEl) {
+            if (!inputEl) return;
+            const row = inputEl.closest('.relative');
+            const listEl = row ? row.querySelector('.autocomplete-items') : null;
+            if (!listEl) return;
+
+            let currentFocus = -1;
+            let debounceTimer = null;
+            let requestCounter = 0;
+
+            inputEl.addEventListener('input', function() {
+                const val = (this.value || '').toLowerCase();
+                listEl.innerHTML = '';
+                currentFocus = -1;
+                requestCounter += 1;
+                const localRequestId = requestCounter;
+
+                if (debounceTimer) clearTimeout(debounceTimer);
+
+                if (!val || val.length < 2) {
+                    listEl.classList.add('hidden');
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    listEl.classList.remove('hidden');
+                    listEl.innerHTML = '<div class="autocomplete-loading">Searching drug database...</div>';
+
+                    const matches = await fetchDrugSuggestions(val);
+                    if (localRequestId !== requestCounter) {
+                        return;
+                    }
+
+                    const filtered = matches
+                        .filter(s => String(s.name || '').toLowerCase().includes(val) || String(s.drugbank_id || '').toLowerCase().includes(val))
+                        .slice(0, 20);
+
+                    if (filtered.length === 0) {
+                        listEl.innerHTML = '<div class="autocomplete-empty">No matching drug found.</div>';
+                        listEl.classList.remove('hidden');
+                        return;
+                    }
+
+                    listEl.classList.remove('hidden');
+                    listEl.innerHTML = '';
+                    filtered.forEach(match => {
+                        const id = String(match.drugbank_id || '').trim();
+                        const name = String(match.name || '').trim() || id;
+                        const div = document.createElement('div');
+                        div.className = 'autocomplete-item';
+                        div.innerHTML = `<strong>${name}</strong> <span class="text-slate-500 text-sm">(${id})</span>`;
+                        div.addEventListener('click', function() {
+                            inputEl.value = `${name} (${id})`;
+                            listEl.classList.add('hidden');
+                            refreshDrugInputMeta();
+                        });
+                        listEl.appendChild(div);
+                    });
+                }, 140);
+            });
+
+            inputEl.addEventListener('blur', function() {
+                refreshDrugInputMeta();
+            });
+
+            inputEl.addEventListener('keydown', function(e) {
+                const items = listEl.getElementsByTagName('div');
+                if (e.key === 'ArrowDown') {
+                    currentFocus++;
+                    setActive(items);
+                } else if (e.key === 'ArrowUp') {
+                    currentFocus--;
+                    setActive(items);
+                } else if (e.key === 'Enter') {
+                    if (listEl.classList.contains('hidden')) return;
+                    e.preventDefault();
+                    if (currentFocus > -1 && items[currentFocus]) {
+                        items[currentFocus].click();
+                    } else {
+                        listEl.classList.add('hidden');
+                    }
+                }
+            });
+
+            function setActive(items) {
+                if (!items || items.length === 0) return;
+                for (let item of items) item.classList.remove('autocomplete-active');
+                if (currentFocus >= items.length) currentFocus = 0;
+                if (currentFocus < 0) currentFocus = items.length - 1;
+                items[currentFocus].classList.add('autocomplete-active');
+            }
+
+            document.addEventListener('click', function(e) {
+                if (e.target !== inputEl) listEl.classList.add('hidden');
+            });
+        }
+
+        {% if selected_drugs %}
+        function normalizeEntityType(rawType) {
+            const t = String(rawType || '').toLowerCase();
+            if (t === 'drug') return 'drug';
+            if (t === 'target') return 'target';
+            if (t === 'gene') return 'gene';
+            if (t === 'enzyme') return 'enzyme';
+            if (t === 'transporter') return 'transporter';
+            if (t === 'carrier') return 'carrier';
+            if (t === 'food') return 'food';
+            return 'other';
+        }
+
+        function getEntityTypeLabel(type) {
+            if (type === 'drug') return 'Drug';
+            if (type === 'target') return 'Target/Receptor';
+            if (type === 'gene') return 'Gene';
+            if (type === 'enzyme') return 'Enzyme';
+            if (type === 'transporter') return 'Transporter';
+            if (type === 'carrier') return 'Carrier';
+            if (type === 'food') return 'Food';
+            return 'Other';
+        }
+
+        function focusGraphEntity(entityId) {
+            if (!entityId || !network) return;
+            const found = (graphData.nodes || []).find((n) => String(n.id) === String(entityId));
+            if (!found) return;
+
+            try {
+                network.focus(found.id, {
+                    scale: 1.2,
+                    animation: { duration: 450, easingFunction: 'easeInOutQuad' }
+                });
+                network.selectNodes([found.id]);
+                showNodeDetail(found);
+            } catch (e) {
+                // keep UI stable
+            }
+        }
+
+        function getEntityAccessRows() {
+            const q = entityAccessState.query.trim().toLowerCase();
+            const typeFilter = entityAccessState.type;
+            const rows = (graphData.nodes || []).map((n) => {
+                const nType = normalizeEntityType(n.data && n.data.type);
+                const label = String((n.data && n.data.name) || n.label || n.id || 'Unknown');
+                const sub = String((n.data && (n.data.drugbank_id || n.data.uniprot_id || n.data.gene_name || n.id)) || n.id || '');
+                return {
+                    id: n.id,
+                    type: nType,
+                    typeLabel: getEntityTypeLabel(nType),
+                    label,
+                    sub,
+                };
+            });
+
+            return rows.filter((r) => {
+                if (typeFilter !== 'all' && r.type !== typeFilter) return false;
+                if (!q) return true;
+                return String(r.label).toLowerCase().includes(q)
+                    || String(r.sub).toLowerCase().includes(q)
+                    || String(r.typeLabel).toLowerCase().includes(q);
+            });
+        }
+
+        function renderEntityAccess() {
+            const list = document.getElementById('entityAccessList');
+            const count = document.getElementById('entityAccessCount');
+            if (!list || !count) return;
+
+            const rows = getEntityAccessRows();
+            count.textContent = `${rows.length.toLocaleString()} entities`;
+
+            if (!rows.length) {
+                list.innerHTML = '<div class="text-sm text-slate-400 bg-slate-900 border border-slate-700 rounded-lg p-3">No entities found for current filter.</div>';
+                return;
+            }
+
+            const limited = rows.slice(0, entityAccessState.pageSize);
+            list.innerHTML = limited.map((r) => `
+                <button type="button" class="entity-row-btn entity-access-item" data-entity-id="${String(r.id).replace(/"/g, '&quot;')}">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="text-sm font-semibold text-slate-100 leading-tight">${r.label}</div>
+                            <div class="text-xs text-slate-400">${r.sub || '-'}</div>
+                        </div>
+                        <span class="entity-pill">${r.typeLabel}</span>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function initEntityAccess() {
+            const search = document.getElementById('entityAccessSearch');
+            const type = document.getElementById('entityAccessType');
+            const list = document.getElementById('entityAccessList');
+            if (!search || !type || !list) return;
+
+            let timer = null;
+            search.addEventListener('input', () => {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    entityAccessState.query = search.value || '';
+                    renderEntityAccess();
+                }, 120);
+            });
+
+            type.addEventListener('change', () => {
+                entityAccessState.type = type.value;
+                renderEntityAccess();
+            });
+
+            list.addEventListener('click', (event) => {
+                const btn = event.target.closest('button.entity-access-item');
+                if (!btn) return;
+                focusGraphEntity(btn.getAttribute('data-entity-id'));
+            });
+
+            list.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const btn = event.target.closest('button.entity-access-item');
+                if (!btn) return;
+                event.preventDefault();
+                focusGraphEntity(btn.getAttribute('data-entity-id'));
+            });
+
+            renderEntityAccess();
+        }
+        {% endif %}
+
+        // attach on load
+        document.querySelectorAll('input.drug-input').forEach(attachAutocomplete);
+        refreshDrugInputMeta();
+    </script>
+</body>
+</html>

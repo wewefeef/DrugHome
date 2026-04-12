@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Index - CDSS -Drug Interaction</title>
+    <link rel="icon" type="image/png" href="/static/img/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .autocomplete-box {
+            position: absolute;
+            z-index: 20;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 280px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+        }
+        .autocomplete-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .autocomplete-item:hover {
+            background: #eff6ff;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-sky-50 via-blue-50 to-indigo-50 min-h-screen text-slate-800 font-sans">
+    {% set subtitle = 'Drug Index' %}
+    {% include 'drugs/_header.html' %}
+
+    <div class="container mx-auto p-4 max-w-7xl space-y-4">
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <form method="get" id="drugIndexForm" class="space-y-3">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+                    <div class="lg:col-span-5 relative">
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Drug Search (Name / ID / CAS)</label>
+                        <input
+                            type="text"
+                            id="drugSearchInput"
+                            name="q"
+                            value="{{ query }}"
+                            placeholder="Example: Lisinopril (DB00722)"
+                            class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            autocomplete="off"
+                        >
+                        <div id="drugSearchSuggestions" class="autocomplete-box hidden"></div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Drug Type</label>
+                        <select name="type" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">All</option>
+                            {% for t in drug_type_choices %}
+                            <option value="{{ t }}" {% if drug_type == t %}selected{% endif %}>{{ t|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Pharmacogenomics</label>
+                        <select name="has_genomics" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="" {% if has_genomics == '' %}selected{% endif %}>Any</option>
+                            <option value="1" {% if has_genomics == '1' %}selected{% endif %}>Available</option>
+                            <option value="0" {% if has_genomics == '0' %}selected{% endif %}>Not Available</option>
+                        </select>
+                    </div>
+
+                    <div class="lg:col-span-3 flex gap-2">
+                        <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Search</button>
+                        {% if query or drug_type or has_genomics or has_toxicity or has_interactions or has_targets %}
+                            <a href="/drugs/" class="px-4 py-2 rounded-lg bg-white hover:bg-blue-50 border border-blue-200 text-slate-700 font-semibold text-center">Reset</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Toxicity</label>
+                        <select name="has_toxicity" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="" {% if has_toxicity == '' %}selected{% endif %}>Any</option>
+                            <option value="1" {% if has_toxicity == '1' %}selected{% endif %}>Available</option>
+                            <option value="0" {% if has_toxicity == '0' %}selected{% endif %}>Not Available</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Drug Interactions</label>
+                        <select name="has_interactions" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="" {% if has_interactions == '' %}selected{% endif %}>Any</option>
+                            <option value="1" {% if has_interactions == '1' %}selected{% endif %}>Available</option>
+                            <option value="0" {% if has_interactions == '0' %}selected{% endif %}>Not Available</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Targets</label>
+                        <select name="has_targets" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="" {% if has_targets == '' %}selected{% endif %}>Any</option>
+                            <option value="1" {% if has_targets == '1' %}selected{% endif %}>Available</option>
+                            <option value="0" {% if has_targets == '0' %}selected{% endif %}>Not Available</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1 font-semibold">Rows Per Page</label>
+                        <select name="per_page" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            {% for size in per_page_options %}
+                            <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+            <div class="mt-3 text-sm text-slate-600">
+                Total results: <span class="font-semibold">{{ total_count }}</span>
+                {% if total_count > 0 %}
+                    • Showing: <span class="font-semibold">{{ (page-1)*per_page + 1 }}-{{ [(page)*per_page, total_count]|min }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1160px] text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-700">
+                        <tr>
+                            <th class="text-left px-4 py-3 font-semibold">Drug (Name + ID)</th>
+                            <th class="text-left px-4 py-3 font-semibold">Type</th>
+                            <th class="text-left px-4 py-3 font-semibold">Targets</th>
+                            <th class="text-left px-4 py-3 font-semibold">Drug Interactions</th>
+                            <th class="text-left px-4 py-3 font-semibold">Pharmacogenomics</th>
+                            <th class="text-left px-4 py-3 font-semibold">Toxicity</th>
+                            <th class="text-left px-4 py-3 font-semibold">Food Int.</th>
+                            <th class="text-left px-4 py-3 font-semibold">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        {% for d in drugs %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-slate-900">{{ d.name }}</div>
+                                <div class="font-mono text-xs text-slate-500">{{ d.drugbank_id }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-slate-700">{{ d.drug_type|default('-') }}</td>
+                            <td class="px-4 py-3 text-slate-700">{{ d.targets|length }}</td>
+                            <td class="px-4 py-3 text-slate-700">{{ d.interactions|length }}</td>
+                            <td class="px-4 py-3 text-slate-700">{{ d.genomics|length }}</td>
+                            <td class="px-4 py-3">
+                                {% if d.toxicity %}
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">Available</span>
+                                {% else %}
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-slate-700">{{ d.food_interactions|length }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <a href="/drugs/{{ d.drugbank_id }}/" class="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs">Monograph</a>
+                                    <a href="/network-map/?drug={{ d.drugbank_id }}" class="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs">Map</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="px-4 py-8 text-center text-slate-500">No drugs found for current query/filter.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="flex items-center justify-between text-sm text-slate-700 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div>Page {{ page }} of {{ total_pages }}</div>
+            <div class="flex items-center gap-2">
+                {% if has_prev %}
+                    <a href="?q={{ query|urlencode }}&type={{ drug_type|urlencode }}&has_genomics={{ has_genomics|urlencode }}&has_toxicity={{ has_toxicity|urlencode }}&has_interactions={{ has_interactions|urlencode }}&has_targets={{ has_targets|urlencode }}&per_page={{ per_page }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md bg-white hover:bg-blue-50 border border-blue-200">Previous</a>
+                {% endif %}
+                {% if has_next %}
+                    <a href="?q={{ query|urlencode }}&type={{ drug_type|urlencode }}&has_genomics={{ has_genomics|urlencode }}&has_toxicity={{ has_toxicity|urlencode }}&has_interactions={{ has_interactions|urlencode }}&has_targets={{ has_targets|urlencode }}&per_page={{ per_page }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md bg-white hover:bg-blue-50 border border-blue-200">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        (function () {
+            const form = document.getElementById('drugIndexForm');
+            const input = document.getElementById('drugSearchInput');
+            const box = document.getElementById('drugSearchSuggestions');
+            if (!input || !box || !form) return;
+
+            form.querySelectorAll('select').forEach((el) => {
+                el.addEventListener('change', () => {
+                    form.submit();
+                });
+            });
+
+            let timer = null;
+            let seq = 0;
+
+            async function fetchSuggestions(text) {
+                const resp = await fetch(`/api/drug-autocomplete/?q=${encodeURIComponent(text)}`);
+                if (!resp.ok) return [];
+                const payload = await resp.json();
+                return Array.isArray(payload.results) ? payload.results : [];
+            }
+
+            function closeBox() {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+            }
+
+            input.addEventListener('input', () => {
+                const q = (input.value || '').trim();
+                seq += 1;
+                const reqId = seq;
+                if (timer) clearTimeout(timer);
+
+                if (q.length < 2) {
+                    closeBox();
+                    return;
+                }
+
+                timer = setTimeout(async () => {
+                    const rows = await fetchSuggestions(q);
+                    if (reqId !== seq) return;
+                    if (!rows.length) {
+                        closeBox();
+                        return;
+                    }
+
+                    box.innerHTML = rows.slice(0, 15).map((row) => {
+                        const id = String(row.drugbank_id || '');
+                        const name = String(row.name || id);
+                        return `<div class="autocomplete-item" data-name="${name.replace(/"/g, '&quot;')}" data-id="${id.replace(/"/g, '&quot;')}"><strong>${name}</strong> <span class="text-slate-500">(${id})</span></div>`;
+                    }).join('');
+                    box.classList.remove('hidden');
+                }, 140);
+            });
+
+            box.addEventListener('click', (event) => {
+                const item = event.target.closest('.autocomplete-item');
+                if (!item) return;
+                const name = item.getAttribute('data-name') || '';
+                const id = item.getAttribute('data-id') || '';
+                input.value = `${name} (${id})`;
+                closeBox();
+            });
+
+            document.addEventListener('click', (event) => {
+                if (event.target !== input && !box.contains(event.target)) {
+                    closeBox();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

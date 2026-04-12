@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ drug.name }} Monograph - CDSS -Drug Interaction</title>
+    <link rel="icon" type="image/png" href="/static/img/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js"></script>
+    <style>
+        #map-panel-fullscreen:fullscreen {
+            background: #f8fafc;
+            padding: 16px;
+            overflow: auto;
+        }
+
+        #map-panel-fullscreen:fullscreen #monograph-network {
+            height: calc(100vh - 220px) !important;
+            min-height: 560px;
+        }
+
+        .map-toolbar {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+        }
+
+        .map-action-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .map-action-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .map-filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid;
+            font-size: 12px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-sky-50 via-blue-50 to-indigo-50 min-h-screen text-slate-800 font-sans">
+    {% set subtitle = 'Drug Monograph' %}
+    {% include 'drugs/_header.html' %}
+
+    <div class="container mx-auto p-4 max-w-7xl space-y-4">
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">{{ drug.name }}</h1>
+                    <p class="text-slate-600 mt-1 font-mono">{{ drug.drugbank_id }} • {{ drug.drug_type|default('Unknown Type') }}{% if drug.state %} • {{ drug.state }}{% endif %}</p>
+                    <p class="text-xs text-slate-500 mt-1">CAS: {{ drug.cas_number|default('-') }} • UNII: {{ drug.unii|default('-') }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ return_to_url }}" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">Back to Map</a>
+                    <a href="/drugs/" class="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold">Back to Index</a>
+                    <a href="{{ default_map_url }}" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Open Focused Map</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h2 class="text-sm font-bold text-slate-800">Section Outline</h2>
+                <span class="text-xs text-slate-500">Complete monograph based on available database fields</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm">
+                <a href="#overview" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Overview</a>
+                <a href="#chemistry" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Chemical Structure</a>
+                <a href="#clinical" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Clinical</a>
+                <a href="#pk" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">PK/ADME</a>
+                <a href="#pharmacogenomics" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Pharmacogenomics</a>
+                <a href="#biomolecular" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Targets & Proteins</a>
+                <a href="#interactions" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Interactions</a>
+                <a href="#taxonomy" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Taxonomy</a>
+                <a href="#products" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Products & Brands</a>
+                <a href="#references" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">References</a>
+                <a href="#external" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">External IDs/Links</a>
+                <a href="#sequences" class="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-semibold">Sequences</a>
+            </div>
+        </div>
+
+        <div id="overview" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Targets</div><div class="text-2xl font-bold text-red-500 mt-1">{{ targets|length }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Drug Interactions</div><div class="text-2xl font-bold text-amber-500 mt-1">{{ interaction_total }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Food Interactions</div><div class="text-2xl font-bold text-emerald-500 mt-1">{{ food_interaction_total }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Pharmacogenomics</div><div class="text-2xl font-bold text-purple-500 mt-1">{{ genomics|length }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Enzymes</div><div class="text-2xl font-bold text-teal-500 mt-1">{{ enzymes|length }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Transporters</div><div class="text-2xl font-bold text-blue-500 mt-1">{{ transporters|length }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Carriers</div><div class="text-2xl font-bold text-orange-500 mt-1">{{ carriers|length }}</div></div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm"><div class="text-xs text-slate-500">Reference Sections</div><div class="text-2xl font-bold text-indigo-500 mt-1">{{ reference_sections|length }}</div></div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">Data Availability Matrix</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+                {% for key, present in data_availability.items() %}
+                <div class="px-2 py-1 rounded-lg border {% if present %}bg-emerald-50 border-emerald-200 text-emerald-700{% else %}bg-slate-50 border-slate-200 text-slate-500{% endif %}">
+                    {{ key|title }}: {% if present %}Yes{% else %}No{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="chemistry" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Chemical Structure</h2>
+                {% if smiles %}
+                <div class="border border-slate-200 rounded-lg bg-white p-3">
+                    <canvas id="smiles-canvas" class="w-full h-[260px]"></canvas>
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs text-slate-500 mb-1">SMILES</div>
+                    <pre class="text-xs whitespace-pre-wrap break-words bg-slate-50 border border-slate-200 rounded p-3">{{ smiles }}</pre>
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-500">SMILES structure is not available for this drug.</p>
+                {% endif %}
+            </div>
+
+            <div id="map-panel-fullscreen" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <h2 class="text-lg font-bold text-slate-900">Interactive Drug Relation Map</h2>
+                    <button type="button" id="map-fullscreen-toggle" class="map-action-btn">Full View</button>
+                </div>
+                <div class="map-toolbar mb-3">
+                    <div id="map-legend-filters" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <label class="map-filter-chip border-red-200 bg-red-50 text-red-700"><input type="checkbox" data-group="target" checked class="rounded border-slate-300">Target</label>
+                        <label class="map-filter-chip border-purple-200 bg-purple-50 text-purple-700"><input type="checkbox" data-group="gene" class="rounded border-slate-300">Gene</label>
+                        <label class="map-filter-chip border-teal-200 bg-teal-50 text-teal-700"><input type="checkbox" data-group="enzyme" class="rounded border-slate-300">Enzyme</label>
+                        <label class="map-filter-chip border-sky-200 bg-sky-50 text-sky-700"><input type="checkbox" data-group="transporter" class="rounded border-slate-300">Transporter</label>
+                        <label class="map-filter-chip border-orange-200 bg-orange-50 text-orange-700"><input type="checkbox" data-group="carrier" class="rounded border-slate-300">Carrier</label>
+                        <label class="map-filter-chip border-amber-200 bg-amber-50 text-amber-700"><input type="checkbox" data-group="drug_interact" class="rounded border-slate-300">Interaction Drug</label>
+                        <label class="map-filter-chip border-emerald-200 bg-emerald-50 text-emerald-700"><input type="checkbox" data-group="food" checked class="rounded border-slate-300">Food Interaction</label>
+                        <button type="button" id="map-reset-view" class="map-action-btn">Reset View</button>
+                    </div>
+                </div>
+                <p id="map-esc-hint" class="hidden text-xs text-slate-500 mb-2">Press Esc to exit Full View.</p>
+                <div id="monograph-network" class="w-full h-[360px] rounded-lg border border-slate-200 bg-slate-50"></div>
+                <div class="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                    <span class="px-2 py-1 rounded-full bg-blue-100 text-blue-700">Main Drug</span>
+                    <span class="px-2 py-1 rounded-full bg-red-100 text-red-700">Target</span>
+                    <span class="px-2 py-1 rounded-full bg-purple-100 text-purple-700">Gene</span>
+                    <span class="px-2 py-1 rounded-full bg-teal-100 text-teal-700">Enzyme</span>
+                    <span class="px-2 py-1 rounded-full bg-sky-100 text-sky-700">Transporter</span>
+                    <span class="px-2 py-1 rounded-full bg-orange-100 text-orange-700">Carrier</span>
+                    <span class="px-2 py-1 rounded-full bg-amber-100 text-amber-700">Interaction Drug</span>
+                    <span class="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Food Interaction</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Center node is the selected drug, connected to molecular entities and interaction evidence.</p>
+                <div id="map-node-detail" class="mt-3 hidden border border-slate-200 rounded-lg bg-slate-50 p-3">
+                    <div class="text-xs text-slate-500 mb-1">Selected Node</div>
+                    <div id="map-node-detail-content" class="text-sm text-slate-800"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="clinical" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Clinical Monograph</h2>
+            {% if drug.description %}<section><h3 class="font-semibold text-slate-800 mb-1">Description</h3><p class="text-sm text-slate-700 leading-relaxed">{{ drug.description|format_drug_text }}</p></section>{% endif %}
+            {% if drug.indication %}<section><h3 class="font-semibold text-slate-800 mb-1">Indication</h3><p class="text-sm text-slate-700 leading-relaxed">{{ drug.indication|format_drug_text }}</p></section>{% endif %}
+            {% if drug.mechanism_of_action %}<section><h3 class="font-semibold text-slate-800 mb-1">Mechanism of Action</h3><p class="text-sm text-slate-700 leading-relaxed">{{ drug.mechanism_of_action|format_drug_text }}</p></section>{% endif %}
+            {% if drug.pharmacodynamics %}<section><h3 class="font-semibold text-slate-800 mb-1">Pharmacodynamics</h3><p class="text-sm text-slate-700 leading-relaxed">{{ drug.pharmacodynamics|format_drug_text }}</p></section>{% endif %}
+            {% if drug.toxicity %}<section class="bg-pink-50 border border-pink-200 rounded-lg p-3"><h3 class="font-semibold text-pink-800 mb-1">Toxicity</h3><p class="text-sm text-slate-700 leading-relaxed">{{ drug.toxicity|format_drug_text }}</p></section>{% endif %}
+            {% if not drug.description and not drug.indication and not drug.mechanism_of_action and not drug.pharmacodynamics and not drug.toxicity %}<p class="text-sm text-slate-500">No clinical narrative available in current database fields.</p>{% endif %}
+        </div>
+
+        <div id="pk" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">Pharmacokinetics / ADME</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Absorption:</span> {{ drug.absorption|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Metabolism:</span> {{ drug.metabolism|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Half-life:</span> {{ drug.half_life|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Clearance:</span> {{ drug.clearance|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Volume of Distribution:</span> {{ drug.volume_of_distribution|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Route of Elimination:</span> {{ drug.route_of_elimination|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Average Mass:</span> {{ drug.average_mass|default('-') }}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><span class="font-semibold">Monoisotopic Mass:</span> {{ drug.monoisotopic_mass|default('-') }}</div>
+            </div>
+        </div>
+
+        <div id="pharmacogenomics" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">Pharmacogenomics</h2>
+            {% if genomics %}
+            <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                <table class="w-full min-w-[900px] text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="text-left px-4 py-2 font-semibold">Gene</th><th class="text-left px-4 py-2 font-semibold">Variant</th><th class="text-left px-4 py-2 font-semibold">Type</th><th class="text-left px-4 py-2 font-semibold">Description</th></tr></thead>
+                    <tbody class="divide-y divide-slate-200">
+                        {% for item in genomics %}
+                        <tr><td class="px-4 py-2 font-mono text-slate-700">{{ item.gene|default('-') }}</td><td class="px-4 py-2 text-slate-700">{{ item.variant|default('-') }}</td><td class="px-4 py-2 text-slate-700">{{ item.type|default('-') }}</td><td class="px-4 py-2 text-slate-700">{{ item.description|default('-') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}<p class="text-sm text-slate-500">No pharmacogenomic data recorded.</p>{% endif %}
+        </div>
+
+        <div id="biomolecular" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Targets, Enzymes, Transporters, Carriers</h2>
+            <div>
+                <h3 class="font-semibold text-slate-800 mb-2">Targets ({{ targets|length }})</h3>
+                {% if targets %}
+                <div class="space-y-2 max-h-[280px] overflow-auto pr-1">
+                    {% for item in targets %}
+                    <div class="border border-slate-200 rounded-lg p-3 text-sm">
+                        <div class="font-semibold text-slate-900">{{ item.name|default('-') }}</div>
+                        <div class="text-slate-600">Gene: {{ item.gene_name or item.gene or '-' }} • UniProt: {{ item.uniprot_id|default('-') }}</div>
+                        {% if item.actions %}<div class="text-slate-600">Actions: {{ item.actions|join(', ') }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}<p class="text-sm text-slate-500">No targets recorded.</p>{% endif %}
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="border border-slate-200 rounded-lg p-3"><h4 class="font-semibold text-slate-800 mb-2">Enzymes ({{ enzymes|length }})</h4>{% if enzymes %}<ul class="space-y-1 text-sm text-slate-700 max-h-48 overflow-auto pr-1">{% for item in enzymes %}<li>• {{ item.name|default('-') }}</li>{% endfor %}</ul>{% else %}<p class="text-sm text-slate-500">No enzymes.</p>{% endif %}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><h4 class="font-semibold text-slate-800 mb-2">Transporters ({{ transporters|length }})</h4>{% if transporters %}<ul class="space-y-1 text-sm text-slate-700 max-h-48 overflow-auto pr-1">{% for item in transporters %}<li>• {{ item.name|default('-') }}</li>{% endfor %}</ul>{% else %}<p class="text-sm text-slate-500">No transporters.</p>{% endif %}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><h4 class="font-semibold text-slate-800 mb-2">Carriers ({{ carriers|length }})</h4>{% if carriers %}<ul class="space-y-1 text-sm text-slate-700 max-h-48 overflow-auto pr-1">{% for item in carriers %}<li>• {{ item.name|default('-') }}</li>{% endfor %}</ul>{% else %}<p class="text-sm text-slate-500">No carriers.</p>{% endif %}</div>
+            </div>
+        </div>
+
+        <div id="interactions" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Drug-Drug Interactions ({{ interaction_total }})</h2>
+                {% if interactions %}<div class="space-y-2 max-h-[420px] overflow-auto pr-1">{% for inter in interactions %}<div class="border border-slate-200 rounded-lg p-3"><div class="text-sm font-semibold text-slate-900">{{ inter.name|default('Unknown Drug') }} <span class="font-mono text-slate-500">({{ inter.drugbank_id|default('-') }})</span></div><p class="text-sm text-slate-700 mt-1">{{ inter.description|default('-') }}</p></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No drug interactions recorded.</p>{% endif %}
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Food Interactions ({{ food_interaction_total }})</h2>
+                {% if food_interactions %}<ul class="list-disc pl-6 space-y-1 text-sm text-slate-700 max-h-[420px] overflow-auto pr-1">{% for item in food_interactions %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}<p class="text-sm text-slate-500">No food interactions recorded.</p>{% endif %}
+            </div>
+        </div>
+
+        <div id="taxonomy" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">Taxonomy / Classifications</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="border border-slate-200 rounded-lg p-3"><h3 class="font-semibold text-slate-800 mb-2">Groups ({{ groups|length }})</h3>{% if groups %}<div class="text-sm text-slate-700">{{ groups|join(', ') }}</div>{% else %}<p class="text-sm text-slate-500">No groups.</p>{% endif %}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><h3 class="font-semibold text-slate-800 mb-2">Synonyms ({{ synonyms|length }})</h3>{% if synonyms %}<div class="text-sm text-slate-700 max-h-40 overflow-auto pr-1">{{ synonyms|join(', ') }}</div>{% else %}<p class="text-sm text-slate-500">No synonyms.</p>{% endif %}</div>
+                <div class="border border-slate-200 rounded-lg p-3"><h3 class="font-semibold text-slate-800 mb-2">Categories ({{ categories_display|length }})</h3>{% if categories_display %}<div class="max-h-40 overflow-auto pr-1 space-y-1">{% for category in categories_display %}<div class="text-sm text-slate-700"><span class="font-medium">{{ category.name }}</span>{% if category.mesh_id %} <span class="text-xs text-slate-500">(MeSH: {{ category.mesh_id }})</span>{% endif %}</div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No categories.</p>{% endif %}</div>
+            </div>
+        </div>
+
+        <div id="products" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Products ({{ products|length }})</h2>
+                {% if products %}<div class="space-y-2 max-h-[320px] overflow-auto pr-1">{% for p in products %}<div class="border border-slate-200 rounded-lg p-3 text-sm"><div class="font-semibold text-slate-900">{{ p.name or p.brand_name or 'Unnamed Product' }}</div><div class="text-slate-600">{% if p.labeller %}Labeller: {{ p.labeller }} • {% endif %}{% if p.dosage_form %}Dosage: {{ p.dosage_form }}{% endif %}</div></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No products data recorded.</p>{% endif %}
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">International Brands ({{ international_brands|length }})</h2>
+                {% if international_brands %}<div class="space-y-2 max-h-[320px] overflow-auto pr-1">{% for b in international_brands %}<div class="border border-slate-200 rounded-lg p-3 text-sm"><div class="font-semibold text-slate-900">{{ b.name or b.brand or 'Unnamed Brand' }}</div><div class="text-slate-600">{{ b.company or b.manufacturer or '-' }}</div></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No international brands data recorded.</p>{% endif %}
+            </div>
+        </div>
+
+        <div id="references" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">General References</h2>
+            {% if reference_sections %}
+            <div class="space-y-3">
+                {% for section in reference_sections %}
+                <details class="border border-slate-200 rounded-lg p-3" {% if loop.first %}open{% endif %}>
+                    <summary class="cursor-pointer font-semibold text-slate-800">{{ section.label }} ({{ section.count }})</summary>
+                    <div class="mt-2 space-y-2 text-sm text-slate-700">
+                        {% for item in section.items() %}
+                        <div class="bg-slate-50 border border-slate-200 rounded p-2">
+                            {% if item.url %}
+                            <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:text-blue-900 hover:underline break-all">{{ item.text }}</a>
+                            {% else %}
+                            <div class="whitespace-pre-wrap break-words">{{ item.text }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+            {% else %}<p class="text-sm text-slate-500">No general references available.</p>{% endif %}
+            {% if drug.synthesis_reference %}<div class="mt-3 border border-slate-200 rounded-lg p-3 text-sm"><span class="font-semibold text-slate-800">Synthesis Reference:</span><div class="text-slate-700 mt-1">{{ drug.synthesis_reference }}</div></div>{% endif %}
+        </div>
+
+        <div id="external" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">External Identifiers ({{ external_identifiers_display|length }})</h2>
+                {% if external_identifiers_display %}<div class="space-y-2 max-h-[320px] overflow-auto pr-1 text-sm">{% for item in external_identifiers_display %}<div class="border border-slate-200 rounded p-2 bg-slate-50"><span class="font-semibold text-slate-900">{{ item.resource }}:</span> <span class="text-slate-700 break-all">{{ item.identifier }}</span></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No external identifiers.</p>{% endif %}
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">External Links ({{ external_links_display|length }})</h2>
+                {% if external_links_display %}<div class="space-y-2 max-h-[320px] overflow-auto pr-1 text-sm">{% for item in external_links_display %}<div class="border border-slate-200 rounded p-2 bg-slate-50"><div class="font-semibold text-slate-900">{{ item.resource }}</div><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:text-blue-900 hover:underline break-all">{{ item.url }}</a></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No external links.</p>{% endif %}
+            </div>
+        </div>
+
+        <div id="sequences" class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">Sequences ({{ sequences|length }})</h2>
+            {% if sequences %}<div class="space-y-2 max-h-[420px] overflow-auto pr-1 text-sm">{% for seq in sequences %}<div class="border border-slate-200 rounded p-2 bg-slate-50"><pre class="whitespace-pre-wrap break-words">{{ seq }}</pre></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">No sequence data recorded.</p>{% endif %}
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const smiles = "{{ smiles|default('')|escapejs }}";
+            const canvas = document.getElementById('smiles-canvas');
+            if (smiles && canvas && window.SmilesDrawer) {
+                try {
+                    const drawer = new SmilesDrawer.Drawer({ width: 520, height: 260, padding: 12 });
+                    SmilesDrawer.parse(smiles, function (tree) {
+                        drawer.draw(tree, canvas, 'light', false);
+                    }, function () {
+                        canvas.outerHTML = '<div class="text-sm text-amber-700">SMILES is available, but 2D rendering failed for this structure.</div>';
+                    });
+                } catch (err) {
+                    console.error('SMILES render failed:', err);
+                }
+            }
+
+            const container = document.getElementById('monograph-network');
+            if (!container || !window.vis) return;
+
+            let networkPayload = { nodes: [], edges: [] };
+            try {
+                networkPayload = JSON.parse("{{ monograph_network_json|escapejs }}");
+            } catch (err) {
+                console.error('Failed to parse network payload:', err);
+                return;
+            }
+
+            const allNodes = networkPayload.nodes || [];
+            const allEdges = networkPayload.edges || [];
+
+            const nodes = new vis.DataSet(allNodes);
+
+            const edges = new vis.DataSet(allEdges);
+
+            const network = new vis.Network(container, { nodes: nodes, edges: edges }, {
+                nodes: {
+                    borderWidth: 2,
+                    shadow: true,
+                    chosen: {
+                        node: function (values) {
+                            values.borderWidth = 4;
+                            values.shadow = {
+                                enabled: true,
+                                color: 'rgba(59,130,246,0.8)',
+                                size: 22,
+                                x: 0,
+                                y: 0
+                            };
+                        }
+                    },
+                    font: {
+                        color: '#0f172a',
+                        size: 13,
+                        face: 'Inter, Segoe UI, Arial, sans-serif',
+                        strokeWidth: 3,
+                        strokeColor: '#ffffff'
+                    }
+                },
+                edges: {
+                    width: 2,
+                    shadow: true,
+                    smooth: { type: 'continuous' },
+                    color: '#94a3b8',
+                    arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+                    font: {
+                        color: '#1e293b',
+                        size: 11,
+                        strokeWidth: 0,
+                        background: 'rgba(255, 255, 255, 0.88)'
+                    }
+                },
+                groups: {
+                    drug_main: { color: { background: '#3b82f6', border: '#1d4ed8' } },
+                    target: { color: { background: '#e74c3c', border: '#c0392b' } },
+                    gene: { color: { background: '#9b59b6', border: '#8e44ad' } },
+                    food: { color: { background: '#27ae60', border: '#229954' } },
+                    drug_interact: { color: { background: '#f39c12', border: '#d68910' } },
+                    enzyme: { color: { background: '#1abc9c', border: '#16a085' } },
+                    transporter: { color: { background: '#3498db', border: '#2980b9' } },
+                    carrier: { color: { background: '#e67e22', border: '#d35400' } }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: { iterations: 200 },
+                    barnesHut: {
+                        gravitationalConstant: -3000,
+                        centralGravity: 0.3,
+                        springLength: 150,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    hoverConnectedEdges: true,
+                    multiselect: true,
+                    tooltipDelay: 200,
+                    zoomView: true,
+                    dragView: true
+                },
+                layout: {
+                    improvedLayout: true
+                }
+            });
+
+            const filterContainer = document.getElementById('map-legend-filters');
+            const detailBox = document.getElementById('map-node-detail');
+            const detailContent = document.getElementById('map-node-detail-content');
+            const resetBtn = document.getElementById('map-reset-view');
+            const fullscreenToggleBtn = document.getElementById('map-fullscreen-toggle');
+            const fullscreenPanel = document.getElementById('map-panel-fullscreen');
+            const escHint = document.getElementById('map-esc-hint');
+
+            function getEnabledGroups() {
+                const enabled = new Set(['drug_main']);
+                if (!filterContainer) return enabled;
+                filterContainer.querySelectorAll('input[type="checkbox"][data-group]').forEach(function (input) {
+                    if (input.checked) {
+                        enabled.add(input.getAttribute('data-group'));
+                    }
+                });
+                return enabled;
+            }
+
+            function applyMapGroupFilter() {
+                const enabledGroups = getEnabledGroups();
+                const visibleNodes = allNodes.filter(function (node) {
+                    return enabledGroups.has(node.group);
+                });
+                const visibleIds = new Set(visibleNodes.map(function (node) { return node.id; }));
+                const visibleEdges = allEdges.filter(function (edge) {
+                    return visibleIds.has(edge.from) && visibleIds.has(edge.to);
+                });
+
+                nodes.clear();
+                edges.clear();
+                nodes.add(visibleNodes);
+                edges.add(visibleEdges);
+
+                if (detailBox) {
+                    detailBox.classList.add('hidden');
+                }
+
+                setTimeout(function () {
+                    network.fit({ animation: true });
+                }, 120);
+            }
+
+            function escapeHtml(value) {
+                return String(value || '').replace(/[&<>"']/g, function (char) {
+                    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+                });
+            }
+
+            function renderNodeDetail(nodeId) {
+                if (!detailBox || !detailContent) return;
+                const node = nodes.get(nodeId);
+                if (!node) {
+                    detailBox.classList.add('hidden');
+                    return;
+                }
+
+                const outgoing = edges.get({ filter: function (e) { return e.from === nodeId; } }).length;
+                const incoming = edges.get({ filter: function (e) { return e.to === nodeId; } }).length;
+                const degree = outgoing + incoming;
+                const typeLabel = String(node.group || 'entity').replace('_', ' ');
+
+                detailContent.innerHTML = [
+                    '<div class="font-semibold text-slate-900">' + escapeHtml(node.label || node.id) + '</div>',
+                    '<div class="text-xs text-slate-600 mt-1">Type: ' + escapeHtml(typeLabel) + '</div>',
+                    '<div class="text-xs text-slate-600">Connections: ' + degree + '</div>',
+                    node.title ? '<div class="text-xs text-slate-600 mt-1">' + escapeHtml(node.title) + '</div>' : ''
+                ].join('');
+                detailBox.classList.remove('hidden');
+            }
+
+            if (filterContainer) {
+                filterContainer.querySelectorAll('input[type="checkbox"][data-group]').forEach(function (input) {
+                    input.addEventListener('change', applyMapGroupFilter);
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function () {
+                    network.fit({ animation: true });
+                });
+            }
+
+            function isMapFullscreen() {
+                return !!document.fullscreenElement && document.fullscreenElement === fullscreenPanel;
+            }
+
+            function updateFullscreenButtonText() {
+                if (!fullscreenToggleBtn) return;
+                fullscreenToggleBtn.textContent = isMapFullscreen() ? 'Exit Full View' : 'Full View';
+                if (escHint) {
+                    escHint.classList.toggle('hidden', !isMapFullscreen());
+                }
+            }
+
+            if (fullscreenToggleBtn && fullscreenPanel) {
+                fullscreenToggleBtn.addEventListener('click', function () {
+                    if (isMapFullscreen()) {
+                        document.exitFullscreen().catch(function () {});
+                    } else {
+                        fullscreenPanel.requestFullscreen().catch(function () {});
+                    }
+                });
+
+                document.addEventListener('fullscreenchange', function () {
+                    updateFullscreenButtonText();
+                    setTimeout(function () {
+                        network.redraw();
+                        network.fit({ animation: true });
+                    }, 120);
+                });
+
+                updateFullscreenButtonText();
+            }
+
+            network.on('click', function (params) {
+                if (params.nodes && params.nodes.length > 0) {
+                    renderNodeDetail(params.nodes[0]);
+                } else if (detailBox) {
+                    detailBox.classList.add('hidden');
+                }
+            });
+
+            network.once('stabilizationIterationsDone', function () {
+                network.fit({ animation: true });
+            });
+
+            applyMapGroupFilter();
+        })();
+    </script>
+</body>
+</html>

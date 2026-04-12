@@ -1,0 +1,7 @@
+venv/
+.venv/
+*.sqlite3
+*.bin
+*.zip
+*.exe
+__pycache__/
