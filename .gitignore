@@ -20,6 +20,11 @@ build/
 !.env.example
 *.secret
 
+# Virtual environments (bất kỳ tên nào)
+venv/
+.venv/
+env/
+
 # ============================================================
 # Database & Large Data Files
 # ============================================================

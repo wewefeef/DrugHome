@@ -1,7 +1,12 @@
 venv/
 .venv/
+env/
 *.sqlite3
 *.bin
 *.zip
 *.exe
 __pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
