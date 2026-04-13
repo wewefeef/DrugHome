@@ -485,6 +485,28 @@ export default function InteractionsPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [modalIx, setModalIx] = useState<InteractionFound | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [restored, setRestored] = useState(false);
+
+  // Restore last session from API on mount
+  useEffect(() => {
+    fetch("/api/v1/sessions/?limit=1")
+      .then(r => r.ok ? r.json() : [])
+      .then((sessions: Array<{ id: number; drugs_snapshot?: { id: string; name: string }[] }>) => {
+        if (!sessions.length || !sessions[0].drugs_snapshot?.length) return;
+        return fetch(`/api/v1/sessions/${sessions[0].id}`)
+          .then(r => r.ok ? r.json() : null)
+          .then((detail: { drugs_snapshot: DrugEntry[]; interactions_found: InteractionFound[] } | null) => {
+            if (!detail?.drugs_snapshot?.length) return;
+            setSelectedDrugs(detail.drugs_snapshot);
+            if (detail.interactions_found?.length >= 0) {
+              setInteractions(detail.interactions_found);
+              setVizState("done");
+              setRestored(true);
+            }
+          });
+      })
+      .catch(() => {/* backend offline — skip restore */});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load categories
   useEffect(() => {
@@ -569,45 +591,41 @@ export default function InteractionsPage() {
       }
       setRepelOffsets(offsets);
       setVizState("done");
+      // Auto-save to DB immediately after every successful check
+      autoSave(selectedDrugs, found);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Failed to connect. Is the backend running on port 8000?");
       setVizState("idle");
     }
   }, [selectedDrugs]);
 
-  // Save session to backend database
-  const saveSession = useCallback(async () => {
-    if (vizState !== "done" || selectedDrugs.length < 2) return;
+  // Auto-save session to DB (called with direct args to avoid stale state)
+  const autoSave = useCallback(async (drugs: DrugEntry[], found: InteractionFound[]) => {
+    if (drugs.length < 2) return;
     setSaveState("saving");
     try {
-      const normInteractions = interactions.map(r => ({
-        drug_a_id: r.drug_a_id, drug_a_name: r.drug_a_name,
-        drug_b_id: r.drug_b_id, drug_b_name: r.drug_b_name,
-        severity: r.severity, description: r.description, source: r.source ?? "DrugBank",
-      }));
       const normSevFn = (s: string) => (["major","moderate","minor"].includes(s) ? s : "minor");
       const payload = {
-        drugs_snapshot: selectedDrugs.map(d => ({ id: d.id, name: d.name })),
-        interactions_found: normInteractions,
-        total_drugs: selectedDrugs.length,
-        total_interactions: interactions.length,
-        major_count: interactions.filter(r => normSevFn(r.severity) === "major").length,
-        moderate_count: interactions.filter(r => normSevFn(r.severity) === "moderate").length,
-        minor_count: interactions.filter(r => normSevFn(r.severity) === "minor").length,
+        drugs_snapshot: drugs.map(d => ({ id: d.id, name: d.name })),
+        interactions_found: found.map(r => ({ ...r, source: r.source ?? "DrugBank" })),
+        total_drugs: drugs.length,
+        total_interactions: found.length,
+        major_count: found.filter(r => normSevFn(r.severity) === "major").length,
+        moderate_count: found.filter(r => normSevFn(r.severity) === "moderate").length,
+        minor_count: found.filter(r => normSevFn(r.severity) === "minor").length,
       };
       const res = await fetch("/api/v1/sessions/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error();
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 3000);
     } catch {
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 3000);
+      setSaveState("idle"); // silent fail — user not blocked
     }
-  }, [selectedDrugs, interactions, vizState]);
+  }, []);
 
   // Derived stats — unknown maps to low risk
   const highCount = interactions.filter(r => normSev(r.severity) === "major").length;
@@ -901,6 +919,18 @@ export default function InteractionsPage() {
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-50">
+                    {/* Restored session banner */}
+                    {restored && (
+                      <div className="px-5 py-2.5 flex items-center justify-between bg-indigo-50 border-b border-indigo-100">
+                        <span className="text-xs text-indigo-700 flex items-center gap-1.5">
+                          <Check size={11} className="text-indigo-500" />
+                          Đã khôi phục phiên làm việc trước — dữ liệu lưu từ lần kiểm tra gần nhất
+                        </span>
+                        <button onClick={() => setRestored(false)} className="text-indigo-400 hover:text-indigo-700">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                     {allPairs.map(({ a, b, ix }) => {
                       const s = ix ? SEV[normSev(ix.severity)] : null;
                       return (
@@ -934,26 +964,21 @@ export default function InteractionsPage() {
                         </div>
                       );
                     })}
-                    {/* re-check + save buttons */}
+                    {/* re-check + auto-save indicator */}
                     <div className="px-5 py-3 flex items-center justify-between">
-                      <button onClick={() => { setVizState("idle"); setInteractions([]); setRepelOffsets({}); }}
+                      <button onClick={() => { setVizState("idle"); setInteractions([]); setRepelOffsets({}); setRestored(false); }}
                         className="text-xs text-primary-600 hover:text-primary-800 font-semibold transition-colors">
                         Clear &amp; re-check
                       </button>
-                      <button
-                        onClick={saveSession}
-                        disabled={saveState === "saving" || saveState === "saved"}
-                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                          saveState === "saved" ? "bg-green-100 text-green-700 border border-green-200"
-                          : saveState === "error" ? "bg-red-100 text-red-600 border border-red-200"
-                          : "bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200"
-                        }`}
-                      >
-                        {saveState === "saving" ? <Loader2 size={12} className="animate-spin" />
-                          : saveState === "saved" ? <Check size={12} />
-                          : <Save size={12} />}
-                        {saveState === "saving" ? "Đang lưu..." : saveState === "saved" ? "Đã lưu!" : saveState === "error" ? "Lỗi lưu" : "Lưu phiên"}
-                      </button>
+                      <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg ${
+                        saveState === "saved" ? "text-green-700 bg-green-50 border border-green-200"
+                        : saveState === "saving" ? "text-amber-600 bg-amber-50 border border-amber-200"
+                        : "text-gray-400"
+                      }`}>
+                        {saveState === "saving" ? <><Loader2 size={12} className="animate-spin" /> Đang lưu tự động...</>
+                          : saveState === "saved" ? <><Check size={12} /> Đã lưu vào phân tích</>
+                          : <><Save size={11} className="opacity-40" /> Tự động lưu</>}
+                      </div>
                     </div>
                   </div>
                 )}

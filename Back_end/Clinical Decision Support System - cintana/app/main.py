@@ -18,7 +18,7 @@ from app.admin import DrugAdmin
 from app.config import get_settings
 from app.database import Base, engine
 from app.routers import drugs as drugs_router
-from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions
+from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth
 
 settings = get_settings()
 
@@ -92,3 +92,4 @@ app.include_router(api_substances.router)
 app.include_router(api_interactions.router)
 app.include_router(api_analysis.router)
 app.include_router(api_sessions.router)
+app.include_router(api_auth.router)

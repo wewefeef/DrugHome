@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Menu, X, ChevronDown, Pill, FlaskConical,
-  Zap, BookOpen, BarChart2, LogIn, Bell, ArrowRight
+  Zap, BookOpen, BarChart2, LogIn, Bell, ArrowRight,
+  LogOut, BarChart, UserCircle
 } from 'lucide-react';
 import { getDrugs } from '../lib/drugCache';
 import { getProteins, type Protein } from '../lib/proteinCache';
 import type { Drug } from '../types/drug';
+import { useAuth, getUserInitials } from '../context/AuthContext';
 
 type SearchMode = 'drug' | 'protein' | 'interaction';
 type Suggestion =
@@ -46,8 +48,11 @@ export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   // Eagerly preload data so it's ready when user types
   useEffect(() => { getDrugs(); getProteins(); }, []);
@@ -66,6 +71,17 @@ export default function Header() {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -260,19 +276,86 @@ export default function Header() {
             <button className="text-blue-200 hover:text-white p-2 rounded-lg hover:bg-primary-700 transition-colors">
               <Bell size={18} />
             </button>
-            <Link
-              to="/login"
-              className="flex items-center gap-1.5 text-white border border-blue-400 hover:bg-blue-400 hover:text-primary-900 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-            >
-              <LogIn size={15} />
-              Đăng nhập
-            </Link>
-            <Link
-              to="/register"
-              className="flex items-center gap-1.5 bg-blue-400 hover:bg-blue-300 text-primary-900 px-4 py-2 rounded-lg text-sm font-bold transition-all shadow"
-            >
-              Đăng ký
-            </Link>
+            {user ? (
+              <div ref={userMenuRef} className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  className="flex items-center gap-2 hover:bg-primary-700 px-2 py-1.5 rounded-lg transition-colors group"
+                >
+                  {/* Avatar circle */}
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0"
+                    style={{ backgroundColor: user.avatar_color ?? '#4F46E5' }}
+                  >
+                    {getUserInitials(user)}
+                  </div>
+                  <span className="text-white text-sm font-medium max-w-[100px] truncate">{user.full_name}</span>
+                  <ChevronDown size={13} className={`text-blue-300 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 min-w-[200px] z-50">
+                    {/* User info */}
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                          style={{ backgroundColor: user.avatar_color ?? '#4F46E5' }}
+                        >
+                          {getUserInitials(user)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-gray-900 font-semibold text-sm truncate">{user.full_name}</p>
+                          <p className="text-gray-500 text-xs truncate">@{user.username}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Menu items */}
+                    <Link
+                      to="/analysis"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <BarChart size={14} className="text-indigo-500" />
+                      Phân tích của tôi
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <UserCircle size={14} className="text-blue-500" />
+                      Hồ sơ cá nhân
+                    </Link>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => { logout(); setUserMenuOpen(false); navigate('/'); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut size={14} />
+                        Đăng xuất
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="flex items-center gap-1.5 text-white border border-blue-400 hover:bg-blue-400 hover:text-primary-900 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                >
+                  <LogIn size={15} />
+                  Đăng nhập
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1.5 bg-blue-400 hover:bg-blue-300 text-primary-900 px-4 py-2 rounded-lg text-sm font-bold transition-all shadow"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -361,8 +444,33 @@ export default function Header() {
             </div>
           ))}
           <div className="border-t border-primary-700 pt-3 flex gap-2">
-            <Link to="/login" className="flex-1 text-center border border-blue-400 text-white py-2 rounded-lg text-sm font-medium" onClick={() => setMobileOpen(false)}>Đăng nhập</Link>
-            <Link to="/register" className="flex-1 text-center bg-blue-400 text-primary-900 py-2 rounded-lg text-sm font-bold" onClick={() => setMobileOpen(false)}>Đăng ký</Link>
+            {user ? (
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2 px-2 pb-2">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ backgroundColor: user.avatar_color ?? '#4F46E5' }}
+                  >
+                    {getUserInitials(user)}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">{user.full_name}</p>
+                    <p className="text-blue-300 text-xs">@{user.username}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { logout(); setMobileOpen(false); navigate('/'); }}
+                  className="w-full flex items-center gap-2 text-red-400 hover:bg-primary-700 px-3 py-2 rounded-lg text-sm"
+                >
+                  <LogOut size={15} /> Đăng xuất
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link to="/login" className="flex-1 text-center border border-blue-400 text-white py-2 rounded-lg text-sm font-medium" onClick={() => setMobileOpen(false)}>Đăng nhập</Link>
+                <Link to="/register" className="flex-1 text-center bg-blue-400 text-primary-900 py-2 rounded-lg text-sm font-bold" onClick={() => setMobileOpen(false)}>Đăng ký</Link>
+              </>
+            )}
           </div>
         </div>
       )}
