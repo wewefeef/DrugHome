@@ -15,7 +15,7 @@ let promise: Promise<Protein[]> | null = null;
 export function getProteins(): Promise<Protein[]> {
   if (cache) return Promise.resolve(cache);
   if (!promise) {
-    promise = fetch('/data/proteins.json')
+    promise = fetch(`${import.meta.env.BASE_URL}data/proteins.json`)
       .then(r => r.json())
       .then((data: Protein[]) => { cache = data; return data; });
   }

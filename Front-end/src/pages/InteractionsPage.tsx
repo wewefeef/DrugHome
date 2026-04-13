@@ -488,7 +488,7 @@ export default function InteractionsPage() {
 
   // Load categories
   useEffect(() => {
-    fetch("/data/drug_categories.json")
+    fetch(`${import.meta.env.BASE_URL}data/drug_categories.json`)
       .then(r => r.json())
       .then((data: DrugCategory[]) => { setCategories(data); setCatLoading(false); });
   }, []);
