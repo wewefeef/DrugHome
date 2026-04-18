@@ -1,8 +1,5 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "buildCommand": "pip3 install -r 'Back_end/Clinical Decision Support System - cintana/requirements.txt'"
-  },
   "deploy": {
     "startCommand": "cd 'Back_end/Clinical Decision Support System - cintana' && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
   }
