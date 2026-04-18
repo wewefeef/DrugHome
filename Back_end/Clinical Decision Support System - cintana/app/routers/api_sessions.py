@@ -18,11 +18,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AnalysisSession
+from app.core.simple_cache import cache_get, cache_set, cache_delete
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["Analysis Sessions"])
 
@@ -136,11 +137,16 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     db.add(session)
     db.commit()
     db.refresh(session)
+    cache_delete("sessions:stats")
     return session
 
 
 @router.get("/stats", response_model=SessionStats, summary="Aggregated dashboard statistics")
 def get_stats(db: Session = Depends(get_db)):
+    cached = cache_get("sessions:stats")
+    if cached is not None:
+        return cached
+
     total_sessions = db.query(func.count(AnalysisSession.id)).scalar() or 0
     total_interactions = db.query(func.sum(AnalysisSession.total_interactions)).scalar() or 0
     total_major = db.query(func.sum(AnalysisSession.major_count)).scalar() or 0
@@ -175,7 +181,7 @@ def get_stats(db: Session = Depends(get_db)):
     )
     sessions_by_month = [{"month": r.month, "count": r.count} for r in sessions_by_month_raw]
 
-    return SessionStats(
+    result = SessionStats(
         total_sessions=total_sessions,
         total_interactions_checked=int(total_interactions),
         total_major=int(total_major),
@@ -184,6 +190,8 @@ def get_stats(db: Session = Depends(get_db)):
         most_checked_drugs=most_checked,
         sessions_by_month=sessions_by_month,
     )
+    cache_set("sessions:stats", result, ttl=60)
+    return result
 
 
 @router.get("/", response_model=List[SessionListItem], summary="List all sessions")
@@ -196,10 +204,17 @@ def list_sessions(
 ):
     q = db.query(AnalysisSession)
     if search:
-        q = q.filter(AnalysisSession.title.ilike(f"%{search}%"))
+        # Prefix search hits ix_session_title prefix index (faster than %search%)
+        # Also try contains for mid-title matches as secondary pass
+        q = q.filter(
+            or_(
+                AnalysisSession.title.like(f"{search}%"),
+                AnalysisSession.title.like(f"% {search}%"),
+            )
+        )
     if tag:
-        q = q.filter(AnalysisSession.tags.ilike(f"%{tag}%"))
-    total = q.count()
+        q = q.filter(AnalysisSession.tags.like(f"%{tag}%"))
+    # ORDER BY created_at DESC uses ix_session_created index
     sessions = q.order_by(desc(AnalysisSession.created_at)).offset(skip).limit(limit).all()
     return sessions
 
@@ -225,6 +240,7 @@ def update_session(session_id: int, payload: SessionUpdate, db: Session = Depend
         session.notes = payload.notes
     db.commit()
     db.refresh(session)
+    cache_delete("sessions:stats")
     return session
 
 
@@ -236,3 +252,4 @@ def delete_session(session_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Session not found")
     db.delete(session)
     db.commit()
+    cache_delete("sessions:stats")

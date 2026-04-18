@@ -6,6 +6,7 @@ import {
   Save, Check,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
+import { apiSearchDrugs } from "../lib/api";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface DrugEntry { id: string; name: string; }
@@ -475,7 +476,6 @@ export default function InteractionsPage() {
   const [selectedDrugs, setSelectedDrugs] = useState<DrugEntry[]>([]);
   const [drugSearch, setDrugSearch] = useState("");
   const [drugSuggestions, setDrugSuggestions] = useState<DrugEntry[]>([]);
-  const [allDrugs, setAllDrugs] = useState<DrugEntry[]>([]);
   const [drugMeta, setDrugMeta] = useState<Map<string, { targets: number; enzymes: number }>>(new Map());
 
   // Interaction check state
@@ -515,10 +515,9 @@ export default function InteractionsPage() {
       .then((data: DrugCategory[]) => { setCategories(data); setCatLoading(false); });
   }, []);
 
-  // Load drug cache
+  // Load drug meta for network visualization (lazy background load)
   useEffect(() => {
     getDrugs().then(drugs => {
-      setAllDrugs(drugs.filter(d => d.groups.includes("approved")).map(d => ({ id: d.id, name: d.name })));
       setDrugMeta(new Map(drugs.map(d => [d.id, {
         targets: (d.targets as unknown as number) || 5,
         enzymes: (d.enzymes as unknown as number) || 2,
@@ -526,14 +525,19 @@ export default function InteractionsPage() {
     });
   }, []);
 
-  // Autocomplete
+  // Autocomplete — search API
   useEffect(() => {
     if (drugSearch.length < 2) { setDrugSuggestions([]); return; }
-    const q = drugSearch.toLowerCase();
-    setDrugSuggestions(
-      allDrugs.filter(d => d.name.toLowerCase().includes(q) && !selectedDrugs.find(s => s.id === d.id)).slice(0, 8)
-    );
-  }, [drugSearch, allDrugs, selectedDrugs]);
+    const controller = new AbortController();
+    apiSearchDrugs(drugSearch, controller.signal)
+      .then(results => {
+        setDrugSuggestions(
+          results.filter(d => !selectedDrugs.find(s => s.id === d.id)).slice(0, 8)
+        );
+      })
+      .catch(() => {/* aborted or failed */});
+    return () => controller.abort();
+  }, [drugSearch, selectedDrugs]);
 
   const resetViz = useCallback(() => {
     setVizState("idle"); setInteractions([]); setRepelOffsets([]); setApiError(null);

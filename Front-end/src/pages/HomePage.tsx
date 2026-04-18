@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Pill, FlaskConical, Zap, BarChart2,
   ArrowRight, ChevronRight, Shield, Database,
   TrendingUp, BookOpen, CheckCircle2, Star
 } from 'lucide-react';
+import { apiFetchSiteStats } from '../lib/api';
 
 // ──────────────────────────────────────────────
 // Hero Banner
@@ -107,10 +108,22 @@ function HeroBanner() {
 // Stats Section
 // ──────────────────────────────────────────────
 function StatsSection() {
+  const [drugCount, setDrugCount] = useState('...');
+  const [proteinCount, setProteinCount] = useState('...');
+
+  useEffect(() => {
+    apiFetchSiteStats()
+      .then(({ drug_count, protein_count }) => {
+        setDrugCount(drug_count.toLocaleString());
+        setProteinCount(protein_count.toLocaleString());
+      })
+      .catch(() => { setDrugCount('17,590'); setProteinCount('5,309'); });
+  }, []);
+
   const stats = [
-    { value: '17,590', label: 'Thuốc', sub: 'Đã được phê duyệt & thực nghiệm', icon: <Pill size={28} />, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { value: drugCount, label: 'Thuốc', sub: 'Đã được phê duyệt & thực nghiệm', icon: <Pill size={28} />, color: 'text-blue-600', bg: 'bg-blue-50' },
     { value: '1,128,500+', label: 'Tương tác thuốc', sub: 'Cặp tương tác đã ghi nhận', icon: <Zap size={28} />, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { value: '5,309', label: 'Protein đích', sub: 'Protein mục tiêu phân tử', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { value: proteinCount, label: 'Protein đích', sub: 'Protein mục tiêu phân tử', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { value: '41,908', label: 'Tương tác thuốc-protein', sub: 'Liên kết dược lực học', icon: <Database size={28} />, color: 'text-purple-600', bg: 'bg-purple-50' },
   ];
 

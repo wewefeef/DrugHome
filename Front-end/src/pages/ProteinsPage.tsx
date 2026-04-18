@@ -1,10 +1,11 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Search, ChevronRight, ChevronLeft, Loader2,
   ExternalLink, Dna, X,
 } from "lucide-react";
-import { getProteins, type Protein } from "../lib/proteinCache";
+import { apiFetchProteins } from "../lib/api";
+import type { Protein } from "../lib/proteinCache";
 
 const PAGE_SIZE = 25;
 
@@ -60,50 +61,37 @@ function Pagination({ current, total, onChange }: {
 }
 
 export default function ProteinsPage() {
-  const [allProteins, setAllProteins] = useState<Protein[]>([]);
+  const [proteins, setProteins] = useState<Protein[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All types");
-  const [actionFilter, setActionFilter] = useState("All actions");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    getProteins().then(data => { setAllProteins(data); setLoading(false); });
-  }, []);
+    setLoading(true);
+    apiFetchProteins({
+      q: activeQuery || undefined,
+      protein_type: typeFilter !== "All types" ? typeFilter : undefined,
+      page,
+      per_page: PAGE_SIZE,
+    })
+      .then(result => {
+        setProteins(result.items);
+        setTotal(result.total);
+        setTotalPages(result.total_pages);
+      })
+      .catch(() => { setProteins([]); setTotal(0); setTotalPages(0); })
+      .finally(() => setLoading(false));
+  }, [activeQuery, typeFilter, page]);
 
-  const typeCounts = useMemo(() => {
-    const c: Record<string, number> = {};
-    allProteins.forEach(p => p.types.forEach(t => { c[t] = (c[t] || 0) + 1; }));
-    return c;
-  }, [allProteins]);
-
-  const allActions = useMemo(() => {
-    const s = new Set<string>();
-    allProteins.forEach(p => p.actions.forEach(a => s.add(a)));
-    return ["All actions", ...Array.from(s).sort()];
-  }, [allProteins]);
-
-  const filtered = useMemo(() => {
-    const q = activeQuery.toLowerCase();
-    return allProteins.filter(p => {
-      const matchQ = !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.gene_name.toLowerCase().includes(q) ||
-        p.uniprot_id.toLowerCase().includes(q);
-      const matchType = typeFilter === "All types" || p.types.includes(typeFilter);
-      const matchAction = actionFilter === "All actions" || p.actions.includes(actionFilter);
-      return matchQ && matchType && matchAction;
-    });
-  }, [allProteins, activeQuery, typeFilter, actionFilter]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const gotoPage = useCallback((p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setActiveQuery(query); setPage(1); };
-  const resetFilters = () => { setTypeFilter("All types"); setActionFilter("All actions"); setActiveQuery(""); setQuery(""); setPage(1); };
-  const activeFilterCount = [typeFilter !== "All types", actionFilter !== "All actions", !!activeQuery].filter(Boolean).length;
-  const maxDrugCount = allProteins[0]?.drug_count || 1;
+  const resetFilters = () => { setTypeFilter("All types"); setActiveQuery(""); setQuery(""); setPage(1); };
+  const activeFilterCount = [typeFilter !== "All types", !!activeQuery].filter(Boolean).length;
+  const maxDrugCount = proteins[0]?.drug_count || 1;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -127,7 +115,7 @@ export default function ProteinsPage() {
             </div>
             {!loading && (
               <div className="bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-semibold text-emerald-200">
-                {allProteins.length.toLocaleString()} proteins
+                {total.toLocaleString()} proteins
               </div>
             )}
           </div>
@@ -143,7 +131,7 @@ export default function ProteinsPage() {
                 className={"border rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1.5 transition-all " + s.color + (typeFilter === s.key ? " ring-2 ring-white/40" : " hover:ring-1 hover:ring-white/30")}>
                 <span className={"w-1.5 h-1.5 rounded-full " + s.dot} />
                 {s.key.charAt(0).toUpperCase() + s.key.slice(1)}:
-                <span className="font-bold ml-0.5">{loading ? "..." : (typeCounts[s.key] || 0).toLocaleString()}</span>
+                <span className="font-bold ml-0.5">{s.key}</span>
               </button>
             ))}
           </div>
@@ -169,10 +157,6 @@ export default function ProteinsPage() {
               <option>transporter</option>
               <option>carrier</option>
             </select>
-            <select value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}
-              className="bg-white text-gray-700 text-sm px-3 py-3 rounded-xl shadow-lg border-0 outline-none min-w-[140px] font-medium">
-              {allActions.map(a => <option key={a}>{a}</option>)}
-            </select>
             <button type="submit"
               className="bg-emerald-400 hover:bg-emerald-300 text-emerald-900 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
               <Search size={15} /> Search
@@ -194,12 +178,12 @@ export default function ProteinsPage() {
             : <span>
                 Showing{" "}
                 <span className="font-bold text-emerald-700">
-                  {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                  {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
                   {"\u2013"}
-                  {Math.min(page * PAGE_SIZE, filtered.length)}
+                  {Math.min(page * PAGE_SIZE, total)}
                 </span>{" "}
                 of{" "}
-                <span className="font-bold text-emerald-700">{filtered.length.toLocaleString()}</span> proteins
+                <span className="font-bold text-emerald-700">{total.toLocaleString()}</span> proteins
                 {activeQuery && <span> for &quot;<span className="font-semibold">{activeQuery}</span>&quot;</span>}
               </span>}
         </div>
@@ -209,7 +193,7 @@ export default function ProteinsPage() {
             <Loader2 size={48} className="text-emerald-300 animate-spin mx-auto mb-4" />
             <p className="text-gray-500 font-medium">Loading protein database...</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : proteins.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-2xl border border-gray-100">
             <Search size={48} className="text-gray-200 mx-auto mb-4" />
             <h3 className="font-bold text-gray-500 mb-1">No results found</h3>
@@ -225,9 +209,9 @@ export default function ProteinsPage() {
               <div className="text-right">Drug Count</div>
             </div>
 
-            {paginated.map((protein, idx) => (
+            {proteins.map((protein, idx) => (
               <div key={protein.id}
-                className={"grid grid-cols-[2fr_1fr_1fr_2fr_100px] gap-3 px-5 py-4 items-start transition-colors hover:bg-emerald-50/40 " + (idx < paginated.length - 1 ? "border-b border-gray-50" : "")}>
+                className={"grid grid-cols-[2fr_1fr_1fr_2fr_100px] gap-3 px-5 py-4 items-start transition-colors hover:bg-emerald-50/40 " + (idx < proteins.length - 1 ? "border-b border-gray-50" : "")}>  
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -282,8 +266,8 @@ export default function ProteinsPage() {
           </div>
         )}
 
-        {!loading && pageCount > 1 && (
-          <Pagination current={page} total={pageCount} onChange={gotoPage} />
+        {!loading && totalPages > 1 && (
+          <Pagination current={page} total={totalPages} onChange={gotoPage} />
         )}
         <div className="h-10" />
       </div>

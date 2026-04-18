@@ -13,7 +13,7 @@ All endpoints accept JSON bodies and return structured JSON.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.core.interaction_engine import check_interactions
 from app.core.recommendation_engine import generate_recommendations
@@ -33,10 +33,15 @@ router = APIRouter(prefix="/api/v1/analysis", tags=["Clinical Analysis"])
 
 
 def _validate_drug_ids(db: Session, drug_ids: list[str]) -> None:
-    """Raise 422 if any drug_id is not found in the database."""
+    """Raise 422 if any drug_id is not found. Uses ix_drugs_drugbank_id index + load_only."""
     found = {
         r.drugbank_id
-        for r in db.query(Drug.drugbank_id).filter(Drug.drugbank_id.in_(drug_ids)).all()
+        for r in (
+            db.query(Drug)
+            .options(load_only(Drug.drugbank_id))   # avoid loading LONGTEXT columns
+            .filter(Drug.drugbank_id.in_(drug_ids))
+            .all()
+        )
     }
     missing = [d for d in drug_ids if d not in found]
     if missing:

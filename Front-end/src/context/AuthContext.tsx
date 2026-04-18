@@ -27,22 +27,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session from localStorage on mount, then verify token server-side
   useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
-      const savedUser = localStorage.getItem(USER_KEY);
-      if (savedToken && savedUser) {
+    const restore = async () => {
+      try {
+        const savedToken = localStorage.getItem(TOKEN_KEY);
+        const savedUser = localStorage.getItem(USER_KEY);
+        if (!savedToken || !savedUser) return;
+
+        // Quick optimistic restore so UI shows user immediately
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
+
+        // Verify token is still valid with the server
+        const res = await fetch('/api/v1/auth/me', {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        });
+        if (!res.ok) {
+          // Token expired or revoked — force logout
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setToken(null);
+          setUser(null);
+        } else {
+          // Refresh user data from server
+          const freshUser: AuthUser = await res.json();
+          localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+          setUser(freshUser);
+        }
+      } catch {
+        // Network offline — keep the locally-restored session as-is
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // corrupt data — clear it
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    } finally {
-      setLoading(false);
-    }
+    };
+    restore();
   }, []);
 
   const login = (newToken: string, newUser: AuthUser) => {

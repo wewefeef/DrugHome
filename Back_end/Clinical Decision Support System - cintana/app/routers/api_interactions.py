@@ -54,7 +54,8 @@ def list_interactions(
 
     total = qs.count()
     offset = (page - 1) * per_page
-    rows = qs.order_by(DrugInteraction.id).offset(offset).limit(per_page).all()
+    # ix_di_code_severity covers (drug_code, severity) — ORDER BY severity uses index
+    rows = qs.order_by(DrugInteraction.severity, DrugInteraction.id).offset(offset).limit(per_page).all()
 
     return PaginatedResponse(
         total=total,
@@ -90,6 +91,10 @@ def get_interactions_for_drug(
 
     dbid = drug.drugbank_id
 
+    # Uses indexes:
+    #   ix_di_code_severity  → (drug_code, severity) covers first condition
+    #   ix_di_dbid_interacting → (drug_drugbank_id, interacting_drug_id)
+    #   ix_di_interacting_dbid → (interacting_drug_id, drug_drugbank_id)
     qs = db.query(DrugInteraction).filter(
         or_(
             DrugInteraction.drug_code == drug.drug_code,

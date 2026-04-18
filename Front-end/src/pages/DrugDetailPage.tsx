@@ -2,10 +2,10 @@
 import { useParams, Link } from 'react-router-dom';
 import {
   Pill, ChevronRight, Zap, FlaskConical, BookOpen,
-  ExternalLink, Tag, Loader2, Activity,
+  ExternalLink, Tag, Loader2, Activity, AlertTriangle,
 } from 'lucide-react';
 import type { Drug } from '../types/drug';
-import { getDrugs } from '../lib/drugCache';
+import { apiFetchDrug, apiFetchDrugInteractions, type DrugInteraction } from '../lib/api';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Drug-Protein Network SVG (detail page version)
@@ -99,16 +99,32 @@ const statusBadge: Record<string, string> = {
   withdrawn: 'bg-red-100 text-red-700 border border-red-200',
 };
 
+const severityBadge: Record<string, string> = {
+  major:    'bg-red-100 text-red-700 border border-red-200',
+  moderate: 'bg-amber-100 text-amber-700 border border-amber-200',
+  minor:    'bg-green-100 text-green-700 border border-green-200',
+  unknown:  'bg-gray-100 text-gray-600 border border-gray-200',
+};
+
 export default function DrugDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [drug, setDrug] = useState<Drug | null | undefined>(undefined); // undefined = loading
+  const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
+  const [interactionTotal, setInteractionTotal] = useState(0);
+  const [interactionsLoading, setInteractionsLoading] = useState(false);
 
   useEffect(() => {
     if (!id) { setDrug(null); return; }
-    getDrugs().then(drugs => {
-      const found = drugs.find(d => d.id === id) ?? null;
-      setDrug(found);
-    });
+    apiFetchDrug(id).then(drug => setDrug(drug));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setInteractionsLoading(true);
+    apiFetchDrugInteractions(id, 1, 10)
+      .then(res => { setInteractions(res.items); setInteractionTotal(res.total); })
+      .catch(() => {})
+      .finally(() => setInteractionsLoading(false));
   }, [id]);
 
   // Loading
@@ -277,6 +293,55 @@ export default function DrugDetailPage() {
                 <p className="text-gray-600 leading-relaxed text-sm">{drug.mechanism}</p>
               </div>
             )}
+
+            {/* Drug-Drug Interactions */}
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-red-500" /> Drug Interactions
+                  {interactionTotal > 0 && (
+                    <span className="ml-1 text-xs font-normal text-gray-400">({interactionTotal.toLocaleString()} known)</span>
+                  )}
+                </h2>
+                {interactionTotal > 10 && (
+                  <Link to="/interactions" className="text-xs text-primary-600 hover:text-primary-800 font-medium">
+                    Check interactions →
+                  </Link>
+                )}
+              </div>
+              {interactionsLoading ? (
+                <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                  <Loader2 size={16} className="animate-spin" /> Loading interactions...
+                </div>
+              ) : interactions.length === 0 ? (
+                <p className="text-gray-400 text-sm py-2">No known drug-drug interactions recorded.</p>
+              ) : (
+                <div className="space-y-2">
+                  {interactions.map(ix => (
+                    <div key={ix.id} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize mt-0.5 ${severityBadge[ix.severity?.toLowerCase() ?? 'unknown'] ?? severityBadge.unknown}`}>
+                        {ix.severity ?? 'unknown'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {ix.interacting_drug_name ?? ix.interacting_drug_id}
+                          <span className="ml-1.5 font-mono text-xs text-gray-400">{ix.interacting_drug_id}</span>
+                        </p>
+                        {ix.description && (
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{ix.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {interactionTotal > 10 && (
+                    <p className="text-xs text-gray-400 text-center pt-1">
+                      Showing 10 of {interactionTotal.toLocaleString()} interactions.{' '}
+                      <Link to="/interactions" className="text-primary-600 hover:underline">Use the Interactions page</Link> to check a full prescription.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

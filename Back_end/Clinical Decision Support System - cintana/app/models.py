@@ -46,7 +46,7 @@ class Drug(Base):
     inchi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cas_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     unii: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    state: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    state: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
 
     # ── Pharmacology ──────────────────────────────────────────────────────────
     description: Mapped[Optional[str]] = mapped_column(LONGTEXT, nullable=True)
@@ -83,6 +83,11 @@ class Drug(Base):
         return list(self._aliases_json or [])
 
     @property
+    def aliases(self) -> List[Any]:
+        """Alias for synonyms — exposes _aliases_json via the 'aliases' attribute name."""
+        return list(self._aliases_json or [])
+
+    @property
     def categories(self) -> List[Any]:
         return list(self._categories_json or [])
 
@@ -101,6 +106,11 @@ class Drug(Base):
             return None
 
     @property
+    def molecular_formula(self) -> Optional[str]:
+        cp = self._chemical_properties_json or {}
+        return cp.get("molecular_formula")
+
+    @property
     def monoisotopic_mass(self) -> Optional[float]:
         return None
 
@@ -111,6 +121,11 @@ class Drug(Base):
     @property
     def clearance(self) -> Optional[str]:
         return None
+
+    # Counts populated by the API endpoint (not stored in this table)
+    target_count: int = 0
+    enzyme_count: int = 0
+    transporter_count: int = 0
 
     # Fields stored in separate tables — return empty for now
     @property
@@ -197,6 +212,18 @@ class Drug(Base):
         cascade="all, delete-orphan",
     )
 
+    # ── Table-level indexes ───────────────────────────────────────────────────
+    __table_args__ = (
+        # FULLTEXT on name — allows MATCH..AGAINST for fast drug name search
+        Index("ix_drugs_name_ft", "name", mysql_prefix="FULLTEXT"),
+        # Composite: filtering by type (actual DB column = "type") then sorting by name
+        Index("ix_drugs_type_name", "type", "name"),
+        # Prefix index on drug_groups for group filter (pipe-separated string)
+        Index("ix_drugs_groups", "drug_groups", mysql_length={"drug_groups": 100}),
+        # Prefix index on atc_codes
+        Index("ix_drugs_atc", "atc_codes", mysql_length={"atc_codes": 50}),
+    )
+
     def __repr__(self) -> str:
         return f"<Drug {self.drugbank_id} — {self.name}>"
 
@@ -233,6 +260,14 @@ class Protein(Base):
     # Relationships
     drug_protein_interactions: Mapped[List["DrugProteinInteraction"]] = relationship(
         back_populates="protein", cascade="all, delete-orphan"
+    )
+
+    # ── Table-level indexes ───────────────────────────────────────────────────
+    __table_args__ = (
+        # Composite FULLTEXT on name + gene_name — single index covers both fields
+        Index("ix_proteins_name_gene_ft", "name", "gene_name", mysql_prefix="FULLTEXT"),
+        # Prefix index on organism for "Humans" / organism filter
+        Index("ix_proteins_organism", "organism", mysql_length=80),
     )
 
     def __repr__(self) -> str:
@@ -281,7 +316,12 @@ class DrugInteraction(Base):
 
     __table_args__ = (
         UniqueConstraint("drug_code", "interacting_drug_id", name="uq_drug_interaction"),
-        Index("ix_di_severity", "severity"),
+        # Composite: reverse lookup (interacting side → source) used by interaction engine
+        Index("ix_di_interacting_dbid", "interacting_drug_id", "drug_drugbank_id"),
+        # Composite: drug_code + severity for filtered per-drug queries
+        Index("ix_di_code_severity", "drug_code", "severity"),
+        # Composite: drug_drugbank_id + interacting_drug_id (forward bidirectional)
+        Index("ix_di_dbid_interacting", "drug_drugbank_id", "interacting_drug_id"),
     )
 
     def __repr__(self) -> str:
@@ -330,6 +370,10 @@ class DrugProteinInteraction(Base):
 
     __table_args__ = (
         UniqueConstraint("drug_code", "protein_id", "interaction_type", name="uq_drug_protein_interaction"),
+        # Composite: drug detail page — all proteins for a drug filtered by type
+        Index("ix_dpi_code_type", "drug_code", "interaction_type"),
+        # Composite: protein detail page — all drugs for a protein
+        Index("ix_dpi_protein_type", "protein_id", "interaction_type"),
     )
 
     def __repr__(self) -> str:
@@ -381,6 +425,15 @@ class AnalysisSession(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        # For ordered list view (most recent first)
+        Index("ix_session_created", "created_at"),
+        # For risk-level filter on dashboard
+        Index("ix_session_risk", "risk_level"),
+        # Prefix index on title for title search
+        Index("ix_session_title", "title", mysql_length=80),
     )
 
     def __repr__(self) -> str:

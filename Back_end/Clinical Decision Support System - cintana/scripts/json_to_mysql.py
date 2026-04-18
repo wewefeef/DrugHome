@@ -82,41 +82,56 @@ CREATE TABLE IF NOT EXISTS drugs (
 DDL_DRUG_INTERACTIONS = """
 CREATE TABLE IF NOT EXISTS drug_interactions (
     id                  BIGINT       NOT NULL AUTO_INCREMENT,
-    drug_id             VARCHAR(10)  NOT NULL,
+    drug_code           VARCHAR(20)  NOT NULL COMMENT 'DR:XXXXX format',
+    drug_drugbank_id    VARCHAR(20)  DEFAULT NULL COMMENT 'DB00001 format',
     interacting_drug_id VARCHAR(20)  NOT NULL,
+    interacting_drug_name VARCHAR(500) DEFAULT NULL,
     severity            VARCHAR(20)  DEFAULT 'unknown',
-    description         TEXT,
+    description         LONGTEXT,
+    created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_drug_id (drug_id),
+    UNIQUE KEY uq_drug_interaction (drug_code, interacting_drug_id),
+    KEY idx_drug_code (drug_code),
     KEY idx_interacting (interacting_drug_id),
-    KEY idx_severity (severity)
+    KEY idx_severity (severity),
+    KEY idx_drugbank_id (drug_drugbank_id),
+    CONSTRAINT fk_di_drug FOREIGN KEY (drug_code) REFERENCES drugs (drug_code) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
 DDL_PROTEINS = """
 CREATE TABLE IF NOT EXISTS proteins (
     id              INT          NOT NULL,
-    uniprot_id      VARCHAR(20)  NOT NULL,
+    uniprot_id      VARCHAR(50)  NOT NULL,
     entrez_gene_id  VARCHAR(30)  DEFAULT NULL,
     organism        VARCHAR(200) DEFAULT '',
     name            VARCHAR(500) DEFAULT '',
     gene_name       VARCHAR(100) DEFAULT NULL,
+    protein_type    VARCHAR(30)  DEFAULT NULL COMMENT 'target | enzyme | transporter | carrier',
+    general_function TEXT         DEFAULT NULL,
+    specific_function LONGTEXT   DEFAULT NULL,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_uniprot (uniprot_id),
-    KEY idx_gene_name (gene_name)
+    KEY idx_gene_name (gene_name),
+    KEY idx_protein_type (protein_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
 DDL_DPI = """
 CREATE TABLE IF NOT EXISTS drug_protein_interactions (
     id               BIGINT      NOT NULL AUTO_INCREMENT,
-    drug_id          VARCHAR(10) NOT NULL,
+    drug_code        VARCHAR(20) NOT NULL COMMENT 'DR:XXXXX format',
+    drug_drugbank_id VARCHAR(20) DEFAULT NULL COMMENT 'DB00001 format',
     protein_id       INT         NOT NULL,
-    uniprot_id       VARCHAR(20) NOT NULL,
-    interaction_type VARCHAR(20) DEFAULT '',
+    uniprot_id       VARCHAR(50) NOT NULL,
+    interaction_type VARCHAR(20) DEFAULT '' COMMENT 'target | enzyme | transporter | carrier',
     known_action     VARCHAR(20) DEFAULT 'unknown',
     actions          JSON,
     pubmed_ids       JSON,
+    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_drug (drug_id),
     KEY idx_protein (protein_id),
@@ -245,8 +260,10 @@ def import_drugs(conn, ndjson_path: Path, batch_size: int) -> int:
 def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
     sql = """
     INSERT INTO drug_interactions
-        (drug_id, interacting_drug_id, severity, description)
+        (drug_code, interacting_drug_id, severity, description)
     VALUES (%s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        severity=VALUES(severity), description=VALUES(description)
     """
     total = 0
     batch = []
@@ -266,7 +283,7 @@ def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
                 continue
             d = json.loads(line)
             batch.append((
-                d.get("drug_id", ""),
+                d.get("drug_id", ""),       # drug_id from NDJSON = drug_code in DB
                 d.get("interacting_drug_id", ""),
                 (d.get("severity") or "unknown")[:20],
                 d.get("description") or "",
@@ -323,8 +340,10 @@ def import_proteins(conn, ndjson_path: Path, batch_size: int) -> int:
 def import_dpi(conn, ndjson_path: Path, batch_size: int) -> int:
     sql = """
     INSERT INTO drug_protein_interactions
-        (drug_id, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)
+        (drug_code, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)
     VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        interaction_type=VALUES(interaction_type), known_action=VALUES(known_action)
     """
     total = 0
     batch = []
@@ -344,9 +363,9 @@ def import_dpi(conn, ndjson_path: Path, batch_size: int) -> int:
                 continue
             d = json.loads(line)
             batch.append((
-                d.get("drug_id", ""),
+                d.get("drug_id", ""),       # drug_id from NDJSON = drug_code in DB
                 d.get("protein_id"),
-                (d.get("uniprot_id") or "")[:20],
+                (d.get("uniprot_id") or "")[:50],
                 (d.get("interaction_type") or "")[:20],
                 (d.get("known_action") or "unknown")[:20],
                 j(d.get("actions")),
@@ -461,6 +480,34 @@ def run(
         t0 = time.monotonic()
         n = import_dpi(conn, files["dpi"], batch)
         typer.echo(f"   ✅ {n:,} liên kết drug-protein | {time.monotonic()-t0:.1f}s")
+
+        # Derive protein_type from most common interaction_type in DPI
+        typer.echo("   ⚙️  Cập nhật protein_type từ drug_protein_interactions...")
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE proteins p
+                    INNER JOIN (
+                        SELECT protein_id, interaction_type
+                        FROM (
+                            SELECT protein_id, interaction_type,
+                                   COUNT(*) AS cnt,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY protein_id
+                                       ORDER BY COUNT(*) DESC
+                                   ) AS rn
+                            FROM drug_protein_interactions
+                            GROUP BY protein_id, interaction_type
+                        ) ranked
+                        WHERE rn = 1
+                    ) t ON p.id = t.protein_id
+                    SET p.protein_type = t.interaction_type
+                    WHERE p.protein_type IS NULL
+                """)
+            conn.commit()
+            typer.echo("   ✅ protein_type cập nhật xong")
+        except Exception as e:
+            typer.echo(f"   ⚠️  Cập nhật protein_type thất bại: {e}")
 
     # --- Tổng kết ---
     conn.close()

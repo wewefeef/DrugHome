@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -6,9 +6,9 @@ import {
   Zap, BookOpen, BarChart2, LogIn, Bell, ArrowRight,
   LogOut, BarChart, UserCircle
 } from 'lucide-react';
-import { getDrugs } from '../lib/drugCache';
-import { getProteins, type Protein } from '../lib/proteinCache';
+import { apiFetchDrugs, apiSearchProteins } from '../lib/api';
 import type { Drug } from '../types/drug';
+import type { Protein } from '../lib/proteinCache';
 import { useAuth, getUserInitials } from '../context/AuthContext';
 
 type SearchMode = 'drug' | 'protein' | 'interaction';
@@ -54,10 +54,8 @@ export default function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  // Eagerly preload data so it's ready when user types
-  useEffect(() => { getDrugs(); getProteins(); }, []);
-
-  // Keep dropdown rect fresh when open
+  // Live search suggestions — calls API, debounced by useEffect
+  const [isSearching, setIsSearching] = useState(false);
   useEffect(() => {
     if (!showDropdown) return;
     const update = () => { if (containerRef.current) setDropdownRect(containerRef.current.getBoundingClientRect()); };
@@ -88,41 +86,47 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Live search suggestions
-  useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    setActiveIdx(-1);
-    if (q.length < 2) { setSuggestions([]); setShowDropdown(false); return; }
+  // Live search suggestions — API-backed, debounced 200ms
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-    if (searchMode === 'protein') {
-      getProteins().then(data => {
-        const results = data
-          .filter(p =>
-            p.name.toLowerCase().includes(q) ||
-            (p.gene_name && p.gene_name.toLowerCase().includes(q))
-          )
-          .slice(0, 7)
-          .map(p => ({ kind: 'protein' as const, item: p }));
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
-        if (results.length > 0 && containerRef.current) setDropdownRect(containerRef.current.getBoundingClientRect());
-      });
-    } else {
-      getDrugs().then(data => {
-        const results = data
-          .filter(d =>
-            d.name.toLowerCase().includes(q) ||
-            (d.generic_name && d.generic_name.toLowerCase().includes(q)) ||
-            (d.aliases && d.aliases.some(a => a.toLowerCase().includes(q)))
-          )
-          .slice(0, 7)
-          .map(d => ({ kind: 'drug' as const, item: d }));
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
-        if (results.length > 0 && containerRef.current) setDropdownRect(containerRef.current.getBoundingClientRect());
-      });
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setActiveIdx(-1);
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
     }
-  }, [searchQuery, searchMode]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
+      const signal = abortRef.current.signal;
+      const q = value.trim();
+      try {
+        setIsSearching(true);
+        let results: Suggestion[];
+        if (searchMode === 'protein') {
+          const proteins = await apiSearchProteins(q, signal);
+          results = proteins.map(p => ({ kind: 'protein' as const, item: p }));
+        } else {
+          const data = await apiFetchDrugs({ q, per_page: 7, signal });
+          results = data.items.map(d => ({ kind: 'drug' as const, item: d }));
+        }
+        setSuggestions(results);
+        setShowDropdown(results.length > 0);
+        if (results.length > 0 && containerRef.current)
+          setDropdownRect(containerRef.current.getBoundingClientRect());
+      } catch {
+        // Aborted or network error — ignore
+      } finally {
+        setIsSearching(false);
+      }
+    }, 200);
+  }, [searchMode]);
+
+  // Keep dropdown rect fresh when open
 
   const navigateTo = (s: Suggestion) => {
     setShowDropdown(false);
@@ -248,7 +252,7 @@ export default function Header() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => handleSearchChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onFocus={() => { if (suggestions.length > 0) { setShowDropdown(true); if (containerRef.current) setDropdownRect(containerRef.current.getBoundingClientRect()); } }}
                   placeholder={

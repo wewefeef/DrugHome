@@ -7,7 +7,7 @@ import {
   Clock, Star, ExternalLink, Globe, FileText, Layers, Target, Atom,
   TrendingUp, Database, Users, Award,
 } from 'lucide-react';
-import { getDrugs } from '../lib/drugCache';
+import { apiFetchDrugs, apiFetchSiteStats } from '../lib/api';
 import type { Drug } from '../types/drug';
 
 // ── Static content data ────────────────────────────────────────────────────
@@ -232,11 +232,11 @@ const RESEARCH_ARTICLES = [
   },
 ];
 
-const DRUG_FACTS = [
-  { icon: <Database size={20} />, value: '17,430', label: 'Thuốc trong database', color: 'text-blue-600' },
-  { icon: <Zap size={20} />, value: '24,386+', label: 'Cặp tương tác đã phân loại', color: 'text-red-600' },
-  { icon: <Target size={20} />, value: '5,206', label: 'Protein đích (targets)', color: 'text-purple-600' },
-  { icon: <Globe size={20} />, value: '100+', label: 'Quốc gia phê duyệt', color: 'text-teal-600' },
+const DRUG_FACTS_BASE = [
+  { icon: <Database size={20} />, valueKey: 'drug_count' as const, label: 'Thuốc trong database', color: 'text-blue-600', fallback: '17,430' },
+  { icon: <Zap size={20} />, valueKey: null, label: 'Cặp tương tác đã phân loại', color: 'text-red-600', fallback: '1,128,500+' },
+  { icon: <Target size={20} />, valueKey: 'protein_count' as const, label: 'Protein đích (targets)', color: 'text-purple-600', fallback: '5,206' },
+  { icon: <Globe size={20} />, valueKey: null, label: 'Quốc gia phê duyệt', color: 'text-teal-600', fallback: '100+' },
 ];
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -249,40 +249,34 @@ export default function ResourcesPage() {
   const [drugClassData, setDrugClassData] = useState<{[group: string]: Drug[]}>({});
   const [loadingDrugs, setLoadingDrugs] = useState(false);
   const [featuredDrugs, setFeaturedDrugs] = useState<Drug[]>([]);
+  const [liveStats, setLiveStats] = useState<{drug_count: number; protein_count: number} | null>(null);
 
-  // Load drugs for drug classes tab and featured section
+  // Fetch live stats for DRUG_FACTS banner
+  useEffect(() => {
+    apiFetchSiteStats().then(stats => setLiveStats(stats)).catch(() => {});
+  }, []);
+
+  // Load drug classes with targeted API calls (no full cache load)
   useEffect(() => {
     setLoadingDrugs(true);
-    getDrugs().then(drugs => {
-      // Featured: diverse selection (approved, well-known in different classes)
-      const featured = drugs
-        .filter(d => d.groups?.includes('approved') && d.mechanism && d.mechanism.length > 50)
-        .slice(0, 12);
-      setFeaturedDrugs(featured);
-
-      // Group by drug type
-      const groups: {[key: string]: Drug[]} = {
-        'Small molecule': [],
-        'Biotech': [],
-        'Approved': [],
-        'Investigational': [],
-        'Experimental': [],
-      };
-      drugs.forEach(d => {
-        if (d.type === 'small molecule' && groups['Small molecule'].length < 20)
-          groups['Small molecule'].push(d);
-        else if (d.type === 'biotech' && groups['Biotech'].length < 20)
-          groups['Biotech'].push(d);
-        if (d.groups?.includes('approved') && groups['Approved'].length < 20)
-          groups['Approved'].push(d);
-        if (d.groups?.includes('investigational') && groups['Investigational'].length < 20)
-          groups['Investigational'].push(d);
-        if (d.groups?.includes('experimental') && groups['Experimental'].length < 20)
-          groups['Experimental'].push(d);
+    Promise.all([
+      apiFetchDrugs({ group: 'approved', per_page: 12 }),
+      apiFetchDrugs({ drug_type: 'small molecule', per_page: 20 }),
+      apiFetchDrugs({ drug_type: 'biotech', per_page: 20 }),
+      apiFetchDrugs({ group: 'approved', per_page: 20 }),
+      apiFetchDrugs({ group: 'investigational', per_page: 20 }),
+      apiFetchDrugs({ group: 'experimental', per_page: 20 }),
+    ]).then(([featuredRes, smallMolRes, biotechRes, approvedRes, investigationalRes, experimentalRes]) => {
+      setFeaturedDrugs(featuredRes.items);
+      setDrugClassData({
+        'Small molecule': smallMolRes.items,
+        'Biotech': biotechRes.items,
+        'Approved': approvedRes.items,
+        'Investigational': investigationalRes.items,
+        'Experimental': experimentalRes.items,
       });
-      setDrugClassData(groups);
       setLoadingDrugs(false);
-    });
+    }).catch(() => setLoadingDrugs(false));
   }, []);
 
   const filteredGlossary = useMemo(() => {
@@ -350,13 +344,18 @@ export default function ResourcesPage() {
 
             {/* Stats panel */}
             <div className="grid grid-cols-2 gap-3">
-              {DRUG_FACTS.map(f => (
-                <div key={f.label} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-                  <div className={`${f.color} mb-2`}>{f.icon}</div>
-                  <div className="text-2xl font-bold text-white">{f.value}</div>
-                  <div className="text-slate-400 text-xs mt-0.5">{f.label}</div>
-                </div>
-              ))}
+              {DRUG_FACTS_BASE.map(f => {
+                const val = f.valueKey && liveStats
+                  ? liveStats[f.valueKey].toLocaleString()
+                  : f.fallback;
+                return (
+                  <div key={f.label} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
+                    <div className={`${f.color} mb-2`}>{f.icon}</div>
+                    <div className="text-2xl font-bold text-white">{val}</div>
+                    <div className="text-slate-400 text-xs mt-0.5">{f.label}</div>
+                  </div>
+                );
+              })}
               {/* Featured drug mini-card */}
               {featuredDrugs[0] && (
                 <div className="col-span-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-400/20 rounded-2xl p-4 flex items-center gap-3">

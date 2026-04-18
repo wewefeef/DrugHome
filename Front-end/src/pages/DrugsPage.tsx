@@ -1,11 +1,11 @@
-﻿import { useState, useMemo, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, ChevronRight, ChevronLeft, SlidersHorizontal, X, LayoutGrid, List,
   Pill, Loader2,
 } from "lucide-react";
 import type { Drug } from "../types/drug";
-import { getDrugs } from "../lib/drugCache";
+import { apiFetchDrugs } from "../lib/api";
 
 const PAGE_SIZE = 24;
 
@@ -172,59 +172,47 @@ function DrugRow({ drug }: { drug: Drug }) {
 }
 
 // ─────────────────────────────────────────────
-// Main Page
+// Main Page (server-side search + pagination)
 // ─────────────────────────────────────────────
 export default function DrugsPage() {
   const [searchParams] = useSearchParams();
-  const [allDrugs, setAllDrugs] = useState<Drug[]>([]);
+  const [drugs, setDrugs] = useState<Drug[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [activeQuery, setActiveQuery] = useState(searchParams.get("q") || "");
-  const [category, setCategory] = useState("All");
   const [drugType, setDrugType] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  const DRUG_TYPES = ["All", "small molecule", "biotech"];
+  const GROUPS = ["All", "approved", "investigational", "experimental", "withdrawn", "illicit"];
+
   useEffect(() => {
     setLoading(true);
-    getDrugs().then(data => { setAllDrugs(data); setLoading(false); });
-  }, []);
+    apiFetchDrugs({
+      q: activeQuery || undefined,
+      group: groupFilter !== "All" ? groupFilter : undefined,
+      drug_type: drugType !== "All" ? drugType : undefined,
+      page,
+      per_page: PAGE_SIZE,
+    })
+      .then(result => {
+        setDrugs(result.items);
+        setTotal(result.total);
+        setTotalPages(result.total_pages);
+      })
+      .catch(() => { setDrugs([]); setTotal(0); setTotalPages(0); })
+      .finally(() => setLoading(false));
+  }, [activeQuery, groupFilter, drugType, page]);
 
-  const allCategories = useMemo(() => {
-    const s = new Set<string>();
-    allDrugs.forEach(d => d.categories.forEach(c => { if (c) s.add(c); }));
-    return ["All", ...Array.from(s).sort().slice(0, 40)];
-  }, [allDrugs]);
-
-  const allTypes = useMemo(() => {
-    const s = new Set<string>();
-    allDrugs.forEach(d => { if (d.type) s.add(d.type); });
-    return ["All", ...Array.from(s).sort()];
-  }, [allDrugs]);
-
-  const filtered = useMemo(() => {
-    const q = activeQuery.toLowerCase();
-    return allDrugs.filter(d => {
-      const matchQ = !q ||
-        d.name.toLowerCase().includes(q) ||
-        d.generic_name.toLowerCase().includes(q) ||
-        d.id.toLowerCase().includes(q) ||
-        d.aliases.some(a => a.toLowerCase().includes(q));
-      const matchCat = category === "All" || d.categories.includes(category);
-      const matchType = drugType === "All" || d.type.toLowerCase() === drugType.toLowerCase();
-      const matchGroup = groupFilter === "All" || d.groups.includes(groupFilter);
-      return matchQ && matchCat && matchType && matchGroup;
-    });
-  }, [allDrugs, activeQuery, category, drugType, groupFilter]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const activeFiltersCount = [category, drugType, groupFilter].filter(v => v !== "All").length;
+  const activeFiltersCount = [drugType !== "All", groupFilter !== "All"].filter(Boolean).length;
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setActiveQuery(query); setPage(1); };
-  const resetFilters = useCallback(() => { setCategory("All"); setDrugType("All"); setGroupFilter("All"); setPage(1); }, []);
+  const resetFilters = useCallback(() => { setDrugType("All"); setGroupFilter("All"); setPage(1); }, []);
   const gotoPage = useCallback((p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   return (
@@ -233,7 +221,7 @@ export default function DrugsPage() {
       <div className="bg-gradient-to-r from-primary-950 via-primary-900 to-primary-800 text-white pt-8 pb-10">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center gap-2 text-blue-300 text-sm mb-4">
-            <a href="/" className="hover:text-white transition-colors">Home</a>
+            <Link to="/" className="hover:text-white transition-colors">Home</Link>
             <ChevronRight size={14} />
             <span className="text-white">Drug Database</span>
           </div>
@@ -243,26 +231,10 @@ export default function DrugsPage() {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight">Drug Database</h1>
-              <p className="text-blue-300 text-sm mt-0.5">Browse {loading ? '...' : allDrugs.length.toLocaleString()}+ drugs from DrugBank®</p>
+              <p className="text-blue-300 text-sm mt-0.5">
+                {loading ? 'Đang tải...' : `${total.toLocaleString()} thuốc từ DrugBank®`}
+              </p>
             </div>
-          </div>
-          {/* Stats pills */}
-          <div className="flex flex-wrap gap-2 mt-4 mb-6">
-            {[
-              { key: 'approved', color: 'bg-emerald-400/20 border-emerald-400/40 text-emerald-200', label: 'Approved' },
-              { key: 'investigational', color: 'bg-sky-400/20 border-sky-400/40 text-sky-200', label: 'Investigational' },
-              { key: 'small molecule', color: 'bg-orange-400/20 border-orange-400/40 text-orange-200', label: 'Small molecule' },
-              { key: 'biotech', color: 'bg-violet-400/20 border-violet-400/40 text-violet-200', label: 'Biotech' },
-            ].map(s => (
-              <div key={s.key} className={`border rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1.5 ${s.color}`}>
-                <span className="font-bold">
-                  {loading ? '...' : (s.key === 'small molecule' || s.key === 'biotech'
-                    ? allDrugs.filter(d => d.type?.toLowerCase() === s.key).length.toLocaleString()
-                    : allDrugs.filter(d => d.groups.includes(s.key)).length.toLocaleString())}
-                </span>
-                <span className="opacity-70">{s.label}</span>
-              </div>
-            ))}
           </div>
           {/* Search bar */}
           <form onSubmit={handleSearch} className="mt-6 flex gap-2 max-w-3xl">
@@ -300,22 +272,11 @@ export default function DrugsPage() {
       <div className="max-w-7xl mx-auto px-4 -mt-4">
         {/* ── Filter panel ─────────────────────── */}
         {showFilters && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5 grid sm:grid-cols-3 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Categories</label>
-              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                {allCategories.slice(0, 35).map(c => (
-                  <button key={c} onClick={() => { setCategory(c); setPage(1); }}
-                    className={"text-xs px-2.5 py-1 rounded-full font-medium transition-all " + (category === c ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5 grid sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Drug Type</label>
               <div className="flex flex-wrap gap-1.5">
-                {allTypes.slice(0, 8).map(t => (
+                {DRUG_TYPES.map(t => (
                   <button key={t} onClick={() => { setDrugType(t); setPage(1); }}
                     className={"text-xs px-2.5 py-1 rounded-full font-medium capitalize transition-all " + (drugType === t ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}>
                     {t}
@@ -349,8 +310,8 @@ export default function DrugsPage() {
               ? <span className="flex items-center gap-1.5 text-gray-400"><Loader2 size={14} className="animate-spin" /> Loading...</span>
               : (<>
                   Showing 
-                  <span className="font-bold text-primary-800">{filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span>
-                   trong <span className="font-bold text-primary-800">{filtered.length.toLocaleString()}</span> drugs
+                  <span className="font-bold text-primary-800">{total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}</span>
+                   trong <span className="font-bold text-primary-800">{total.toLocaleString()}</span> drugs
                   {activeQuery && <span> cho “<span className="font-semibold">{activeQuery}</span>”</span>}
                 </>)}
           </div>
@@ -372,7 +333,7 @@ export default function DrugsPage() {
             <Loader2 size={48} className="text-primary-300 animate-spin mx-auto mb-4" />
             <p className="text-gray-500 font-medium">Loading drugs from DrugBank...</p>
           </div>
-        ) : paginated.length === 0 ? (
+        ) : drugs.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-2xl border border-gray-100">
             <Search size={48} className="text-gray-200 mx-auto mb-4" />
             <h3 className="font-bold text-gray-500 mb-1">No results found</h3>
@@ -380,17 +341,17 @@ export default function DrugsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {paginated.map(drug => <DrugCard key={drug.id} drug={drug} />)}
+            {drugs.map(drug => <DrugCard key={drug.id} drug={drug} />)}
           </div>
         ) : (
           <div className="space-y-2.5">
-            {paginated.map(drug => <DrugRow key={drug.id} drug={drug} />)}
+            {drugs.map(drug => <DrugRow key={drug.id} drug={drug} />)}
           </div>
         )}
 
         {/* ── Pagination ───────────────────────── */}
-        {!loading && pageCount > 1 && (
-          <Pagination current={page} total={pageCount} onChange={gotoPage} />
+        {!loading && totalPages > 1 && (
+          <Pagination current={page} total={totalPages} onChange={gotoPage} />
         )}
 
         {/* bottom padding */}
@@ -399,3 +360,6 @@ export default function DrugsPage() {
     </div>
   );
 }
+
+
+

@@ -168,19 +168,29 @@ class DrugOut(BaseModel):
     name: str
     drug_type: Optional[str] = None
     atc_codes: Optional[str] = None
+    inchikey: Optional[str] = None
     cas_number: Optional[str] = None
     unii: Optional[str] = None
     state: Optional[str] = None
     groups: List[str] = []
+    categories: List[str] = []
+    aliases: List[str] = []
     description: Optional[str] = None
     indication: Optional[str] = None
+    pharmacodynamics: Optional[str] = None
     mechanism_of_action: Optional[str] = None
     toxicity: Optional[str] = None
     absorption: Optional[str] = None
     metabolism: Optional[str] = None
     half_life: Optional[str] = None
+    protein_binding: Optional[str] = None
+    route_of_elimination: Optional[str] = None
     smiles: Optional[str] = None
+    molecular_formula: Optional[str] = None
     average_mass: Optional[float] = None
+    target_count: int = 0
+    enzyme_count: int = 0
+    transporter_count: int = 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -223,6 +233,8 @@ class ProteinOut(ProteinBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    drug_count: int = 0
+    actions: List[str] = []
     created_at: datetime
     updated_at: datetime
 
