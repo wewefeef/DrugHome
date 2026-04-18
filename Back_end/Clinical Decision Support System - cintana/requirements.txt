@@ -24,6 +24,7 @@ passlib[bcrypt]>=1.7.4            # password hashing
 fastapi-cache2>=0.2.1
 
 # ── Config / Environment ──────────────────────────────────────────────────────
+pydantic[email]>=2.0.0          # email-validator support (required by sqladmin)
 pydantic-settings>=2.3.0
 python-dotenv>=1.0.1
 
