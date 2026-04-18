@@ -3,10 +3,10 @@ Application configuration.
 All settings are loaded from environment variables (via .env file).
 """
 
+import os
 from pathlib import Path
 from functools import lru_cache
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,17 +26,13 @@ class Settings(BaseSettings):
     app_title: str = "Clinical Decision Support System"
     app_version: str = "1.0.0"
 
-    # ── Database (MySQL) ──────────────────────────────────────────────────────
+    # ── Database (MySQL) — fallback khi không có DATABASE_URL ─────────────────
     db_host: str = "127.0.0.1"
     db_port: int = 3306
     db_name: str = "cdss"
     db_user: str = "root"
     db_password: str = ""
     db_charset: str = "utf8mb4"
-
-    # Railway MySQL plugin injects DATABASE_URL automatically.
-    # If set, it overrides the individual db_* fields above.
-    database_url_env: str = Field(default="", validation_alias="DATABASE_URL")
 
     # ── Paths ─────────────────────────────────────────────────────────────────
     templates_dir: Path = BASE_DIR / "drugs" / "templates"
@@ -49,20 +45,18 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production-use-a-long-random-string"
 
     # ── CORS ──────────────────────────────────────────────────────────────────
-    # Comma-separated list of allowed origins, or "*" to allow all.
-    # Example: "https://yourdomain.com,https://www.yourdomain.com"
     allowed_origins: str = "*"
 
     @property
     def database_url(self) -> str:
         """
-        SQLAlchemy connection string for MySQL using PyMySQL driver.
-        If DATABASE_URL env var is set (Railway), uses that.
-        Otherwise constructs from individual db_* fields.
+        Đọc DATABASE_URL trực tiếp từ os.environ (Railway inject qua env).
+        Nếu không có, dùng các biến db_* riêng lẻ (local dev).
         """
-        if self.database_url_env:
-            # Railway provides mysql:// — SQLAlchemy needs mysql+pymysql://
-            return self.database_url_env.replace("mysql://", "mysql+pymysql://", 1)
+        raw = os.environ.get("DATABASE_URL", "")
+        if raw:
+            # Railway cấp dạng mysql:// — SQLAlchemy cần mysql+pymysql://
+            return raw.replace("mysql://", "mysql+pymysql://", 1)
         return (
             f"mysql+pymysql://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
