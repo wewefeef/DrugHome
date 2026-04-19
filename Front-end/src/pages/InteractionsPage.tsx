@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import {
   Zap, Search, X, ChevronRight, AlertTriangle, AlertCircle,
   CheckCircle2, Database, Shield, Plus, Loader2, Info, ExternalLink,
-  Save, Check,
+  Save, Check, LogIn,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
 import { apiSearchDrugs } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface DrugEntry { id: string; name: string; }
@@ -470,6 +471,7 @@ function InteractionModal({ ix, onClose }: { ix: InteractionFound | null; onClos
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function InteractionsPage() {
+  const { user, token } = useAuth();
   const [categories, setCategories] = useState<DrugCategory[]>([]);
   const [catLoading, setCatLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -484,29 +486,48 @@ export default function InteractionsPage() {
   const [repelOffsets, setRepelOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [modalIx, setModalIx] = useState<InteractionFound | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "guest">("idle");
   const [restored, setRestored] = useState(false);
 
-  // Restore last session from API on mount
+  // Restore last session: from API (if logged in) or sessionStorage (if guest)
   useEffect(() => {
-    fetch("/api/v1/sessions?limit=1")
-      .then(r => r.ok ? r.json() : [])
-      .then((sessions: Array<{ id: number; drugs_snapshot?: { id: string; name: string }[] }>) => {
-        if (!sessions.length || !sessions[0].drugs_snapshot?.length) return;
-        return fetch(`/api/v1/sessions/${sessions[0].id}`)
-          .then(r => r.ok ? r.json() : null)
-          .then((detail: { drugs_snapshot: DrugEntry[]; interactions_found: InteractionFound[] } | null) => {
-            if (!detail?.drugs_snapshot?.length) return;
+    if (token) {
+      // Logged in — restore from API
+      fetch("/api/v1/sessions?limit=1", { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then((sessions: Array<{ id: number; drugs_snapshot?: { id: string; name: string }[] }>) => {
+          if (!sessions.length || !sessions[0].drugs_snapshot?.length) return;
+          return fetch(`/api/v1/sessions/${sessions[0].id}`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.ok ? r.json() : null)
+            .then((detail: { drugs_snapshot: DrugEntry[]; interactions_found: InteractionFound[] } | null) => {
+              if (!detail?.drugs_snapshot?.length) return;
+              setSelectedDrugs(detail.drugs_snapshot);
+              if (detail.interactions_found?.length >= 0) {
+                setInteractions(detail.interactions_found);
+                setVizState("done");
+                setRestored(true);
+              }
+            });
+        })
+        .catch(() => {/* backend offline — skip restore */});
+    } else {
+      // Guest — restore from sessionStorage (only within current tab)
+      try {
+        const raw = sessionStorage.getItem("medidb_guest_session");
+        if (raw) {
+          const detail: { drugs_snapshot: DrugEntry[]; interactions_found: InteractionFound[] } = JSON.parse(raw);
+          if (detail.drugs_snapshot?.length) {
             setSelectedDrugs(detail.drugs_snapshot);
             if (detail.interactions_found?.length >= 0) {
               setInteractions(detail.interactions_found);
               setVizState("done");
               setRestored(true);
             }
-          });
-      })
-      .catch(() => {/* backend offline — skip restore */});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load categories
   useEffect(() => {
@@ -648,9 +669,23 @@ export default function InteractionsPage() {
     }
   }, [selectedDrugs]);
 
-  // Auto-save session to DB (called with direct args to avoid stale state)
+  // Auto-save session: DB (logged in) or sessionStorage (guest)
   const autoSave = useCallback(async (drugs: DrugEntry[], found: InteractionFound[]) => {
     if (drugs.length < 2) return;
+
+    if (!token) {
+      // Guest — save to sessionStorage only (cleared on page close/reload)
+      try {
+        sessionStorage.setItem("medidb_guest_session", JSON.stringify({
+          drugs_snapshot: drugs,
+          interactions_found: found,
+        }));
+      } catch { /* ignore quota errors */ }
+      setSaveState("guest");
+      setTimeout(() => setSaveState("idle"), 4000);
+      return;
+    }
+
     setSaveState("saving");
     try {
       const normSevFn = (s: string) => (["major","moderate","minor"].includes(s) ? s : "minor");
@@ -665,7 +700,7 @@ export default function InteractionsPage() {
       };
       const res = await fetch("/api/v1/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
@@ -674,7 +709,7 @@ export default function InteractionsPage() {
     } catch {
       setSaveState("idle"); // silent fail — user not blocked
     }
-  }, []);
+  }, [token]);
 
   // Derived stats — unknown maps to low risk
   const highCount = interactions.filter(r => normSev(r.severity) === "major").length;
@@ -1034,12 +1069,14 @@ export default function InteractionsPage() {
                         Clear &amp; re-check
                       </button>
                       <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg ${
-                        saveState === "saved" ? "text-green-700 bg-green-50 border border-green-200"
+                        saveState === "saved"  ? "text-green-700 bg-green-50 border border-green-200"
                         : saveState === "saving" ? "text-amber-600 bg-amber-50 border border-amber-200"
+                        : saveState === "guest" ? "text-orange-600 bg-orange-50 border border-orange-200"
                         : "text-gray-400"
                       }`}>
-                        {saveState === "saving" ? <><Loader2 size={12} className="animate-spin" /> Đang lưu tự động...</>
+                        {saveState === "saving" ? <><Loader2 size={12} className="animate-spin" /> Đang lưu...</>
                           : saveState === "saved" ? <><Check size={12} /> Đã lưu vào phân tích</>
+                          : saveState === "guest" ? <><LogIn size={12} /> Đăng nhập để lưu lịch sử</>
                           : <><Save size={11} className="opacity-40" /> Tự động lưu</>}
                       </div>
                     </div>

@@ -22,8 +22,9 @@ from sqlalchemy import func, desc, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AnalysisSession
+from app.models import AnalysisSession, User
 from app.core.simple_cache import cache_get, cache_set, cache_delete
+from app.routers.api_auth import get_user_from_token
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["Analysis Sessions"])
 
@@ -111,7 +112,14 @@ class SessionStats(BaseModel):
 
 @router.post("", response_model=SessionDetail, status_code=status.HTTP_201_CREATED,
              summary="Save a new interaction session")
-def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
+def create_session(
+    payload: SessionCreate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
+):
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập để lưu phiên phân tích")
+
     # Auto-generate title if not provided
     title = payload.title
     if not title:
@@ -121,6 +129,7 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
         title = f"Phác đồ: {drug_names}"
 
     session = AnalysisSession(
+        user_id=current_user.id,
         title=title,
         tags=payload.tags,
         drugs_snapshot=[d.model_dump() for d in payload.drugs_snapshot],
@@ -137,25 +146,32 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     db.add(session)
     db.commit()
     db.refresh(session)
-    cache_delete("sessions:stats")
+    cache_delete(f"sessions:stats:{current_user.id}")
     return session
 
 
 @router.get("/stats", response_model=SessionStats, summary="Aggregated dashboard statistics")
-def get_stats(db: Session = Depends(get_db)):
-    cached = cache_get("sessions:stats")
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
+):
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+
+    cache_key = f"sessions:stats:{current_user.id}"
+    cached = cache_get(cache_key)
     if cached is not None:
         return cached
 
-    total_sessions = db.query(func.count(AnalysisSession.id)).scalar() or 0
-    total_interactions = db.query(func.sum(AnalysisSession.total_interactions)).scalar() or 0
-    total_major = db.query(func.sum(AnalysisSession.major_count)).scalar() or 0
-    total_moderate = db.query(func.sum(AnalysisSession.moderate_count)).scalar() or 0
-    total_minor = db.query(func.sum(AnalysisSession.minor_count)).scalar() or 0
+    q = db.query(AnalysisSession).filter(AnalysisSession.user_id == current_user.id)
 
-    # Top drugs: count frequency from all sessions' drugs_snapshot JSON
-    # We do this in Python since JSON querying in MySQL varies
-    all_sessions = db.query(AnalysisSession.drugs_snapshot).all()
+    total_sessions = q.count()
+    total_interactions = db.query(func.sum(AnalysisSession.total_interactions)).filter(AnalysisSession.user_id == current_user.id).scalar() or 0
+    total_major = db.query(func.sum(AnalysisSession.major_count)).filter(AnalysisSession.user_id == current_user.id).scalar() or 0
+    total_moderate = db.query(func.sum(AnalysisSession.moderate_count)).filter(AnalysisSession.user_id == current_user.id).scalar() or 0
+    total_minor = db.query(func.sum(AnalysisSession.minor_count)).filter(AnalysisSession.user_id == current_user.id).scalar() or 0
+
+    all_sessions = db.query(AnalysisSession.drugs_snapshot).filter(AnalysisSession.user_id == current_user.id).all()
     drug_freq: dict[str, int] = {}
     for (snapshot,) in all_sessions:
         if not snapshot:
@@ -168,12 +184,12 @@ def get_stats(db: Session = Depends(get_db)):
         key=lambda x: x["count"], reverse=True
     )[:10]
 
-    # Sessions by month (last 6 months)
     sessions_by_month_raw = (
         db.query(
             func.date_format(AnalysisSession.created_at, "%Y-%m").label("month"),
             func.count(AnalysisSession.id).label("count"),
         )
+        .filter(AnalysisSession.user_id == current_user.id)
         .group_by("month")
         .order_by("month")
         .limit(12)
@@ -190,7 +206,7 @@ def get_stats(db: Session = Depends(get_db)):
         most_checked_drugs=most_checked,
         sessions_by_month=sessions_by_month,
     )
-    cache_set("sessions:stats", result, ttl=60)
+    cache_set(cache_key, result, ttl=60)
     return result
 
 
@@ -201,11 +217,13 @@ def list_sessions(
     search: Optional[str] = Query(None, description="Filter by title"),
     tag: Optional[str] = Query(None, description="Filter by tag"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
 ):
-    q = db.query(AnalysisSession)
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+
+    q = db.query(AnalysisSession).filter(AnalysisSession.user_id == current_user.id)
     if search:
-        # Prefix search hits ix_session_title prefix index (faster than %search%)
-        # Also try contains for mid-title matches as secondary pass
         q = q.filter(
             or_(
                 AnalysisSession.title.like(f"{search}%"),
@@ -214,22 +232,40 @@ def list_sessions(
         )
     if tag:
         q = q.filter(AnalysisSession.tags.like(f"%{tag}%"))
-    # ORDER BY created_at DESC uses ix_session_created index
     sessions = q.order_by(desc(AnalysisSession.created_at)).offset(skip).limit(limit).all()
     return sessions
 
 
 @router.get("/{session_id}", response_model=SessionDetail, summary="Get one session with full details")
-def get_session(session_id: int, db: Session = Depends(get_db)):
-    session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+def get_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
+):
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+    session = db.query(AnalysisSession).filter(
+        AnalysisSession.id == session_id,
+        AnalysisSession.user_id == current_user.id,
+    ).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return session
 
 
 @router.patch("/{session_id}", response_model=SessionDetail, summary="Update title / tags / notes")
-def update_session(session_id: int, payload: SessionUpdate, db: Session = Depends(get_db)):
-    session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+def update_session(
+    session_id: int,
+    payload: SessionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
+):
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+    session = db.query(AnalysisSession).filter(
+        AnalysisSession.id == session_id,
+        AnalysisSession.user_id == current_user.id,
+    ).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if payload.title is not None:
@@ -240,16 +276,25 @@ def update_session(session_id: int, payload: SessionUpdate, db: Session = Depend
         session.notes = payload.notes
     db.commit()
     db.refresh(session)
-    cache_delete("sessions:stats")
+    cache_delete(f"sessions:stats:{current_user.id}")
     return session
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT,
                 summary="Delete a session")
-def delete_session(session_id: int, db: Session = Depends(get_db)):
-    session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+def delete_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_user_from_token),
+):
+    if current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+    session = db.query(AnalysisSession).filter(
+        AnalysisSession.id == session_id,
+        AnalysisSession.user_id == current_user.id,
+    ).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     db.delete(session)
     db.commit()
-    cache_delete("sessions:stats")
+    cache_delete(f"sessions:stats:{current_user.id}")

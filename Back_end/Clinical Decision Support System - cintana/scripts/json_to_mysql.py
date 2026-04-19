@@ -95,8 +95,7 @@ CREATE TABLE IF NOT EXISTS drug_interactions (
     KEY idx_drug_code (drug_code),
     KEY idx_interacting (interacting_drug_id),
     KEY idx_severity (severity),
-    KEY idx_drugbank_id (drug_drugbank_id),
-    CONSTRAINT fk_di_drug FOREIGN KEY (drug_code) REFERENCES drugs (drug_code) ON DELETE CASCADE
+    KEY idx_drugbank_id (drug_drugbank_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
@@ -133,7 +132,7 @@ CREATE TABLE IF NOT EXISTS drug_protein_interactions (
     pubmed_ids       JSON,
     created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_drug (drug_id),
+    KEY idx_drug (drug_code),
     KEY idx_protein (protein_id),
     KEY idx_type (interaction_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -180,7 +179,9 @@ def count_table(conn, table: str) -> int:
 def truncate_table(conn, table: str):
     with conn.cursor() as cur:
         cur.execute(f"SET FOREIGN_KEY_CHECKS=0")
-        cur.execute(f"TRUNCATE TABLE `{table}`")
+        # Use DELETE instead of TRUNCATE so InnoDB reuses freed pages in-place
+        # (TRUNCATE recreates the tablespace file which fails when disk is full)
+        cur.execute(f"DELETE FROM `{table}`")
         cur.execute(f"SET FOREIGN_KEY_CHECKS=1")
     conn.commit()
 
@@ -196,10 +197,10 @@ def import_drugs(conn, ndjson_path: Path, batch_size: int) -> int:
          inchikey, inchi, description, indication,
          mechanism_of_action, pharmacodynamics, toxicity, metabolism,
          absorption, half_life, protein_binding, route_of_elimination,
-         categories, aliases, components, chemical_properties, external_mappings,
+         categories, aliases, chemical_properties, external_mappings,
          cas_number, unii, state)
     VALUES (%s,%s,%s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s,%s,
-            %s,%s,%s,%s,%s, %s,%s,%s)
+            %s,%s,%s,%s, %s,%s,%s)
     ON DUPLICATE KEY UPDATE
         name=VALUES(name), type=VALUES(type), drug_groups=VALUES(drug_groups)
     """
@@ -242,7 +243,6 @@ def import_drugs(conn, ndjson_path: Path, batch_size: int) -> int:
                 d.get("route_of_elimination") or "",
                 j(d.get("categories")),
                 j(d.get("aliases")),
-                j(d.get("components")),
                 j(cp),
                 j(d.get("external_mappings")),
                 (d.get("cas_number") or "")[:50],
@@ -276,16 +276,23 @@ def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
         total += len(batch)
         batch.clear()
 
+    # Only import major/moderate/minor interactions to save disk space.
+    # "unknown" severity makes up ~80% of rows but has little clinical value.
+    KEEP_SEVERITIES = {"major", "moderate", "minor"}
+
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             d = json.loads(line)
+            severity = (d.get("severity") or "unknown").lower().strip()
+            if severity not in KEEP_SEVERITIES:
+                continue
             batch.append((
                 d.get("drug_id", ""),       # drug_id from NDJSON = drug_code in DB
                 d.get("interacting_drug_id", ""),
-                (d.get("severity") or "unknown")[:20],
+                severity[:20],
                 d.get("description") or "",
             ))
             if len(batch) >= batch_size:

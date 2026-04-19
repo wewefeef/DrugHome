@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetchDrugInteractions } from '../lib/api';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   BarChart2, ChevronRight, X, Zap, AlertTriangle, CheckCircle2,
   Info, Clock, Trash2, Tag, FileText, Search, TrendingUp, Shield,
   Pill, FlaskConical, Activity, Edit3, Save,
-  RefreshCw, Database, Star, ArrowRight, LayoutDashboard,
+  RefreshCw, Database, Star, ArrowRight, LayoutDashboard, LogIn,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -844,6 +845,7 @@ function MiniBarChart({ data, max, color }: { data: { name: string; count: numbe
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function AnalysisPage() {
+  const { user, token } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -862,10 +864,46 @@ export default function AnalysisPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (!token) {
+      // Guest — load from sessionStorage only
+      try {
+        const raw = sessionStorage.getItem('medidb_guest_session');
+        if (raw) {
+          const detail = JSON.parse(raw) as { drugs_snapshot: DrugSnap[]; interactions_found: InteractionRec[] };
+          const guestSession: Session = {
+            id: -1,
+            title: `Phác đồ: ${(detail.drugs_snapshot ?? []).map(d => d.name).join(', ')}`,
+            tags: null,
+            total_drugs: detail.drugs_snapshot?.length ?? 0,
+            total_interactions: detail.interactions_found?.length ?? 0,
+            major_count: detail.interactions_found?.filter(ix => ix.severity === 'major').length ?? 0,
+            moderate_count: detail.interactions_found?.filter(ix => ix.severity === 'moderate').length ?? 0,
+            minor_count: detail.interactions_found?.filter(ix => ix.severity === 'minor').length ?? 0,
+            risk_score: null,
+            risk_level: null,
+            drugs_snapshot: detail.drugs_snapshot ?? [],
+            interactions_found: detail.interactions_found ?? [],
+            notes: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          setSessions([guestSession]);
+        } else {
+          setSessions([]);
+        }
+      } catch { setSessions([]); }
+      setStats(null);
+      setLoading(false);
+      return;
+    }
+
+    // Logged in — fetch from API with auth token
     try {
+      const authHeader = { 'Authorization': `Bearer ${token}` };
       const [sRes, stRes] = await Promise.all([
-        fetch(`/api/v1/sessions?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}${filterTag ? `&tag=${encodeURIComponent(filterTag)}` : ''}`),  
-        fetch('/api/v1/sessions/stats'),
+        fetch(`/api/v1/sessions?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}${filterTag ? `&tag=${encodeURIComponent(filterTag)}` : ''}`, { headers: authHeader }),
+        fetch('/api/v1/sessions/stats', { headers: authHeader }),
       ]);
       if (!sRes.ok || !stRes.ok) throw new Error('Backend không phản hồi');
       setSessions(await sRes.json());
@@ -877,21 +915,28 @@ export default function AnalysisPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, filterTag]);
+  }, [search, filterTag, token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const deleteSession = async (id: number) => {
-    if (!confirm('Xóa phiên này?')) return;
-    await fetch(`/api/v1/sessions/${id}`, { method: 'DELETE' });
+    if (id === -1) {
+      // Guest session — just clear sessionStorage
+      sessionStorage.removeItem('medidb_guest_session');
+      setSessions([]);
+      return;
+    }
+    if (!token || !confirm('Xóa phiên này?')) return;
+    await fetch(`/api/v1/sessions/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
     setSessions(prev => prev.filter(s => s.id !== id));
     if (stats) setStats({ ...stats, total_sessions: stats.total_sessions - 1 });
   };
 
   const updateSession = async (id: number, title: string, tags: string, notes: string) => {
+    if (id === -1 || !token) return;
     const res = await fetch(`/api/v1/sessions/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ title, tags, notes }),
     });
     if (res.ok) {
@@ -959,6 +1004,22 @@ export default function AnalysisPage() {
           )}
         </div>
       </div>
+
+      {/* Guest banner */}
+      {!user && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-amber-800">
+              <LogIn size={15} className="shrink-0 text-amber-600"/>
+              <span>Bạn đang xem với tư cách khách. Kết quả kiểm tra <strong>chỉ lưu trong phiên này</strong> — tắt tab hoặc tải lại trang sẽ mất.</span>
+            </div>
+            <Link to="/auth"
+              className="shrink-0 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg transition-colors">
+              Đăng nhập / Đăng ký
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white border-b border-gray-200 sticky top-[104px] z-30">

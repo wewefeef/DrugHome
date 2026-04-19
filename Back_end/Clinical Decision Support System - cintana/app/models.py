@@ -395,6 +395,9 @@ class AnalysisSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
+    # Owner — nullable so old sessions (before auth) still exist; NULL = orphaned guest session
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+
     # Human-readable label (auto-generated or user-named)
     title: Mapped[str] = mapped_column(String(500), nullable=False, default="Untitled Session")
 
