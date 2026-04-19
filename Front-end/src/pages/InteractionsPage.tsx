@@ -758,7 +758,7 @@ export default function InteractionsPage() {
 
             {/* ── LEFT: Drug Selector ────────── */}
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-2 font-bold text-gray-800 text-sm">
                     <Search size={15} className="text-gray-400" /> Select Drugs
@@ -799,7 +799,13 @@ export default function InteractionsPage() {
                     <Search size={13} className="text-gray-400 shrink-0" />
                     <input type="text" value={drugSearch} onChange={e => setDrugSearch(e.target.value)}
                       placeholder="Search drugs&hellip;"
-                      className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400" />
+                      className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && drugSuggestions.length > 0) {
+                          e.preventDefault();
+                          addDrug(drugSuggestions[0]);
+                        }
+                      }} />
                     {drugSearch && (
                       <button onClick={() => { setDrugSearch(""); setDrugSuggestions([]); }}>
                         <X size={12} className="text-gray-400" />
