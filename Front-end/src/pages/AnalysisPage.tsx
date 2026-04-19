@@ -196,6 +196,7 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
     major:    { label: 'Nguy hiểm cao', desc: 'Tương tác có thể đe dọa tính mạng hoặc gây tổn thương không hồi phục. Cần can thiệp y tế ngay.', icon: '🚨' },
     moderate: { label: 'Trung bình',    desc: 'Tương tác có thể gây biến cố lâm sàng đáng kể. Cần điều chỉnh liều hoặc theo dõi chặt chẽ.',      icon: '⚠️' },
     minor:    { label: 'Thấp',          desc: 'Tương tác ít có ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.',                   icon: 'ℹ️' },
+    unknown:  { label: 'Thấp',          desc: 'Tương tác ít có ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.',                   icon: 'ℹ️' },
   };
   const sm = severityMeta[normSev(ix.severity)];
 
