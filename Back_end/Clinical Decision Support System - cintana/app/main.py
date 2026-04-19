@@ -5,6 +5,7 @@ Run:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -21,15 +22,18 @@ from app.routers import drugs as drugs_router
 from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
-    # Create any missing tables (new models: proteins, drug_interactions, etc.)
-    Base.metadata.create_all(bind=engine)
-    # Initialize in-memory cache (swap for RedisBackend in production)
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("DB tables verified OK")
+    except Exception as exc:
+        logger.warning("DB table check failed (non-fatal): %s", exc)
     yield
 
 
@@ -77,7 +81,10 @@ app.add_middleware(
 
 # ── Static files ──────────────────────────────────────────────────────────────
 
-app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
+if settings.static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
+else:
+    logger.warning("Static dir not found, skipping mount: %s", settings.static_dir)
 
 # ── Admin UI (sqladmin) ───────────────────────────────────────────────────────
 
