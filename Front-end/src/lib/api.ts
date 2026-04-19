@@ -129,7 +129,7 @@ export async function apiFetchDrugs(params: DrugListParams = {}): Promise<Pagina
   sp.set('page',     String(params.page ?? 1));
   sp.set('per_page', String(params.per_page ?? 24));
 
-  const res = await fetch(`${BASE}/drugs/?${sp}`, { signal: params.signal });
+  const res = await fetch(`${BASE}/drugs?${sp}`, { signal: params.signal });
   if (!res.ok) throw new Error(`Drugs API error: ${res.status}`);
   const data: Paginated<ApiDrug> = await res.json();
   return { ...data, items: data.items.map(normalizeDrug) };
@@ -149,7 +149,7 @@ export async function apiSearchDrugs(
   signal?: AbortSignal,
 ): Promise<{ id: string; name: string }[]> {
   const sp = new URLSearchParams({ q: query, per_page: '10', page: '1' });
-  const res = await fetch(`${BASE}/drugs/?${sp}`, { signal });
+  const res = await fetch(`${BASE}/drugs?${sp}`, { signal });
   if (!res.ok) return [];
   const data: Paginated<ApiDrug> = await res.json();
   return data.items.map(d => ({ id: d.drugbank_id, name: d.name }));
@@ -175,7 +175,7 @@ export async function apiFetchProteins(params: ProteinListParams = {}): Promise<
   sp.set('page',     String(params.page ?? 1));
   sp.set('per_page', String(params.per_page ?? 25));
 
-  const res = await fetch(`${BASE}/substances/?${sp}`, { signal: params.signal });
+  const res = await fetch(`${BASE}/substances?${sp}`, { signal: params.signal });
   if (!res.ok) throw new Error(`Substances API error: ${res.status}`);
   const data: Paginated<ApiProtein> = await res.json();
   return { ...data, items: data.items.map(normalizeProtein) };
@@ -187,7 +187,7 @@ export async function apiSearchProteins(
   signal?: AbortSignal,
 ): Promise<Protein[]> {
   const sp = new URLSearchParams({ q: query, per_page: '8', page: '1' });
-  const res = await fetch(`${BASE}/substances/?${sp}`, { signal });
+  const res = await fetch(`${BASE}/substances?${sp}`, { signal });
   if (!res.ok) return [];
   const data: Paginated<ApiProtein> = await res.json();
   return data.items.map(normalizeProtein);
@@ -203,8 +203,8 @@ export interface SiteStats {
 /** Fetch live totals from the backend (2 lightweight calls) */
 export async function apiFetchSiteStats(): Promise<SiteStats> {
   const [drugRes, proteinRes] = await Promise.all([
-    fetch(`${BASE}/drugs/?per_page=1&page=1`),
-    fetch(`${BASE}/substances/?per_page=1&page=1`),
+    fetch(`${BASE}/drugs?per_page=1&page=1`),
+    fetch(`${BASE}/substances?per_page=1&page=1`),
   ]);
   const drugData: Paginated<unknown> = drugRes.ok ? await drugRes.json() : { total: 17590 };
   const proteinData: Paginated<unknown> = proteinRes.ok ? await proteinRes.json() : { total: 5309 };

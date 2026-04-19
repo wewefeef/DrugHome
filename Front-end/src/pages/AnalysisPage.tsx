@@ -275,7 +275,7 @@ export default function AnalysisPage() {
     setError(null);
     try {
       const [sRes, stRes] = await Promise.all([
-        fetch(`/api/v1/sessions/?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}${filterTag ? `&tag=${encodeURIComponent(filterTag)}` : ''}`),
+        fetch(`/api/v1/sessions?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}${filterTag ? `&tag=${encodeURIComponent(filterTag)}` : ''}`),  
         fetch('/api/v1/sessions/stats'),
       ]);
       if (!sRes.ok || !stRes.ok) throw new Error('Backend không phản hồi');
