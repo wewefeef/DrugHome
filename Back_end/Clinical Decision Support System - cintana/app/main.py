@@ -30,6 +30,11 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     # Initialize in-memory cache
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
+    # Try DB create_all here too — idempotent, errors are non-fatal
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as _db_exc:
+        logger.warning("DB create_all skipped in lifespan: %s", _db_exc)
     yield
 
 
@@ -93,11 +98,38 @@ else:
 
 # ── Admin UI (sqladmin) ───────────────────────────────────────────────────────
 
-# Guard: sqladmin >= 0.18 wraps the app lifespan; if DB inspect fails on
-# startup it raises an unhandled exception inside asyncio_run.
+# sqladmin >= 0.18 wraps the app lifespan and inspects the DB schema during
+# ASGI startup. On Railway, MySQL may not be ready when the first instance
+# starts → the lifespan raises an unhandled exception → "Application startup
+# failed". Fix: re-wrap sqladmin's lifespan so DB failures are non-fatal.
 try:
     admin = Admin(app, engine, title=f"{settings.app_title} — Admin")
     admin.add_view(DrugAdmin)
+
+    # sqladmin has now replaced app.router.lifespan_context.
+    # Wrap it to catch DB-connect errors so the app still starts.
+    _admin_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def _resilient_lifespan(a: FastAPI):
+        try:
+            async with _admin_lifespan(a):
+                yield
+        except Exception as _sq_exc:
+            logger.warning(
+                "sqladmin lifespan failed (DB not ready?), running without admin UI: %s",
+                _sq_exc,
+            )
+            # Re-run our own base lifespan so cache + create_all still happen
+            FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
+            try:
+                Base.metadata.create_all(bind=engine)
+            except Exception:
+                pass
+            yield
+
+    app.router.lifespan_context = _resilient_lifespan
+
 except Exception as _admin_exc:
     logger.warning("sqladmin Admin init skipped: %s", _admin_exc)
 
