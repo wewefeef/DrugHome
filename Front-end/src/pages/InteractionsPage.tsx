@@ -489,7 +489,7 @@ export default function InteractionsPage() {
 
   // Restore last session from API on mount
   useEffect(() => {
-    fetch("/api/v1/sessions/?limit=1")
+    fetch("/api/v1/sessions?limit=1")
       .then(r => r.ok ? r.json() : [])
       .then((sessions: Array<{ id: number; drugs_snapshot?: { id: string; name: string }[] }>) => {
         if (!sessions.length || !sessions[0].drugs_snapshot?.length) return;
@@ -629,7 +629,7 @@ export default function InteractionsPage() {
         moderate_count: found.filter(r => normSevFn(r.severity) === "moderate").length,
         minor_count: found.filter(r => normSevFn(r.severity) === "minor").length,
       };
-      const res = await fetch("/api/v1/sessions/", {
+      const res = await fetch("/api/v1/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

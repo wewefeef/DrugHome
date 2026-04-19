@@ -48,6 +48,7 @@ app = FastAPI(
     version=settings.app_version,
     debug=settings.debug,
     lifespan=lifespan,
+    redirect_slashes=False,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     description="""
