@@ -29,10 +29,11 @@ class Settings(BaseSettings):
 
     # ── Database (MySQL) ──────────────────────────────────────────────────────
     # Railway MySQL plugin injects: MYSQLHOST, MYSQLPORT, MYSQLUSER,
-    # MYSQLPASSWORD, MYSQLDATABASE  (set these in Railway → Variables tab).
-    # Fallback to DB_* vars for local development.
+    # MYSQLPASSWORD, MYSQLDATABASE  (set via Railway → Variables tab).
+    # mysqlport is str (not int) so Pydantic never tries int-parsing on
+    # Railway's raw value which may contain leading whitespace/tabs.
     mysqlhost: str = ""
-    mysqlport: int = 3306
+    mysqlport: str = "3306"   # kept as str — converted manually in database_url
     mysqluser: str = ""
     mysqlpassword: str = ""
     mysqldatabase: str = ""
@@ -44,10 +45,23 @@ class Settings(BaseSettings):
     db_user: str = "root"
     db_password: str = ""
 
-    # Strip whitespace/tabs that Railway sometimes injects into port values
-    @field_validator("mysqlport", "db_port", mode="before")
+    # Strip leading/trailing whitespace from ALL string env vars.
+    # Railway occasionally injects values with tabs (e.g. MYSQLPORT="\t3306").
+    @field_validator(
+        "mysqlhost", "mysqlport", "mysqluser",
+        "mysqlpassword", "mysqldatabase", "db_charset",
+        "db_host", "db_name", "db_user", "db_password",
+        mode="before",
+    )
     @classmethod
-    def strip_port(cls, v: Any) -> Any:
+    def strip_str(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @field_validator("db_port", mode="before")
+    @classmethod
+    def strip_db_port(cls, v: Any) -> Any:
         if isinstance(v, str):
             return v.strip()
         return v
@@ -67,23 +81,23 @@ class Settings(BaseSettings):
         """
         SQLAlchemy connection string for MySQL using PyMySQL driver.
         Priority:
-          1. MYSQLHOST/MYSQLPORT/MYSQLUSER/MYSQLPASSWORD/MYSQLDATABASE
-             — injected by Railway MySQL plugin via Variables tab
-          2. DB_HOST / DB_USER / … — local development fallback
-
-        Uses sqlalchemy.engine.URL.create() to safely escape special
-        characters in the password (Railway auto-generates passwords
-        that may contain @, /, ?, etc.).
+          1. MYSQLHOST/… — Railway MySQL plugin vars (set in Variables tab)
+          2. DB_HOST/…   — local development fallback
+        Uses URL.create() to safely percent-encode passwords with special chars.
         """
         from sqlalchemy.engine import URL as _URL
 
         if self.mysqlhost and self.mysqluser:
+            try:
+                port = int(self.mysqlport)
+            except (ValueError, TypeError):
+                port = 3306
             url = _URL.create(
                 drivername="mysql+pymysql",
                 username=self.mysqluser,
                 password=self.mysqlpassword,
                 host=self.mysqlhost,
-                port=self.mysqlport or 3306,
+                port=port,
                 database=self.mysqldatabase,
                 query={"charset": self.db_charset},
             )

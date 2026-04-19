@@ -81,12 +81,21 @@ app.add_middleware(
 
 # ── Static files ──────────────────────────────────────────────────────────────
 
-app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
+# Guard: StaticFiles raises RuntimeError if the directory is missing.
+if settings.static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
+else:
+    logger.warning("Static directory not found, skipping mount: %s", settings.static_dir)
 
 # ── Admin UI (sqladmin) ───────────────────────────────────────────────────────
 
-admin = Admin(app, engine, title=f"{settings.app_title} — Admin")
-admin.add_view(DrugAdmin)
+# Guard: sqladmin >= 0.18 wraps the app lifespan; if DB inspect fails on
+# startup it raises an unhandled exception inside asyncio_run.
+try:
+    admin = Admin(app, engine, title=f"{settings.app_title} — Admin")
+    admin.add_view(DrugAdmin)
+except Exception as _admin_exc:
+    logger.warning("sqladmin Admin init skipped: %s", _admin_exc)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 
