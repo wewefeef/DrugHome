@@ -78,52 +78,87 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """
-        Priority:
-          1. MYSQL_URL  — full URL set manually in DrugHome → Variables
-          2. MYSQL_HOST — individual vars auto-exported by Railway MySQL plugin
-          3. DB_HOST/…  — local development fallback (default: 127.0.0.1)
+        Build the SQLAlchemy connection URL.
+
+        Env var priority (highest → lowest):
+          1. MYSQL_URL        — full URL, set manually in Railway DrugHome Variables:
+                                  MYSQL_URL = ${{MySQL.MYSQL_URL}}
+          2. DATABASE_URL     — common Heroku/Railway convention (full URL)
+          3. MYSQL_HOST       — individual vars, Railway MySQL plugin (with underscore)
+          4. MYSQLHOST        — individual vars, some Railway templates (no underscore)
+          5. DB_HOST / ...    — local development fallback (default: 127.0.0.1)
         """
+        import os
         import re
         from sqlalchemy.engine import URL as _URL
 
         def _fix_driver(url: str) -> str:
-            url = re.sub(r"^mysql://", "mysql+pymysql://", url.strip())
+            """Normalize any mysql:// URL to mysql+pymysql:// with charset."""
+            url = url.strip()
+            url = re.sub(r"^mysql://", "mysql+pymysql://", url)
             url = re.sub(r"^mysql\+mysqldb://", "mysql+pymysql://", url)
             if "charset=" not in url:
                 sep = "&" if "?" in url else "?"
                 url = f"{url}{sep}charset={self.db_charset}"
             return url
 
-        # 1. Full URL env var
+        def _build_url(host: str, port: int, user: str, password: str, db: str) -> str:
+            return _URL.create(
+                drivername="mysql+pymysql",
+                username=user,
+                password=password,
+                host=host,
+                port=port,
+                database=db,
+                query={"charset": self.db_charset},
+            ).render_as_string(hide_password=False)
+
+        # 1. MYSQL_URL (pydantic-settings field)
         if self.mysql_url:
             return _fix_driver(self.mysql_url)
 
-        # 2. Individual Railway MySQL plugin vars (MYSQL_HOST etc.)
+        # 2. DATABASE_URL (direct env read — not a pydantic field to avoid name collision)
+        database_url_raw = os.environ.get("DATABASE_URL", "").strip()
+        if database_url_raw:
+            return _fix_driver(database_url_raw)
+
+        # 3. MYSQL_HOST (with underscore — Railway MySQL plugin standard)
         if self.mysql_host:
             try:
                 port = int(self.mysql_port) if self.mysql_port else 3306
             except ValueError:
                 port = 3306
-            return _URL.create(
-                drivername="mysql+pymysql",
-                username=self.mysql_user or "root",
-                password=self.mysql_password or self.db_password,
+            return _build_url(
                 host=self.mysql_host,
                 port=port,
-                database=self.mysql_database or self.db_name,
-                query={"charset": self.db_charset},
-            ).render_as_string(hide_password=False)
+                user=self.mysql_user or self.db_user,
+                password=self.mysql_password or self.db_password,
+                db=self.mysql_database or self.db_name,
+            )
 
-        # 3. Local dev fallback
-        return _URL.create(
-            drivername="mysql+pymysql",
-            username=self.db_user,
-            password=self.db_password,
+        # 4. MYSQLHOST (no underscore — some Railway templates)
+        mysqlhost = os.environ.get("MYSQLHOST", "").strip()
+        if mysqlhost:
+            try:
+                mysqlport = int(os.environ.get("MYSQLPORT", "3306").strip() or "3306")
+            except ValueError:
+                mysqlport = 3306
+            return _build_url(
+                host=mysqlhost,
+                port=mysqlport,
+                user=os.environ.get("MYSQLUSER", self.db_user).strip(),
+                password=os.environ.get("MYSQLPASSWORD", self.db_password).strip(),
+                db=os.environ.get("MYSQLDATABASE", self.db_name).strip(),
+            )
+
+        # 5. Local dev fallback
+        return _build_url(
             host=self.db_host,
             port=self.db_port,
-            database=self.db_name,
-            query={"charset": self.db_charset},
-        ).render_as_string(hide_password=False)
+            user=self.db_user,
+            password=self.db_password,
+            db=self.db_name,
+        )
 
 
 @lru_cache
