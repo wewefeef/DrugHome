@@ -192,21 +192,62 @@ export default function DrugsPage() {
   const GROUPS = ["All", "approved", "investigational", "experimental", "withdrawn", "illicit"];
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    apiFetchDrugs({
-      q: activeQuery || undefined,
-      group: groupFilter !== "All" ? groupFilter : undefined,
-      drug_type: drugType !== "All" ? drugType : undefined,
-      page,
-      per_page: PAGE_SIZE,
-    })
-      .then(result => {
-        setDrugs(result.items);
-        setTotal(result.total);
-        setTotalPages(result.total_pages);
-      })
-      .catch(() => { setDrugs([]); setTotal(0); setTotalPages(0); })
-      .finally(() => setLoading(false));
+
+    const load = async () => {
+      try {
+        const result = await apiFetchDrugs({
+          q: activeQuery || undefined,
+          group: groupFilter !== "All" ? groupFilter : undefined,
+          drug_type: drugType !== "All" ? drugType : undefined,
+          page,
+          per_page: PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setDrugs(result.items);
+          setTotal(result.total);
+          setTotalPages(result.total_pages);
+        }
+      } catch {
+        // Fallback: load from local static JSON when backend is unavailable
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}data/drugs.json`);
+          if (!res.ok) throw new Error();
+          const allDrugs: Drug[] = await res.json();
+          let filtered = allDrugs;
+          if (activeQuery) {
+            const q = activeQuery.toLowerCase();
+            filtered = filtered.filter(d =>
+              d.name.toLowerCase().includes(q) ||
+              d.id.toLowerCase().includes(q)
+            );
+          }
+          if (groupFilter !== "All") {
+            filtered = filtered.filter(d => d.groups.includes(groupFilter));
+          }
+          if (drugType !== "All") {
+            filtered = filtered.filter(d => d.type.toLowerCase() === drugType.toLowerCase());
+          }
+          const total = filtered.length;
+          const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+          const start = (page - 1) * PAGE_SIZE;
+          const items = filtered.slice(start, start + PAGE_SIZE);
+          if (!cancelled) {
+            setDrugs(items);
+            setTotal(total);
+            setTotalPages(totalPages);
+          }
+        } catch {
+          if (!cancelled) { setDrugs([]); setTotal(0); setTotalPages(0); }
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
   }, [activeQuery, groupFilter, drugType, page]);
 
   const activeFiltersCount = [drugType !== "All", groupFilter !== "All"].filter(Boolean).length;

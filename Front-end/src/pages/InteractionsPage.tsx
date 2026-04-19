@@ -565,8 +565,19 @@ export default function InteractionsPage() {
         body: JSON.stringify({ drug_ids: selectedDrugs.map(d => d.id) }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`);
+        const errBody = await res.json().catch(() => ({}));
+        const detail = (errBody as { detail?: unknown }).detail;
+        let message: string;
+        if (typeof detail === 'string') {
+          message = detail;
+        } else if (detail && typeof detail === 'object' && 'message' in detail) {
+          message = (detail as { message: string }).message;
+        } else if (Array.isArray(detail) && detail.length > 0 && (detail[0] as { msg?: string }).msg) {
+          message = (detail as { msg: string }[]).map(d => d.msg).join(', ');
+        } else {
+          message = `HTTP ${res.status}`;
+        }
+        throw new Error(message);
       }
       const data: CheckResponse = await res.json();
       const found = data.interactions_found ?? [];

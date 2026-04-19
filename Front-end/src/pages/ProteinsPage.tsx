@@ -71,20 +71,59 @@ export default function ProteinsPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    apiFetchProteins({
-      q: activeQuery || undefined,
-      protein_type: typeFilter !== "All types" ? typeFilter : undefined,
-      page,
-      per_page: PAGE_SIZE,
-    })
-      .then(result => {
-        setProteins(result.items);
-        setTotal(result.total);
-        setTotalPages(result.total_pages);
-      })
-      .catch(() => { setProteins([]); setTotal(0); setTotalPages(0); })
-      .finally(() => setLoading(false));
+
+    const load = async () => {
+      try {
+        const result = await apiFetchProteins({
+          q: activeQuery || undefined,
+          protein_type: typeFilter !== "All types" ? typeFilter : undefined,
+          page,
+          per_page: PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setProteins(result.items);
+          setTotal(result.total);
+          setTotalPages(result.total_pages);
+        }
+      } catch {
+        // Fallback: load from local static JSON when backend is unavailable
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}data/proteins.json`);
+          if (!res.ok) throw new Error();
+          const allProteins: Protein[] = await res.json();
+          let filtered = allProteins;
+          if (activeQuery) {
+            const q = activeQuery.toLowerCase();
+            filtered = filtered.filter(p =>
+              p.name.toLowerCase().includes(q) ||
+              (p.gene_name ?? '').toLowerCase().includes(q) ||
+              (p.uniprot_id ?? '').toLowerCase().includes(q)
+            );
+          }
+          if (typeFilter !== "All types") {
+            filtered = filtered.filter(p => p.types.includes(typeFilter));
+          }
+          const total = filtered.length;
+          const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+          const start = (page - 1) * PAGE_SIZE;
+          const items = filtered.slice(start, start + PAGE_SIZE);
+          if (!cancelled) {
+            setProteins(items);
+            setTotal(total);
+            setTotalPages(totalPages);
+          }
+        } catch {
+          if (!cancelled) { setProteins([]); setTotal(0); setTotalPages(0); }
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
   }, [activeQuery, typeFilter, page]);
 
   const gotoPage = useCallback((p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);

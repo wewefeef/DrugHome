@@ -284,7 +284,7 @@ export default function AnalysisPage() {
       setBackendOk(true);
     } catch {
       setBackendOk(false);
-      setError('Không kết nối được backend. Hãy khởi động uvicorn.');
+      setError('Không kết nối được máy chủ backend.');
     } finally {
       setLoading(false);
     }
@@ -398,7 +398,7 @@ export default function AnalysisPage() {
           <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-amber-700 text-sm">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <div>
-              <strong>Backend chưa chạy.</strong> Dữ liệu lịch sử yêu cầu uvicorn trên port 8000.
+              <strong>Backend chưa kết nối.</strong> Dữ liệu lịch sử yêu cầu kết nối đến máy chủ backend.
               Tính năng kiểm tra tương tác vẫn hoạt động bình thường.
             </div>
           </div>
