@@ -52,6 +52,63 @@ const SEV = {
 };
 const normSev = (s: string) => (['major','moderate','minor'].includes(s) ? s as keyof typeof SEV : 'minor');
 
+// ── Interaction pathway analysis ───────────────────────────────────────────
+
+interface PathwayInfo {
+  mechanism: string;
+  effect: string;
+  recommendation: string;
+  category: string;
+  interactionType: 'PK' | 'PD';
+}
+
+function parsePathway(ix: InteractionRec): PathwayInfo {
+  const d = (ix.description || '').toLowerCase();
+
+  if (d.includes('seroton'))
+    return { mechanism: 'Hội chứng Serotonin', effect: 'Tăng nồng độ Serotonin — ngộ độc', recommendation: 'Tránh phối hợp tuyệt đối. Nguy cơ tính mạng.', category: 'serotonin', interactionType: 'PD' };
+  if (d.includes('qt prolongat') || d.includes('torsade') || d.includes('arrhythmia') || d.includes('cardiac arrhyth'))
+    return { mechanism: 'Kéo dài khoảng QT tim', effect: 'Rối loạn nhịp / Torsades de Pointes', recommendation: 'Theo dõi ECG. Tránh phối hợp nếu có thể.', category: 'cardiac', interactionType: 'PD' };
+  if (d.includes('bleeding') || d.includes('hemorrhag') || d.includes('anticoagulant effect') || d.includes('risk of bleeding'))
+    return { mechanism: 'Tăng cường hoạt động chống đông', effect: 'Nguy cơ chảy máu nghiêm trọng', recommendation: 'Theo dõi INR, PT/aPTT. Điều chỉnh liều anticoagulant.', category: 'bleeding', interactionType: 'PD' };
+  if (d.includes('nephrotox') || d.includes('renal toxicity') || d.includes('acute kidney'))
+    return { mechanism: 'Độc tính thận cộng hưởng', effect: 'Tăng nguy cơ suy thận cấp', recommendation: 'Theo dõi creatinine/GFR. Điều chỉnh liều theo chức năng thận.', category: 'renal', interactionType: 'PD' };
+  if (d.includes('hepatotox') || d.includes('liver toxicity') || d.includes('hepatic'))
+    return { mechanism: 'Độc tính gan cộng hưởng', effect: 'Tổn thương tế bào gan', recommendation: 'Theo dõi men gan (ALT/AST). Cân nhắc thay thế thuốc.', category: 'hepatic', interactionType: 'PD' };
+  if (d.includes('cns depression') || d.includes('sedation') || d.includes('respiratory depression'))
+    return { mechanism: 'Ức chế thần kinh trung ương', effect: 'An thần sâu / Ức chế hô hấp', recommendation: 'Giảm liều, theo dõi tri giác và hô hấp chặt chẽ.', category: 'cns', interactionType: 'PD' };
+  if (d.includes('cyp') || d.includes('metabolism of') || d.includes('metabolized by') || d.includes('cytochrome')) {
+    const isDecreased = d.includes('decreased') || d.includes('inhibit') || d.includes('reduced');
+    return {
+      mechanism: 'Ức chế/Cảm ứng enzym CYP450',
+      effect: isDecreased ? 'Tăng nồng độ thuốc trong huyết tương' : 'Giảm nồng độ thuốc trong huyết tương',
+      recommendation: isDecreased ? 'Giảm liều và theo dõi nồng độ thuốc trong máu.' : 'Tăng liều và theo dõi hiệu quả điều trị.',
+      category: 'metabolic', interactionType: 'PK',
+    };
+  }
+  if (d.includes('serum concentration') || d.includes('plasma concentration') || d.includes('blood level') || d.includes('auc'))
+    return { mechanism: 'Thay đổi phân phối / thải trừ', effect: 'Thay đổi nồng độ thuốc trong máu', recommendation: 'Theo dõi nồng độ thuốc và điều chỉnh liều phù hợp.', category: 'pk', interactionType: 'PK' };
+  if (d.includes('absorption') || d.includes('bioavailability') || d.includes('cmax'))
+    return { mechanism: 'Ảnh hưởng hấp thu đường tiêu hóa', effect: 'Giảm sinh khả dụng của thuốc', recommendation: 'Uống cách nhau ít nhất 2–4 giờ.', category: 'absorption', interactionType: 'PK' };
+  if (d.includes('protein binding') || d.includes('plasma protein'))
+    return { mechanism: 'Cạnh tranh gắn protein huyết tương', effect: 'Tăng dạng tự do của thuốc', recommendation: 'Theo dõi tác dụng và độc tính của cả hai thuốc.', category: 'protein', interactionType: 'PK' };
+
+  return { mechanism: 'Tương tác dược động học / lực học', effect: 'Thay đổi tác dụng hoặc độc tính', recommendation: 'Theo dõi lâm sàng chặt chẽ khi phối hợp hai thuốc.', category: 'pk', interactionType: 'PK' };
+}
+
+const CAT_STYLE: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
+  serotonin:  { bg: 'bg-pink-50',    border: 'border-pink-300',   text: 'text-pink-700',    icon: '🧠', label: 'Serotonin' },
+  cardiac:    { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '❤️', label: 'Tim mạch' },
+  bleeding:   { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '🩸', label: 'Chảy máu' },
+  renal:      { bg: 'bg-teal-50',    border: 'border-teal-300',   text: 'text-teal-700',    icon: '🫘', label: 'Thận' },
+  hepatic:    { bg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700',  icon: '🫀', label: 'Gan' },
+  metabolic:  { bg: 'bg-orange-50',  border: 'border-orange-300', text: 'text-orange-700',  icon: '⚗️',  label: 'CYP450' },
+  pk:         { bg: 'bg-blue-50',    border: 'border-blue-300',   text: 'text-blue-700',    icon: '🔬', label: 'PK' },
+  absorption: { bg: 'bg-purple-50',  border: 'border-purple-300', text: 'text-purple-700',  icon: '💊', label: 'Hấp thu' },
+  protein:    { bg: 'bg-indigo-50',  border: 'border-indigo-300', text: 'text-indigo-700',  icon: '🧬', label: 'Protein' },
+  cns:        { bg: 'bg-slate-50',   border: 'border-slate-300',  text: 'text-slate-700',   icon: '🧬', label: 'TKTW' },
+};
+
 function fmtDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
@@ -62,6 +119,186 @@ function fmtDateShort(iso: string) {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
+
+function PathwayDiagram({ ix }: { ix: InteractionRec }) {
+  const pw = parsePathway(ix);
+  const sev = SEV[normSev(ix.severity)];
+  const cat = CAT_STYLE[pw.category] ?? CAT_STYLE.pk;
+  const sevBorderColor = ix.severity === 'major' ? '#fca5a5' : ix.severity === 'moderate' ? '#fcd34d' : '#86efac';
+
+  return (
+    <div className="rounded-xl bg-slate-50 border border-gray-200 p-5 overflow-x-auto">
+      <div className="flex items-center gap-1 min-w-max mx-auto justify-center">
+
+        {/* Drug nodes (stacked) */}
+        <div className="flex flex-col gap-2.5">
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
+            <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Thuốc A</div>
+            <div className="text-xs font-bold text-blue-700 truncate" title={ix.drug_a_name}>{ix.drug_a_name}</div>
+          </div>
+          <div className="bg-violet-50 border-2 border-violet-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
+            <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Thuốc B</div>
+            <div className="text-xs font-bold text-violet-700 truncate" title={ix.drug_b_name}>{ix.drug_b_name}</div>
+          </div>
+        </div>
+
+        {/* Bracket SVG connecting both drugs to mechanism */}
+        <svg width="36" height="80" viewBox="0 0 36 80" fill="none" className="shrink-0">
+          <path d="M2 20 H18 V40 M18 40 V60 H2 M18 40 H36" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+
+        {/* Mechanism node */}
+        <div className={`rounded-xl px-4 py-3.5 w-40 text-center border-2 shadow-sm ${cat.bg} ${cat.border}`}>
+          <div className="text-2xl mb-1.5">{cat.icon}</div>
+          <div className={`text-[9px] font-bold uppercase tracking-widest mb-1 opacity-70 ${cat.text}`}>{pw.interactionType} · {cat.label}</div>
+          <div className={`text-xs font-bold leading-tight ${cat.text}`}>{pw.mechanism}</div>
+        </div>
+
+        {/* Arrow */}
+        <svg width="32" height="12" viewBox="0 0 32 12" fill="none" className="shrink-0">
+          <path d="M0 6 H24" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M20 2 L28 6 L20 10" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+
+        {/* Effect node */}
+        <div className={`rounded-xl px-4 py-3.5 w-40 text-center border-2 shadow-sm ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
+          <div className="text-2xl mb-1.5">⚠️</div>
+          <div className={`text-[9px] font-bold uppercase tracking-widest mb-1 opacity-70 ${sev.text}`}>Kết quả lâm sàng</div>
+          <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-200">
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+          <span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300" /> Thuốc A
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+          <span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300" /> Thuốc B
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+          <span className={`w-3 h-3 rounded-full ${cat.bg} border ${cat.border}`} /> Cơ chế ({pw.interactionType})
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
+          <span className={`w-3 h-3 rounded-full ${sev.bg}`} style={{ border: `1px solid ${sevBorderColor}` }} /> Hậu quả
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: () => void }) {
+  const pw = parsePathway(ix);
+  const sev = SEV[normSev(ix.severity)];
+  const sevBorderColor = ix.severity === 'major' ? '#fca5a5' : ix.severity === 'moderate' ? '#fcd34d' : '#86efac';
+
+  const severityMeta = {
+    major:    { label: 'Nguy hiểm cao', desc: 'Tương tác có thể đe dọa tính mạng hoặc gây tổn thương không hồi phục. Cần can thiệp y tế ngay.', icon: '🚨' },
+    moderate: { label: 'Trung bình',    desc: 'Tương tác có thể gây biến cố lâm sàng đáng kể. Cần điều chỉnh liều hoặc theo dõi chặt chẽ.',      icon: '⚠️' },
+    minor:    { label: 'Thấp',          desc: 'Tương tác ít có ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.',                   icon: 'ℹ️' },
+  };
+  const sm = severityMeta[normSev(ix.severity)];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+        {/* ── Header ── */}
+        <div className={`px-6 py-5 border-b-2 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="font-extrabold text-gray-800 text-base">{ix.drug_a_name}</span>
+                <svg width="20" height="10" viewBox="0 0 20 10" fill="none" className="shrink-0">
+                  <path d="M0 5 H14 M10 1 L18 5 L10 9" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="font-extrabold text-gray-800 text-base">{ix.drug_b_name}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <RiskBadge sev={ix.severity} />
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sev.bg} ${sev.text}`}>{sm.icon} {sm.label}</span>
+                <span className="text-[10px] text-gray-400 italic">Nguồn: DrugBank® v5</span>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/10 transition-colors shrink-0">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Severity explanation ── */}
+        <div className={`px-6 py-3 border-b border-gray-100 ${sev.bg}`}>
+          <p className={`text-xs ${sev.text}`}>{sm.desc}</p>
+        </div>
+
+        {/* ── Pathway Diagram ── */}
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+            <Activity size={14} className="text-violet-500" /> Sơ đồ đường đi tương tác
+          </h3>
+          <PathwayDiagram ix={ix} />
+        </div>
+
+        {/* ── Mechanism analysis cards ── */}
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+          <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+            <FlaskConical size={14} className="text-orange-500" /> Phân tích cơ chế
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Loại tương tác</div>
+              <div className="text-2xl font-extrabold text-primary-700">{pw.interactionType}</div>
+              <div className="text-[10px] text-gray-400 mt-0.5">
+                {pw.interactionType === 'PK' ? 'Dược động học' : 'Dược lực học'}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Cơ chế chính</div>
+              <div className="text-xs font-bold text-gray-700 leading-tight">{pw.mechanism}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-3">
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Hậu quả dự kiến</div>
+              <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
+            </div>
+          </div>
+          <div className="mt-3 bg-white rounded-xl border border-gray-200 p-3">
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              {pw.interactionType === 'PK' ? '⚙️ Tương tác dược động học (PK)' : '⚡ Tương tác dược lực học (PD)'}
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {pw.interactionType === 'PK'
+                ? 'Tương tác xảy ra ở cấp độ hấp thu, phân phối, chuyển hóa hoặc thải trừ — ảnh hưởng đến nồng độ thuốc trong máu mà không ảnh hưởng trực tiếp đến receptor.'
+                : 'Tương tác xảy ra ở cấp độ hiệu quả sinh học — hai thuốc tác động lên cùng receptor, enzyme hoặc con đường tín hiệu, gây tăng/giảm hiệu quả hoặc tăng độc tính.'}
+            </p>
+          </div>
+        </div>
+
+        {/* ── Full DrugBank description ── */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+            <FileText size={14} className="text-blue-500" /> Mô tả chi tiết (DrugBank)
+          </h3>
+          <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+            {ix.description || 'Không có mô tả chi tiết trong cơ sở dữ liệu DrugBank cho cặp thuốc này.'}
+          </p>
+        </div>
+
+        {/* ── Clinical recommendation ── */}
+        <div className="px-6 py-5">
+          <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+            <Shield size={14} className="text-green-500" /> Khuyến nghị lâm sàng
+          </h3>
+          <div className={`rounded-xl border-2 p-4 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
+            <p className={`text-sm font-semibold ${sev.text}`}>⚕️ {pw.recommendation}</p>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-3 italic text-center">
+            ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatCard({ icon, label, value, sub, color }: {
   icon: React.ReactNode; label: string; value: string | number;
@@ -89,12 +326,13 @@ function RiskBadge({ sev }: { sev: string }) {
   );
 }
 
-function SessionCard({ session, onDelete, onEdit, onExpand, expanded }: {
+function SessionCard({ session, onDelete, onEdit, onExpand, expanded, onSelectInteraction }: {
   session: Session;
   onDelete: (id: number) => void;
   onEdit: (session: Session) => void;
   onExpand: (id: number) => void;
   expanded: boolean;
+  onSelectInteraction: (ix: InteractionRec) => void;
 }) {
   const tags = session.tags ? session.tags.split('|').filter(Boolean) : [];
   const riskColor = session.major_count > 0 ? 'border-l-red-500'
@@ -153,21 +391,33 @@ function SessionCard({ session, onDelete, onEdit, onExpand, expanded }: {
 
       {/* Expanded interactions */}
       {expanded && session.interactions_found && session.interactions_found.length > 0 && (
-        <div className="border-t border-gray-50 divide-y divide-gray-50">
+        <div className="border-t border-gray-100 divide-y divide-gray-50">
+          <div className="px-5 py-2 bg-gray-50 flex items-center justify-between">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              {session.interactions_found.length} cặp tương tác — nhấn để xem chi tiết
+            </span>
+          </div>
           {session.interactions_found.map((ix, i) => {
             const s = SEV[normSev(ix.severity)];
             return (
-              <div key={i} className="px-5 py-3">
+              <div key={i}
+                className="px-5 py-3.5 cursor-pointer hover:bg-violet-50 transition-colors group"
+                onClick={() => onSelectInteraction(ix)}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-semibold text-xs text-gray-700 truncate">{ix.drug_a_name}</span>
                     <ArrowRight size={10} className="text-gray-300 shrink-0" />
                     <span className="font-semibold text-xs text-gray-700 truncate">{ix.drug_b_name}</span>
                   </div>
-                  <RiskBadge sev={ix.severity} />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <RiskBadge sev={ix.severity} />
+                    <span className="text-[10px] text-violet-400 group-hover:text-violet-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Xem chi tiết →
+                    </span>
+                  </div>
                 </div>
                 {ix.description && (
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{ix.description}</p>
+                  <p className="text-xs text-gray-400 mt-1.5 line-clamp-2 leading-relaxed">{ix.description}</p>
                 )}
               </div>
             );
@@ -266,6 +516,7 @@ export default function AnalysisPage() {
   const [filterTag, setFilterTag] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [selectedInteraction, setSelectedInteraction] = useState<InteractionRec | null>(null);
   const [activeTab, setActiveTab] = useState<'history' | 'stats' | 'compare'>('history');
   const [backendOk, setBackendOk] = useState(true);
   const navigate = useNavigate();
@@ -458,6 +709,7 @@ export default function AnalysisPage() {
                     onEdit={setEditingSession}
                     onExpand={toggleExpand}
                     expanded={expandedId === s.id}
+                    onSelectInteraction={setSelectedInteraction}
                   />
                 ))}
               </div>
@@ -565,6 +817,14 @@ export default function AnalysisPage() {
           session={editingSession}
           onClose={() => setEditingSession(null)}
           onSave={updateSession}
+        />
+      )}
+
+      {/* Interaction detail modal */}
+      {selectedInteraction && (
+        <InteractionDetailModal
+          ix={selectedInteraction}
+          onClose={() => setSelectedInteraction(null)}
         />
       )}
     </div>
