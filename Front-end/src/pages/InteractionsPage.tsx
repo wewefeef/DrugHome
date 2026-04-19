@@ -540,7 +540,7 @@ export default function InteractionsPage() {
   }, [drugSearch, selectedDrugs]);
 
   const resetViz = useCallback(() => {
-    setVizState("idle"); setInteractions([]); setRepelOffsets([]); setApiError(null);
+    setVizState("idle"); setInteractions([]); setRepelOffsets({}); setApiError(null);
   }, []);
 
   const addDrug = useCallback((drug: DrugEntry) => {
