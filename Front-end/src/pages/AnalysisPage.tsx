@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart2, ChevronRight, X, Zap, AlertTriangle, CheckCircle2,
   Info, Clock, Trash2, Tag, FileText, Search, TrendingUp, Shield,
-  Pill, FlaskConical, Activity, ChevronDown, ChevronUp, Edit3, Save,
+  Pill, FlaskConical, Activity, Edit3, Save,
   RefreshCw, Database, Star, ArrowRight, LayoutDashboard,
 } from 'lucide-react';
 
@@ -327,13 +327,11 @@ function RiskBadge({ sev }: { sev: string }) {
   );
 }
 
-function SessionCard({ session, onDelete, onEdit, onExpand, expanded, onSelectInteraction }: {
+function SessionCard({ session, onDelete, onEdit, onOpen }: {
   session: Session;
   onDelete: (id: number) => void;
   onEdit: (session: Session) => void;
-  onExpand: (id: number) => void;
-  expanded: boolean;
-  onSelectInteraction: (ix: InteractionRec) => void;
+  onOpen: (session: Session) => void;
 }) {
   const tags = session.tags ? session.tags.split('|').filter(Boolean) : [];
   const riskColor = session.major_count > 0 ? 'border-l-red-500'
@@ -341,16 +339,20 @@ function SessionCard({ session, onDelete, onEdit, onExpand, expanded, onSelectIn
     : 'border-l-green-500';
 
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 ${riskColor} transition-all`}>
-      <div className="p-5">
+    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 ${riskColor} transition-all hover:shadow-md`}>
+      {/* Clickable title area */}
+      <div className="p-5 cursor-pointer" onClick={() => onOpen(session)}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-gray-800 text-sm truncate">{session.title}</h3>
+              <h3 className="font-semibold text-gray-800 text-sm hover:text-violet-700 transition-colors">{session.title}</h3>
               {session.major_count > 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                   <AlertTriangle size={9} /> {session.major_count} nguy hiểm
                 </span>
+              )}
+              {session.total_interactions > 0 && (
+                <span className="text-[10px] text-violet-500 font-medium">Xem phân tích →</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
@@ -366,15 +368,12 @@ function SessionCard({ session, onDelete, onEdit, onExpand, expanded, onSelectIn
               </div>
             )}
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <button onClick={() => onEdit(session)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
               <Edit3 size={14} />
             </button>
             <button onClick={() => onDelete(session.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
               <Trash2 size={14} />
-            </button>
-            <button onClick={() => onExpand(session.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary-700 hover:bg-primary-50 transition-colors">
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           </div>
         </div>
@@ -382,66 +381,211 @@ function SessionCard({ session, onDelete, onEdit, onExpand, expanded, onSelectIn
         {/* Drug pills */}
         <div className="flex flex-wrap gap-1.5 mt-3">
           {(session.drugs_snapshot ?? []).map(d => (
-            <Link key={d.id} to={`/drugs/${d.id}`}
-              className="text-[11px] bg-primary-50 text-primary-700 border border-primary-100 px-2.5 py-0.5 rounded-full hover:bg-primary-100 transition-colors font-medium">
+            <span key={d.id}
+              className="text-[11px] bg-primary-50 text-primary-700 border border-primary-100 px-2.5 py-0.5 rounded-full font-medium">
               {d.name}
-            </Link>
+            </span>
           ))}
         </div>
       </div>
-
-      {/* Expanded interactions */}
-      {expanded && session.interactions_found && session.interactions_found.length > 0 && (
-        <div className="border-t border-gray-100 divide-y divide-gray-50">
-          <div className="px-5 py-2 bg-gray-50 flex items-center justify-between">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {session.interactions_found.length} cặp tương tác — nhấn để xem chi tiết
-            </span>
-          </div>
-          {session.interactions_found.map((ix, i) => {
-            const s = SEV[normSev(ix.severity)];
-            return (
-              <div key={i}
-                className="px-5 py-3.5 cursor-pointer hover:bg-violet-50 transition-colors group"
-                onClick={() => onSelectInteraction(ix)}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-semibold text-xs text-gray-700 truncate">{ix.drug_a_name}</span>
-                    <ArrowRight size={10} className="text-gray-300 shrink-0" />
-                    <span className="font-semibold text-xs text-gray-700 truncate">{ix.drug_b_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <RiskBadge sev={ix.severity} />
-                    <span className="text-[10px] text-violet-400 group-hover:text-violet-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      Xem chi tiết →
-                    </span>
-                  </div>
-                </div>
-                {ix.description && (
-                  <p className="text-xs text-gray-400 mt-1.5 line-clamp-2 leading-relaxed">{ix.description}</p>
-                )}
-              </div>
-            );
-          })}
-          {session.interactions_found.length === 0 && (
-            <div className="px-5 py-3 text-xs text-gray-400 flex items-center gap-2">
-              <CheckCircle2 size={12} className="text-green-500" />
-              Không phát hiện tương tác đáng lo ngại
-            </div>
-          )}
-        </div>
-      )}
-      {expanded && (!session.interactions_found || session.interactions_found.length === 0) && (
-        <div className="border-t border-gray-50 px-5 py-3 text-xs text-gray-400 flex items-center gap-2">
-          <CheckCircle2 size={12} className="text-green-500" />
-          Không phát hiện tương tác đáng lo ngại
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Edit Modal ─────────────────────────────────────────────────────────────
+// ── Session Detail Modal (click title → show all interactions with pathway) ──
+
+function SessionDetailModal({ session, onClose }: { session: Session; onClose: () => void }) {
+  const [activeIx, setActiveIx] = useState<InteractionRec | null>(
+    session.interactions_found && session.interactions_found.length === 1
+      ? session.interactions_found[0]
+      : null
+  );
+
+  const hasInteractions = session.interactions_found && session.interactions_found.length > 0;
+  const drugs = session.drugs_snapshot ?? [];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto flex flex-col" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 sticky top-0 bg-white z-10 rounded-t-2xl">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h2 className="font-extrabold text-gray-800 text-base">{session.title}</h2>
+              {session.major_count > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                  <AlertTriangle size={9}/> {session.major_count} nguy hiểm cao
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-400">
+              <span className="flex items-center gap-1"><Clock size={10}/>{fmtDate(session.created_at)}</span>
+              <span className="flex items-center gap-1"><Pill size={10}/>{session.total_drugs} thuốc</span>
+              <span className="flex items-center gap-1"><Zap size={10}/>{session.total_interactions} tương tác</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0"><X size={16}/></button>
+        </div>
+
+        {/* Drugs row */}
+        <div className="px-6 py-3 border-b border-gray-100 flex flex-wrap gap-2">
+          {drugs.map(d => (
+            <span key={d.id} className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-full font-semibold">
+              💊 {d.name}
+            </span>
+          ))}
+        </div>
+
+        {/* Notes */}
+        {session.notes && (
+          <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 flex gap-2">
+            <Info size={12} className="shrink-0 mt-0.5"/> {session.notes}
+          </div>
+        )}
+
+        {!hasInteractions ? (
+          <div className="px-6 py-12 text-center">
+            <CheckCircle2 size={36} className="text-green-400 mx-auto mb-3"/>
+            <p className="font-semibold text-gray-600 mb-1">Không phát hiện tương tác đáng lo ngại</p>
+            <p className="text-xs text-gray-400">Các thuốc trong phác đồ này không có tương tác đã biết trong cơ sở dữ liệu DrugBank.</p>
+          </div>
+        ) : (
+          <div className="flex-1">
+            {/* If multiple interactions: tab selector */}
+            {session.interactions_found!.length > 1 && (
+              <div className="px-6 pt-4 pb-0">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  {session.interactions_found!.length} cặp tương tác — chọn để xem phân tích:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {session.interactions_found!.map((ix, i) => {
+                    const s = SEV[normSev(ix.severity)];
+                    const isActive = activeIx === ix;
+                    return (
+                      <button key={i} onClick={() => setActiveIx(ix)}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
+                          isActive
+                            ? `${s.bg} ${s.text} border-current ring-2 ring-offset-1`
+                            : `bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300`
+                        }`}>
+                        <span className={`w-2 h-2 rounded-full ${s.dot}`}/>
+                        {ix.drug_a_name} × {ix.drug_b_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Detail view for selected interaction */}
+            {activeIx ? (
+              <IxDetailInline ix={activeIx} />
+            ) : (
+              <div className="px-6 py-8 text-center text-gray-400 text-sm">
+                ← Chọn một cặp tương tác để xem phân tích chi tiết
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IxDetailInline({ ix }: { ix: InteractionRec }) {
+  const pw = parsePathway(ix);
+  const sev = SEV[normSev(ix.severity)];
+  const sevBorderColor = ix.severity === 'major' ? '#fca5a5' : ix.severity === 'moderate' ? '#fcd34d' : '#86efac';
+
+  const severityMeta = {
+    major:    { label: 'Nguy hiểm cao', desc: 'Tương tác có thể đe dọa tính mạng. Cần can thiệp y tế ngay.', icon: '🚨' },
+    moderate: { label: 'Trung bình',    desc: 'Có thể gây biến cố lâm sàng đáng kể. Cần điều chỉnh liều hoặc theo dõi chặt.', icon: '⚠️' },
+    minor:    { label: 'Thấp',          desc: 'Ít ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.', icon: 'ℹ️' },
+    unknown:  { label: 'Thấp',          desc: 'Ít ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.', icon: 'ℹ️' },
+  };
+  const sm = severityMeta[normSev(ix.severity)];
+
+  return (
+    <div className="px-6 py-4 space-y-4">
+      {/* Severity banner */}
+      <div className={`rounded-xl border-2 px-4 py-3 flex items-start gap-3 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
+        <span className="text-2xl">{sm.icon}</span>
+        <div>
+          <div className={`font-bold text-sm ${sev.text}`}>{ix.drug_a_name} × {ix.drug_b_name}</div>
+          <div className={`text-xs mt-0.5 ${sev.text} opacity-80`}>{sm.label} — {sm.desc}</div>
+        </div>
+        <RiskBadge sev={ix.severity} />
+      </div>
+
+      {/* Pathway diagram */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <Activity size={14} className="text-violet-500"/> Sơ đồ đường đi tương tác
+        </h3>
+        <PathwayDiagram ix={ix} />
+      </div>
+
+      {/* Mechanism cards */}
+      <div className="bg-gray-50 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+          <FlaskConical size={14} className="text-orange-500"/> Phân tích cơ chế
+        </h3>
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Loại tương tác</div>
+            <div className="text-2xl font-extrabold text-violet-700">{pw.interactionType}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{pw.interactionType === 'PK' ? 'Dược động học' : 'Dược lực học'}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Cơ chế chính</div>
+            <div className="text-xs font-bold text-gray-700 leading-tight">{pw.mechanism}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Hậu quả dự kiến</div>
+            <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-3">
+          <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            {pw.interactionType === 'PK' ? '⚙️ Dược động học (PK)' : '⚡ Dược lực học (PD)'}
+          </div>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            {pw.interactionType === 'PK'
+              ? 'Tương tác ở cấp độ hấp thu, phân phối, chuyển hóa hoặc thải trừ — ảnh hưởng nồng độ thuốc trong máu mà không tác động trực tiếp đến receptor.'
+              : 'Tương tác ở cấp độ hiệu quả sinh học — hai thuốc tác động lên cùng receptor, enzyme hoặc con đường tín hiệu, gây tăng/giảm hiệu quả hoặc độc tính.'}
+          </p>
+        </div>
+      </div>
+
+      {/* Full description */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <FileText size={14} className="text-blue-500"/> Mô tả chi tiết (DrugBank)
+        </h3>
+        <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">
+          {ix.description || 'Không có mô tả chi tiết trong cơ sở dữ liệu DrugBank cho cặp thuốc này.'}
+        </p>
+      </div>
+
+      {/* Clinical recommendation */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <Shield size={14} className="text-green-500"/> Khuyến nghị lâm sàng
+        </h3>
+        <div className={`rounded-xl border-2 p-4 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
+          <p className={`text-sm font-semibold ${sev.text}`}>⚕️ {pw.recommendation}</p>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-gray-400 italic text-center pb-2">
+        ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+      </p>
+    </div>
+  );
+}
+
+
 
 function EditModal({ session, onClose, onSave }: {
   session: Session; onClose: () => void; onSave: (id: number, title: string, tags: string, notes: string) => void;
@@ -516,8 +660,10 @@ export default function AnalysisPage() {
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  void expandedId; void setExpandedId;
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [selectedInteraction, setSelectedInteraction] = useState<InteractionRec | null>(null);
+  const [openSession, setOpenSession] = useState<Session | null>(null);
   const [activeTab, setActiveTab] = useState<'history' | 'stats' | 'compare'>('history');
   const [backendOk, setBackendOk] = useState(true);
   const navigate = useNavigate();
@@ -564,6 +710,7 @@ export default function AnalysisPage() {
   };
 
   const toggleExpand = (id: number) => setExpandedId(prev => prev === id ? null : id);
+  void toggleExpand; // kept to avoid lint error
 
   // Collect all unique tags from sessions
   const allTags = Array.from(new Set(
@@ -708,9 +855,7 @@ export default function AnalysisPage() {
                   <SessionCard key={s.id} session={s}
                     onDelete={deleteSession}
                     onEdit={setEditingSession}
-                    onExpand={toggleExpand}
-                    expanded={expandedId === s.id}
-                    onSelectInteraction={setSelectedInteraction}
+                    onOpen={setOpenSession}
                   />
                 ))}
               </div>
@@ -821,7 +966,15 @@ export default function AnalysisPage() {
         />
       )}
 
-      {/* Interaction detail modal */}
+      {/* Session detail modal — opens when clicking session title */}
+      {openSession && (
+        <SessionDetailModal
+          session={openSession}
+          onClose={() => setOpenSession(null)}
+        />
+      )}
+
+      {/* Legacy single-interaction modal (kept for compatibility) */}
       {selectedInteraction && (
         <InteractionDetailModal
           ix={selectedInteraction}
