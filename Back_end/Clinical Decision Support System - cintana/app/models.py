@@ -88,8 +88,9 @@ class Drug(Base):
         return list(self._aliases_json or [])
 
     @property
-    def categories(self) -> List[Any]:
-        return list(self._categories_json or [])
+    def categories(self) -> List[str]:
+        cats = list(self._categories_json or [])
+        return [c["name"] if isinstance(c, dict) else str(c) for c in cats]
 
     @property
     def smiles(self) -> Optional[str]:
