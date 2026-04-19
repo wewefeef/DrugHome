@@ -66,10 +66,7 @@ A drug intelligence platform combining DrugBank data with clinical decision engi
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        ["*"] if settings.allowed_origins == "*"
-        else [o.strip() for o in settings.allowed_origins.split(",")]
-    ),
+    allow_origins=["*"] if settings.debug else [],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
