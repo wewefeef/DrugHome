@@ -395,14 +395,30 @@ function SessionCard({ session, onDelete, onEdit, onOpen }: {
 // ── Session Detail Modal (click title → show all interactions with pathway) ──
 
 function SessionDetailModal({ session, onClose }: { session: Session; onClose: () => void }) {
-  const [activeIx, setActiveIx] = useState<InteractionRec | null>(
-    session.interactions_found && session.interactions_found.length === 1
-      ? session.interactions_found[0]
-      : null
-  );
-
-  const hasInteractions = session.interactions_found && session.interactions_found.length > 0;
   const drugs = session.drugs_snapshot ?? [];
+
+  // Build all pairs from drugs_snapshot
+  const allPairs: { a: DrugSnap; b: DrugSnap; ix: InteractionRec | null }[] = [];
+  for (let i = 0; i < drugs.length; i++) {
+    for (let j = i + 1; j < drugs.length; j++) {
+      const found = (session.interactions_found ?? []).find(
+        ix => (ix.drug_a_id === drugs[i].id && ix.drug_b_id === drugs[j].id) ||
+              (ix.drug_a_id === drugs[j].id && ix.drug_b_id === drugs[i].id)
+      ) ?? null;
+      allPairs.push({ a: drugs[i], b: drugs[j], ix: found });
+    }
+  }
+
+  // If interactions_found is null but counts say there are interactions — data gap
+  const dataGap = (!session.interactions_found || session.interactions_found.length === 0)
+    && (session.total_interactions > 0 || session.major_count > 0);
+
+  // Active pair — default to first pair with interaction, or first pair overall
+  const [activePairIdx, setActivePairIdx] = useState<number>(() => {
+    const withIx = allPairs.findIndex(p => p.ix !== null);
+    return withIx >= 0 ? withIx : 0;
+  });
+  const activePair = allPairs[activePairIdx] ?? null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -444,54 +460,144 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
           </div>
         )}
 
-        {!hasInteractions ? (
-          <div className="px-6 py-12 text-center">
-            <CheckCircle2 size={36} className="text-green-400 mx-auto mb-3"/>
-            <p className="font-semibold text-gray-600 mb-1">Không phát hiện tương tác đáng lo ngại</p>
-            <p className="text-xs text-gray-400">Các thuốc trong phác đồ này không có tương tác đã biết trong cơ sở dữ liệu DrugBank.</p>
+        {/* Data gap warning */}
+        {dataGap && (
+          <div className="px-6 py-3 bg-orange-50 border-b border-orange-100 text-xs text-orange-700 flex gap-2">
+            <AlertTriangle size={12} className="shrink-0 mt-0.5"/>
+            Phiên này được lưu trước khi hệ thống lưu chi tiết tương tác. Kiểm tra lại trên trang Tương tác để xem đầy đủ.
           </div>
-        ) : (
-          <div className="flex-1">
-            {/* If multiple interactions: tab selector */}
-            {session.interactions_found!.length > 1 && (
-              <div className="px-6 pt-4 pb-0">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                  {session.interactions_found!.length} cặp tương tác — chọn để xem phân tích:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {session.interactions_found!.map((ix, i) => {
-                    const s = SEV[normSev(ix.severity)];
-                    const isActive = activeIx === ix;
-                    return (
-                      <button key={i} onClick={() => setActiveIx(ix)}
-                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
-                          isActive
-                            ? `${s.bg} ${s.text} border-current ring-2 ring-offset-1`
-                            : `bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300`
-                        }`}>
-                        <span className={`w-2 h-2 rounded-full ${s.dot}`}/>
-                        {ix.drug_a_name} × {ix.drug_b_name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+        )}
 
-            {/* Detail view for selected interaction */}
-            {activeIx ? (
-              <IxDetailInline ix={activeIx} />
-            ) : (
-              <div className="px-6 py-8 text-center text-gray-400 text-sm">
-                ← Chọn một cặp tương tác để xem phân tích chi tiết
-              </div>
-            )}
+        {/* Pair selector (if >1 pair) */}
+        {allPairs.length > 1 && (
+          <div className="px-6 pt-4 pb-2 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+              {allPairs.length} cặp — chọn để xem phân tích:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {allPairs.map((p, i) => {
+                const isActive = i === activePairIdx;
+                const hasIx = p.ix !== null;
+                const s = hasIx ? SEV[normSev(p.ix!.severity)] : null;
+                return (
+                  <button key={i} onClick={() => setActivePairIdx(i)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
+                      isActive
+                        ? s ? `${s.bg} ${s.text} border-current ring-2 ring-offset-1` : 'bg-green-50 text-green-700 border-green-300 ring-2 ring-offset-1'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+                    }`}>
+                    <span className={`w-2 h-2 rounded-full ${s ? s.dot : 'bg-green-400'}`}/>
+                    {p.a.name} × {p.b.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Active pair detail */}
+        {activePair ? (
+          activePair.ix ? (
+            <IxDetailInline ix={activePair.ix} />
+          ) : (
+            <SafePairDetail drugA={activePair.a} drugB={activePair.b} />
+          )
+        ) : (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">
+            Không có thuốc nào trong phác đồ.
           </div>
         )}
       </div>
     </div>
   );
 }
+
+function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) {
+  return (
+    <div className="px-6 py-4 space-y-4">
+      {/* Safe banner */}
+      <div className="rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">
+        <span className="text-2xl">✅</span>
+        <div>
+          <div className="font-bold text-sm text-green-700">{drugA.name} × {drugB.name}</div>
+          <div className="text-xs mt-0.5 text-green-600 opacity-80">
+            Không tìm thấy tương tác đã biết trong cơ sở dữ liệu DrugBank® v5
+          </div>
+        </div>
+      </div>
+
+      {/* Safe pathway diagram */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <Activity size={14} className="text-violet-500"/> Sơ đồ kiểm tra tương tác
+        </h3>
+        <div className="rounded-xl bg-slate-50 border border-gray-200 p-5 overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max mx-auto justify-center">
+            <div className="flex flex-col gap-2.5">
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
+                <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Thuốc A</div>
+                <div className="text-xs font-bold text-blue-700 truncate" title={drugA.name}>{drugA.name}</div>
+              </div>
+              <div className="bg-violet-50 border-2 border-violet-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
+                <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Thuốc B</div>
+                <div className="text-xs font-bold text-violet-700 truncate" title={drugB.name}>{drugB.name}</div>
+              </div>
+            </div>
+            <svg width="36" height="80" viewBox="0 0 36 80" fill="none" className="shrink-0">
+              <path d="M2 20 H18 V40 M18 40 V60 H2 M18 40 H36" stroke="#86efac" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl px-4 py-3.5 w-40 text-center shadow-sm">
+              <div className="text-2xl mb-1.5">🔬</div>
+              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">Kiểm tra DrugBank</div>
+              <div className="text-xs font-bold text-green-700">24,386+ cặp đã phân loại</div>
+            </div>
+            <svg width="32" height="12" viewBox="0 0 32 12" fill="none" className="shrink-0">
+              <path d="M0 6 H24" stroke="#86efac" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M20 2 L28 6 L20 10" stroke="#86efac" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl px-4 py-3.5 w-40 text-center shadow-sm">
+              <div className="text-2xl mb-1.5">✅</div>
+              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">Kết quả</div>
+              <div className="text-xs font-bold text-green-700">Không có tương tác đã biết</div>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-gray-200 text-[10px] text-gray-400">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300"/>{drugA.name}</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300"/>{drugB.name}</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-200 border border-green-300"/>An toàn</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Explanation */}
+      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+          <FileText size={14} className="text-blue-500"/> Ý nghĩa lâm sàng
+        </h3>
+        <div className="grid grid-cols-1 gap-2 text-xs text-gray-600">
+          <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
+            <span className="text-green-500 font-bold shrink-0">✓</span>
+            <span><strong>Không có tương tác đã biết</strong> trong cơ sở dữ liệu DrugBank v5 — bộ dữ liệu hơn 24,000 cặp tương tác lâm sàng đã được phân loại.</span>
+          </div>
+          <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
+            <span className="text-amber-500 font-bold shrink-0">⚠</span>
+            <span><strong>Không có tương tác đã biết ≠ hoàn toàn an toàn</strong>. Cơ sở dữ liệu chỉ ghi nhận các tương tác đã được nghiên cứu và công bố.</span>
+          </div>
+          <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
+            <span className="text-blue-500 font-bold shrink-0">ℹ</span>
+            <span>Nên tham khảo dược sĩ lâm sàng hoặc bác sĩ điều trị trước khi phối hợp thuốc trong thực tế.</span>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-gray-400 italic text-center pb-2">
+        ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+      </p>
+    </div>
+  );
+}
+
+
 
 function IxDetailInline({ ix }: { ix: InteractionRec }) {
   const pw = parsePathway(ix);
