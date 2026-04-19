@@ -51,7 +51,7 @@ router = APIRouter(prefix="/api/v1/drugs", tags=["Drugs"])
 
 # ── Read: list ────────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=PaginatedResponse, summary="List / search drugs")
+@router.get("", response_model=PaginatedResponse, summary="List / search drugs")
 def list_drugs(
     q: str = Query(default="", description="Search by name, DrugBank ID, or CAS"),
     drug_type: str = Query(default="", description="Filter: small molecule | biotech"),

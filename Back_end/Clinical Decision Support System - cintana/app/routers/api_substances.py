@@ -51,7 +51,7 @@ router = APIRouter(prefix="/api/v1/substances", tags=["Substances (Proteins)"])
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
-@router.get("/", response_model=PaginatedResponse, summary="List / search proteins")
+@router.get("", response_model=PaginatedResponse, summary="List / search proteins")
 def list_proteins(
     q: str = Query(default="", description="Search by name, gene name, or UniProt ID"),
     protein_type: str = Query(

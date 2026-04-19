@@ -109,7 +109,7 @@ class SessionStats(BaseModel):
 # Routes
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@router.post("/", response_model=SessionDetail, status_code=status.HTTP_201_CREATED,
+@router.post("", response_model=SessionDetail, status_code=status.HTTP_201_CREATED,
              summary="Save a new interaction session")
 def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     # Auto-generate title if not provided
@@ -194,7 +194,7 @@ def get_stats(db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/", response_model=List[SessionListItem], summary="List all sessions")
+@router.get("", response_model=List[SessionListItem], summary="List all sessions")
 def list_sessions(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
