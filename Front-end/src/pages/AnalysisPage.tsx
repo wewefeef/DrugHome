@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetchDrugInteractions } from '../lib/api';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart2, ChevronRight, X, Zap, AlertTriangle, CheckCircle2,
@@ -397,11 +398,85 @@ function SessionCard({ session, onDelete, onEdit, onOpen }: {
 function SessionDetailModal({ session, onClose }: { session: Session; onClose: () => void }) {
   const drugs = session.drugs_snapshot ?? [];
 
-  // Build all pairs from drugs_snapshot
+  // Detect data gap: interactions_found not stored (old sessions) but counts say there are interactions
+  const dataGap = (!session.interactions_found || session.interactions_found.length === 0)
+    && (session.total_interactions > 0 || session.major_count > 0);
+
+  // When dataGap, fetch live interaction data from the database
+  const [liveIxs, setLiveIxs] = useState<InteractionRec[] | null>(null);
+  const [fetchLoading, setFetchLoading] = useState(false);
+
+  useEffect(() => {
+    const sessionDrugs = session.drugs_snapshot ?? [];
+    const isDataGap = (!session.interactions_found || session.interactions_found.length === 0)
+      && (session.total_interactions > 0 || session.major_count > 0);
+
+    if (!isDataGap || sessionDrugs.length === 0) return;
+
+    const drugIds = new Set(sessionDrugs.map(d => d.id));
+    const drugById = Object.fromEntries(sessionDrugs.map(d => [d.id, d.name]));
+
+    setFetchLoading(true);
+    Promise.all(
+      sessionDrugs.map(drug =>
+        apiFetchDrugInteractions(drug.id, 1, 500)
+          .then(data =>
+            data.items
+              // Keep only interactions where the other drug is also in this session
+              .filter(ix =>
+                (ix.interacting_drug_id !== drug.id && drugIds.has(ix.interacting_drug_id)) ||
+                (ix.drug_drugbank_id !== null && ix.drug_drugbank_id !== drug.id && drugIds.has(ix.drug_drugbank_id))
+              )
+              .map(ix => ({
+                drug_a_id: ix.drug_drugbank_id ?? drug.id,
+                drug_a_name: drugById[ix.drug_drugbank_id ?? ''] ?? drug.name,
+                drug_b_id: ix.interacting_drug_id,
+                drug_b_name: ix.interacting_drug_name ?? ix.interacting_drug_id,
+                severity: ix.severity ?? 'unknown',
+                description: ix.description ?? '',
+                source: 'DrugBank',
+              } as InteractionRec)
+            )
+          )
+          .catch(() => [] as InteractionRec[])
+      )
+    ).then(results => {
+      const all = results.flat();
+      // Deduplicate: same pair A-B may appear from both drug A's and drug B's query
+      const seen = new Set<string>();
+      const deduped = all.filter(ix => {
+        const key = [ix.drug_a_id, ix.drug_b_id].sort().join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setLiveIxs(deduped);
+      setFetchLoading(false);
+
+      // Auto-select first pair that has an interaction
+      let firstIxIdx = 0;
+      let pairCount = 0;
+      let found = false;
+      for (let i = 0; i < sessionDrugs.length && !found; i++) {
+        for (let j = i + 1; j < sessionDrugs.length && !found; j++) {
+          const hasIx = deduped.some(
+            ix => (ix.drug_a_id === sessionDrugs[i].id && ix.drug_b_id === sessionDrugs[j].id) ||
+                  (ix.drug_a_id === sessionDrugs[j].id && ix.drug_b_id === sessionDrugs[i].id)
+          );
+          if (hasIx) { firstIxIdx = pairCount; found = true; }
+          pairCount++;
+        }
+      }
+      setActivePairIdx(firstIxIdx);
+    });
+  }, [session.id]);
+
+  // Build all pairs — use liveIxs when dataGap and available, else interactions_found
+  const ixSource: InteractionRec[] = (dataGap && liveIxs !== null) ? liveIxs : (session.interactions_found ?? []);
   const allPairs: { a: DrugSnap; b: DrugSnap; ix: InteractionRec | null }[] = [];
   for (let i = 0; i < drugs.length; i++) {
     for (let j = i + 1; j < drugs.length; j++) {
-      const found = (session.interactions_found ?? []).find(
+      const found = ixSource.find(
         ix => (ix.drug_a_id === drugs[i].id && ix.drug_b_id === drugs[j].id) ||
               (ix.drug_a_id === drugs[j].id && ix.drug_b_id === drugs[i].id)
       ) ?? null;
@@ -409,15 +484,7 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
     }
   }
 
-  // If interactions_found is null but counts say there are interactions — data gap
-  const dataGap = (!session.interactions_found || session.interactions_found.length === 0)
-    && (session.total_interactions > 0 || session.major_count > 0);
-
-  // Active pair — default to first pair with interaction, or first pair overall
-  const [activePairIdx, setActivePairIdx] = useState<number>(() => {
-    const withIx = allPairs.findIndex(p => p.ix !== null);
-    return withIx >= 0 ? withIx : 0;
-  });
+  const [activePairIdx, setActivePairIdx] = useState<number>(0);
   const activePair = allPairs[activePairIdx] ?? null;
 
   return (
@@ -460,52 +527,70 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
           </div>
         )}
 
-        {/* Data gap warning */}
-        {dataGap && (
+        {/* Loading indicator while fetching live data */}
+        {dataGap && fetchLoading && (
+          <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex items-center gap-2">
+            <RefreshCw size={12} className="animate-spin shrink-0"/> Đang tải dữ liệu tương tác từ cơ sở dữ liệu...
+          </div>
+        )}
+
+        {/* Warn if data gap resolved but still no interactions found in DB */}
+        {dataGap && !fetchLoading && liveIxs !== null && liveIxs.length === 0 && (
           <div className="px-6 py-3 bg-orange-50 border-b border-orange-100 text-xs text-orange-700 flex gap-2">
             <AlertTriangle size={12} className="shrink-0 mt-0.5"/>
-            Phiên này được lưu trước khi hệ thống lưu chi tiết tương tác. Kiểm tra lại trên trang Tương tác để xem đầy đủ.
+            Không tìm thấy chi tiết tương tác trong CSDL hiện tại. Dữ liệu có thể chưa được đồng bộ đầy đủ.
           </div>
         )}
 
-        {/* Pair selector (if >1 pair) */}
-        {allPairs.length > 1 && (
-          <div className="px-6 pt-4 pb-2 border-b border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-              {allPairs.length} cặp — chọn để xem phân tích:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {allPairs.map((p, i) => {
-                const isActive = i === activePairIdx;
-                const hasIx = p.ix !== null;
-                const s = hasIx ? SEV[normSev(p.ix!.severity)] : null;
-                return (
-                  <button key={i} onClick={() => setActivePairIdx(i)}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
-                      isActive
-                        ? s ? `${s.bg} ${s.text} border-current ring-2 ring-offset-1` : 'bg-green-50 text-green-700 border-green-300 ring-2 ring-offset-1'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
-                    }`}>
-                    <span className={`w-2 h-2 rounded-full ${s ? s.dot : 'bg-green-400'}`}/>
-                    {p.a.name} × {p.b.name}
-                  </button>
-                );
-              })}
-            </div>
+        {/* Main content: loading skeleton or pair selector + detail */}
+        {dataGap && fetchLoading ? (
+          <div className="px-6 py-16 text-center flex flex-col items-center gap-3 text-gray-400">
+            <RefreshCw size={28} className="animate-spin text-blue-400"/>
+            <p className="text-sm font-medium">Đang phân tích tương tác...</p>
+            <p className="text-xs opacity-60">Truy vấn cơ sở dữ liệu DrugBank</p>
           </div>
-        )}
-
-        {/* Active pair detail */}
-        {activePair ? (
-          activePair.ix ? (
-            <IxDetailInline ix={activePair.ix} />
-          ) : (
-            <SafePairDetail drugA={activePair.a} drugB={activePair.b} />
-          )
         ) : (
-          <div className="px-6 py-12 text-center text-gray-400 text-sm">
-            Không có thuốc nào trong phác đồ.
-          </div>
+          <>
+            {/* Pair selector (if >1 pair) */}
+            {allPairs.length > 1 && (
+              <div className="px-6 pt-4 pb-2 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  {allPairs.length} cặp — chọn để xem phân tích:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {allPairs.map((p, i) => {
+                    const isActive = i === activePairIdx;
+                    const hasIx = p.ix !== null;
+                    const s = hasIx ? SEV[normSev(p.ix!.severity)] : null;
+                    return (
+                      <button key={i} onClick={() => setActivePairIdx(i)}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold border transition-all ${
+                          isActive
+                            ? s ? `${s.bg} ${s.text} border-current ring-2 ring-offset-1` : 'bg-green-50 text-green-700 border-green-300 ring-2 ring-offset-1'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}>
+                        <span className={`w-2 h-2 rounded-full ${s ? s.dot : 'bg-green-400'}`}/>
+                        {p.a.name} × {p.b.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Active pair detail */}
+            {activePair ? (
+              activePair.ix ? (
+                <IxDetailInline ix={activePair.ix} />
+              ) : (
+                <SafePairDetail drugA={activePair.a} drugB={activePair.b} />
+              )
+            ) : (
+              <div className="px-6 py-12 text-center text-gray-400 text-sm">
+                Không có thuốc nào trong phác đồ.
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
