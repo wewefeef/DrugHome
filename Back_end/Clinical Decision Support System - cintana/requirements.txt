@@ -29,6 +29,11 @@ typer>=0.12.0           # load_drugbank CLI
 # ── Static Files ──────────────────────────────────────────────────────────────
 aiofiles>=23.2.0        # for StaticFiles async file serving
 
+# ── Authentication ────────────────────────────────────────────────────────────
+python-jose[cryptography]>=3.3.0  # JWT encode/decode (used in api_auth.py)
+passlib[bcrypt]>=1.7.4            # password hashing (used in api_auth.py)
+email-validator>=2.1.0            # Pydantic EmailStr validation (api_auth.py)
+
 # ── Dev / Optional ────────────────────────────────────────────────────────────
 # pyinstaller>=6.17.0   # optional: desktop packaging
 # pywebview>=6.1        # optional: desktop webview wrapper

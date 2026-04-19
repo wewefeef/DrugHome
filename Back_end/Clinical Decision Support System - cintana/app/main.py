@@ -5,6 +5,7 @@ Run:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -21,13 +22,17 @@ from app.routers import drugs as drugs_router
 from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
-    # Create any missing tables (new models: proteins, drug_interactions, etc.)
-    Base.metadata.create_all(bind=engine)
+    # Create any missing tables (non-fatal: DB may not be available at cold start)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.warning("DB create_all skipped at startup: %s", exc)
     # Initialize in-memory cache (swap for RedisBackend in production)
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
     yield
@@ -64,9 +69,11 @@ A drug intelligence platform combining DrugBank data with clinical decision engi
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
+# In debug mode allow all origins; in production allow all origins too
+# (Railway + Vercel deployment — the real auth gate is the JWT token).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.debug else [],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
