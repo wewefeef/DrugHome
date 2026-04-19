@@ -7,7 +7,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     #                        MYSQL_URL = ${{MySQL.MYSQL_URL}}
     #   2. MYSQL_HOST     — individual vars auto-exported by Railway MySQL plugin
     #   3. DB_HOST / ...  — local development fallback (defaults to 127.0.0.1)
+    database_url_env: str = Field(default="", validation_alias="DATABASE_URL")  # Railway auto-injects DATABASE_URL
     mysql_url: str = ""         # MYSQL_URL (full connection string)
     mysql_host: str = ""        # MYSQL_HOST  ← Railway MySQL plugin
     mysql_port: str = ""        # MYSQL_PORT  ← Railway MySQL plugin (string to handle whitespace)
@@ -48,8 +49,8 @@ class Settings(BaseSettings):
 
     # Strip whitespace Railway may inject into env var values
     @field_validator(
-        "mysql_url", "mysql_host", "mysql_user", "mysql_password", "mysql_database",
-        "db_host", "db_name", "db_user", "db_password",
+        "database_url_env", "mysql_url", "mysql_host", "mysql_user", "mysql_password",
+        "mysql_database", "db_host", "db_name", "db_user", "db_password",
         mode="before",
     )
     @classmethod
@@ -113,16 +114,20 @@ class Settings(BaseSettings):
                 query={"charset": self.db_charset},
             ).render_as_string(hide_password=False)
 
-        # 1. MYSQL_URL (pydantic-settings field)
+        # 1. DATABASE_URL (pydantic validation_alias — Railway auto-injects this)
+        if self.database_url_env:
+            return _fix_driver(self.database_url_env)
+
+        # 2. MYSQL_URL (pydantic-settings field — set manually in Railway Variables)
         if self.mysql_url:
             return _fix_driver(self.mysql_url)
 
-        # 2. DATABASE_URL (direct env read — not a pydantic field to avoid name collision)
+        # 3. DATABASE_URL direct env read (edge case: not picked up by pydantic)
         database_url_raw = os.environ.get("DATABASE_URL", "").strip()
         if database_url_raw:
             return _fix_driver(database_url_raw)
 
-        # 3. MYSQL_HOST (with underscore — Railway MySQL plugin standard)
+        # 4. MYSQL_HOST (with underscore — Railway MySQL plugin standard)
         if self.mysql_host:
             try:
                 port = int(self.mysql_port) if self.mysql_port else 3306
