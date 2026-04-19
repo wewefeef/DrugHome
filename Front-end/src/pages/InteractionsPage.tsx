@@ -516,31 +516,65 @@ export default function InteractionsPage() {
   }, []);
 
   // Load drug meta for network visualization (lazy background load)
+  // Local drug list for fallback search
+  const [localDrugs, setLocalDrugs] = useState<{ id: string; name: string }[]>([]);
+
   useEffect(() => {
     getDrugs().then(drugs => {
       setDrugMeta(new Map(drugs.map(d => [d.id, {
         targets: (d.targets as unknown as number) || 5,
         enzymes: (d.enzymes as unknown as number) || 2,
       }])));
+      if (drugs.length > 0) {
+        setLocalDrugs(drugs.map(d => ({ id: d.id, name: d.name })));
+      }
     });
+    // Also preload from public JSON as fallback
+    fetch(`${import.meta.env.BASE_URL}data/drugs.json`)
+      .then(r => r.json())
+      .then((data: { id: string; name: string }[]) => {
+        setLocalDrugs(prev => prev.length > 0 ? prev : data.map(d => ({ id: d.id, name: d.name })));
+      })
+      .catch(() => {});
   }, []);
 
-  // Autocomplete — search API
+  // Autocomplete — API first, fallback to local
   useEffect(() => {
     if (drugSearch.length < 2) { setDrugSuggestions([]); return; }
     const controller = new AbortController();
+    const q = drugSearch.toLowerCase();
     apiSearchDrugs(drugSearch, controller.signal)
       .then(results => {
-        setDrugSuggestions(
-          results.filter(d => !selectedDrugs.find(s => s.id === d.id)).slice(0, 8)
-        );
+        if (results.length > 0) {
+          setDrugSuggestions(
+            results.filter(d => !selectedDrugs.find(s => s.id === d.id)).slice(0, 8)
+          );
+        } else {
+          // Fallback: search local drugs.json
+          const local = localDrugs
+            .filter(d => d.name.toLowerCase().includes(q) && !selectedDrugs.find(s => s.id === d.id))
+            .slice(0, 8);
+          setDrugSuggestions(local);
+        }
       })
-      .catch(() => {/* aborted or failed */});
+      .catch(() => {
+        // API failed — use local fallback
+        const local = localDrugs
+          .filter(d => d.name.toLowerCase().includes(q) && !selectedDrugs.find(s => s.id === d.id))
+          .slice(0, 8);
+        setDrugSuggestions(local);
+      });
     return () => controller.abort();
-  }, [drugSearch, selectedDrugs]);
+  }, [drugSearch, selectedDrugs, localDrugs]);
 
   const resetViz = useCallback(() => {
     setVizState("idle"); setInteractions([]); setRepelOffsets({}); setApiError(null);
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setSelectedDrugs([]);
+    setDrugSearch(""); setDrugSuggestions([]);
+    setVizState("idle"); setInteractions([]); setRepelOffsets({}); setApiError(null); setRestored(false);
   }, []);
 
   const addDrug = useCallback((drug: DrugEntry) => {
@@ -812,8 +846,16 @@ export default function InteractionsPage() {
               {/* Selected drug chips */}
               {selectedDrugs.length > 0 && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                    Selected ({selectedDrugs.length}/8)
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Selected ({selectedDrugs.length}/8)
+                    </div>
+                    <button
+                      onClick={clearAll}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-lg transition-colors border border-red-100 hover:border-red-200"
+                    >
+                      <X size={9} /> Đặt lại
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedDrugs.map((d, i) => (
