@@ -5,7 +5,9 @@ All settings are loaded from environment variables (via .env file).
 
 from pathlib import Path
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +43,14 @@ class Settings(BaseSettings):
     db_name: str = "cdss"
     db_user: str = "root"
     db_password: str = ""
+
+    # Strip whitespace/tabs that Railway sometimes injects into port values
+    @field_validator("mysqlport", "db_port", mode="before")
+    @classmethod
+    def strip_port(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
     # ── Paths ─────────────────────────────────────────────────────────────────
     templates_dir: Path = BASE_DIR / "drugs" / "templates"
