@@ -60,18 +60,34 @@ class Settings(BaseSettings):
           1. MYSQLHOST/MYSQLPORT/MYSQLUSER/MYSQLPASSWORD/MYSQLDATABASE
              — injected by Railway MySQL plugin via Variables tab
           2. DB_HOST / DB_USER / … — local development fallback
+
+        Uses sqlalchemy.engine.URL.create() to safely escape special
+        characters in the password (Railway auto-generates passwords
+        that may contain @, /, ?, etc.).
         """
+        from sqlalchemy.engine import URL as _URL
+
         if self.mysqlhost and self.mysqluser:
-            return (
-                f"mysql+pymysql://{self.mysqluser}:{self.mysqlpassword}"
-                f"@{self.mysqlhost}:{self.mysqlport}/{self.mysqldatabase}"
-                f"?charset={self.db_charset}"
+            url = _URL.create(
+                drivername="mysql+pymysql",
+                username=self.mysqluser,
+                password=self.mysqlpassword,
+                host=self.mysqlhost,
+                port=self.mysqlport or 3306,
+                database=self.mysqldatabase,
+                query={"charset": self.db_charset},
             )
-        return (
-            f"mysql+pymysql://{self.db_user}:{self.db_password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
-            f"?charset={self.db_charset}"
-        )
+        else:
+            url = _URL.create(
+                drivername="mysql+pymysql",
+                username=self.db_user,
+                password=self.db_password,
+                host=self.db_host,
+                port=self.db_port,
+                database=self.db_name,
+                query={"charset": self.db_charset},
+            )
+        return url.render_as_string(hide_password=False)
 
 
 @lru_cache
