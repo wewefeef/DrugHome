@@ -28,14 +28,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
-    # Create any missing tables (non-fatal: DB may not be available at cold start)
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as exc:
-        logger.warning("DB create_all skipped at startup: %s", exc)
-    # Initialize in-memory cache (swap for RedisBackend in production)
+    # Initialize in-memory cache
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
     yield
+
+
+# ── Create tables at import time (before first request) ───────────────────────
+# create_all is idempotent — safe to call on every startup.
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as _db_exc:
+    logger.warning("DB create_all skipped at startup: %s", _db_exc)
 
 
 # ── App instance ──────────────────────────────────────────────────────────────

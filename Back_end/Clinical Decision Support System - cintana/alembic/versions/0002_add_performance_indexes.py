@@ -40,7 +40,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = "0002_perf_indexes"
-down_revision = None   # set to previous revision ID if applicable
+down_revision = None  # standalone migration — safe to run after create_all
 branch_labels = None
 depends_on = None
 
