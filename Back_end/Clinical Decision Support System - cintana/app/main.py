@@ -13,7 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
+from sqladmin import Admin
 
+from app.admin import DrugAdmin
 from app.config import get_settings
 from app.database import Base, engine
 from app.routers import drugs as drugs_router
@@ -25,13 +27,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup / shutdown events — all steps are non-fatal."""
+    """Startup / shutdown events."""
+    # Initialize cache
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
+    # Verify / create any missing tables — non-fatal if DB is temporarily unreachable
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("DB tables verified OK")
-    except Exception as _db_exc:
-        logger.warning("DB unavailable at startup (will retry on first request): %s", _db_exc)
+    except Exception as exc:
+        logger.warning("DB table check skipped at startup (will retry on first request): %s", exc)
     yield
 
 
@@ -67,11 +71,12 @@ A drug intelligence platform combining DrugBank data with clinical decision engi
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
-# In debug mode allow all origins; in production allow all origins too
-# (Railway + Vercel deployment — the real auth gate is the JWT token).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=(
+        ["*"] if settings.allowed_origins == "*"
+        else [o.strip() for o in settings.allowed_origins.split(",")]
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,15 +84,15 @@ app.add_middleware(
 
 # ── Static files ──────────────────────────────────────────────────────────────
 
-# Guard: StaticFiles raises RuntimeError if the directory is missing.
 if settings.static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
 else:
     logger.warning("Static directory not found, skipping mount: %s", settings.static_dir)
 
-# Admin UI is disabled — sqladmin >= 0.18 replaces the app lifespan and
-# connects to DB synchronously during ASGI startup, which crashes the process
-# if MySQL is not yet ready on Railway. Re-enable locally if needed.
+# ── Admin UI (sqladmin) ───────────────────────────────────────────────────────
+
+admin = Admin(app, engine, title=f"{settings.app_title} — Admin")
+admin.add_view(DrugAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 
