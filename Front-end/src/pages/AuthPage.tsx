@@ -93,8 +93,9 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Đăng nhập thất bại');
+      let data: Record<string, unknown>;
+      try { data = await res.json(); } catch { data = {}; }
+      if (!res.ok) throw new Error((data.detail as string) || 'Đăng nhập thất bại');
       login(data.access_token, data.user);
       navigate(from, { replace: true });
     } catch (err: unknown) {
@@ -214,13 +215,14 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
           confirm_password: confirmPassword,
         }),
       });
-      const data = await res.json();
+      let data: Record<string, unknown>;
+      try { data = await res.json(); } catch { data = {}; }
       if (!res.ok) {
         if (data.detail && Array.isArray(data.detail)) {
-          const msg = data.detail.map((d: { msg: string }) => d.msg).join(', ');
+          const msg = (data.detail as { msg: string }[]).map((d) => d.msg).join(', ');
           throw new Error(msg);
         }
-        throw new Error(data.detail || 'Đăng ký thất bại');
+        throw new Error((data.detail as string) || 'Đăng ký thất bại. Vui lòng thử lại.');
       }
       login(data.access_token, data.user);
       navigate(from, { replace: true });

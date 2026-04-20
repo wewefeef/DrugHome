@@ -6,10 +6,12 @@ Run:
 """
 
 import logging
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
@@ -42,7 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_title,
     version=settings.app_version,
-    debug=settings.debug,
+    debug=True,
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -65,6 +67,17 @@ A drug intelligence platform combining DrugBank data with clinical decision engi
 - **Recommendation Engine** — ranked warnings with patient-context filters
     """,
 )
+
+# ── Global exception handler — always return JSON ────────────────────────────
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    logger.error("Unhandled exception on %s %s:\n%s", request.method, request.url, tb)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
