@@ -20,8 +20,8 @@ except ImportError:  # Python < 3.9
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,7 @@ AVATAR_COLORS = [
     "#7E22CE", "#BE185D", "#047857", "#0369A1",
 ]
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = None  # no longer used
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -108,11 +108,11 @@ class TokenResponse(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def create_access_token(user_id: int) -> str:
