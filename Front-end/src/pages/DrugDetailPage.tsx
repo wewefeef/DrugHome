@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Pill, ChevronRight, Zap, FlaskConical, BookOpen,
   ExternalLink, Tag, Loader2, Activity, AlertTriangle,
+  Beaker, Droplets, Clock, Shield, ArrowDownUp,
 } from 'lucide-react';
 import type { Drug } from '../types/drug';
 import { apiFetchDrug, apiFetchDrugInteractions, type DrugInteraction } from '../lib/api';
@@ -98,6 +99,54 @@ const statusBadge: Record<string, string> = {
   experimental: 'bg-purple-100 text-purple-700 border border-purple-200',
   withdrawn: 'bg-red-100 text-red-700 border border-red-200',
 };
+
+// ────────────────────────────────────────────────────────────────────
+// Chemical Structure viewer — fetches 2D structure from PubChem
+// ────────────────────────────────────────────────────────────────────
+function ChemStructure({ smiles, inchikey, name }: { smiles: string; inchikey: string; name: string }) {
+  const [imgStatus, setImgStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+
+  // Prefer InChIKey (stable identifier), fall back to SMILES
+  const src = inchikey
+    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/${encodeURIComponent(inchikey)}/PNG?image_size=400x300`
+    : smiles
+    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/PNG?image_size=400x300`
+    : null;
+
+  if (!src) return null;
+
+  return (
+    <div className="card p-6">
+      <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <Beaker size={18} className="text-violet-600" /> Chemical Structure
+      </h2>
+      <div className="flex justify-center items-center min-h-[200px] bg-white rounded-xl border border-gray-100 p-4 relative overflow-hidden">
+        {imgStatus === 'loading' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+            <Loader2 size={28} className="animate-spin text-violet-400" />
+          </div>
+        )}
+        {imgStatus === 'error' && (
+          <div className="flex flex-col items-center gap-2 text-gray-400 text-sm py-6">
+            <Beaker size={32} className="opacity-30" />
+            <span>Structure image not available</span>
+          </div>
+        )}
+        <img
+          src={src}
+          alt={`2D chemical structure of ${name}`}
+          className={`max-w-full max-h-72 object-contain rounded-lg ${imgStatus === 'ok' ? '' : 'invisible absolute'}`}
+          style={{ background: 'white' }}
+          onLoad={() => setImgStatus('ok')}
+          onError={() => setImgStatus('error')}
+        />
+      </div>
+      <p className="text-xs text-gray-400 text-center mt-2">
+        2D structure · Source: <a href="https://pubchem.ncbi.nlm.nih.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">PubChem</a>
+      </p>
+    </div>
+  );
+}
 
 const severityBadge: Record<string, string> = {
   major:    'bg-red-100 text-red-700 border border-red-200',
@@ -264,6 +313,11 @@ export default function DrugDetailPage() {
               </div>
             )}
 
+            {/* Chemical Structure */}
+            {(drug.smiles || drug.inchikey) && (
+              <ChemStructure smiles={drug.smiles} inchikey={drug.inchikey} name={drug.name} />
+            )}
+
             {/* Description */}
             {drug.description && (
               <div className="card p-6">
@@ -291,6 +345,46 @@ export default function DrugDetailPage() {
                   <Zap size={18} className="text-amber-600" /> Mechanism of Action
                 </h2>
                 <p className="text-gray-600 leading-relaxed text-sm">{drug.mechanism}</p>
+              </div>
+            )}
+
+            {/* Pharmacodynamics */}
+            {drug.pharmacodynamics && (
+              <div className="card p-6">
+                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Activity size={18} className="text-blue-600" /> Pharmacodynamics
+                </h2>
+                <p className="text-gray-600 leading-relaxed text-sm">{drug.pharmacodynamics}</p>
+              </div>
+            )}
+
+            {/* Absorption */}
+            {drug.absorption && (
+              <div className="card p-6">
+                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Droplets size={18} className="text-cyan-600" /> Absorption
+                </h2>
+                <p className="text-gray-600 leading-relaxed text-sm">{drug.absorption}</p>
+              </div>
+            )}
+
+            {/* Metabolism */}
+            {drug.metabolism && (
+              <div className="card p-6">
+                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <FlaskConical size={18} className="text-emerald-600" /> Metabolism
+                </h2>
+                <p className="text-gray-600 leading-relaxed text-sm">{drug.metabolism}</p>
+              </div>
+            )}
+
+            {/* Toxicity */}
+            {drug.toxicity && (
+              <div className="card p-6">
+                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-red-600" /> Toxicity
+                </h2>
+                <p className="text-gray-600 leading-relaxed text-sm">{drug.toxicity}</p>
               </div>
             )}
 
@@ -371,6 +465,44 @@ export default function DrugDetailPage() {
                 <ExternalLink size={14} /> View on DrugBank.ca
               </a>
             </div>
+
+            {/* Pharmacokinetics summary card */}
+            {(drug.half_life || drug.protein_binding || drug.route_of_elimination) && (
+              <div className="card p-5">
+                <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                  <Clock size={15} className="text-cyan-600" /> Pharmacokinetics
+                </h3>
+                <div className="space-y-3 text-sm">
+                  {drug.half_life && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                        <Clock size={12} className="text-cyan-500" />
+                        <span className="text-xs font-medium uppercase tracking-wide">Half-life</span>
+                      </div>
+                      <p className="text-gray-700 text-xs leading-relaxed line-clamp-3">{drug.half_life}</p>
+                    </div>
+                  )}
+                  {drug.protein_binding && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                        <Shield size={12} className="text-purple-500" />
+                        <span className="text-xs font-medium uppercase tracking-wide">Protein Binding</span>
+                      </div>
+                      <p className="text-gray-700 text-xs leading-relaxed line-clamp-3">{drug.protein_binding}</p>
+                    </div>
+                  )}
+                  {drug.route_of_elimination && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                        <ArrowDownUp size={12} className="text-emerald-500" />
+                        <span className="text-xs font-medium uppercase tracking-wide">Route of Elimination</span>
+                      </div>
+                      <p className="text-gray-700 text-xs leading-relaxed line-clamp-3">{drug.route_of_elimination}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Groups / Status */}
             <div className="card p-5">

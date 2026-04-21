@@ -10,6 +10,13 @@ export interface Drug {
   description: string;
   indication: string;
   mechanism: string;
+  pharmacodynamics: string;
+  toxicity: string;
+  absorption: string;
+  metabolism: string;
+  half_life: string;
+  protein_binding: string;
+  route_of_elimination: string;
   molecular_formula: string;
   molecular_weight: string | number;
   smiles: string;
