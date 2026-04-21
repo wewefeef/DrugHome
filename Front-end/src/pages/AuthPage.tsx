@@ -96,7 +96,7 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
       let data: Record<string, unknown>;
       try { data = await res.json(); } catch { data = {}; }
       if (!res.ok) throw new Error((data.detail as string) || 'Đăng nhập thất bại');
-      login(data.access_token, data.user);
+      login(data.access_token as string, data.user as import('../context/AuthContext').AuthUser);
       navigate(from, { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
@@ -224,7 +224,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
         }
         throw new Error((data.detail as string) || 'Đăng ký thất bại. Vui lòng thử lại.');
       }
-      login(data.access_token, data.user);
+      login(data.access_token as string, data.user as import('../context/AuthContext').AuthUser);
       navigate(from, { replace: true });
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
