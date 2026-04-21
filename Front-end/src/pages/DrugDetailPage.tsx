@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Pill, ChevronRight, Zap, FlaskConical, BookOpen,
   ExternalLink, Tag, Loader2, Activity, AlertTriangle,
-  Beaker, Droplets, Clock, Shield, ArrowDownUp,
+  Droplets, Clock, Shield, ArrowDownUp,
 } from 'lucide-react';
 import type { Drug } from '../types/drug';
 import { apiFetchDrug, apiFetchDrugInteractions, type DrugInteraction } from '../lib/api';
@@ -101,49 +101,38 @@ const statusBadge: Record<string, string> = {
 };
 
 // ────────────────────────────────────────────────────────────────────
-// Chemical Structure viewer — fetches 2D structure from PubChem
+// Small inline chemical structure image (for use inside a table card)
 // ────────────────────────────────────────────────────────────────────
-function ChemStructure({ smiles, inchikey, name }: { smiles: string; inchikey: string; name: string }) {
+function ChemStructureInline({ smiles, inchikey, name }: { smiles: string; inchikey: string; name: string }) {
   const [imgStatus, setImgStatus] = useState<'loading' | 'ok' | 'error'>('loading');
 
-  // Prefer InChIKey (stable identifier), fall back to SMILES
   const src = inchikey
-    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/${encodeURIComponent(inchikey)}/PNG?image_size=400x300`
+    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/${encodeURIComponent(inchikey)}/PNG?image_size=300x200`
     : smiles
-    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/PNG?image_size=400x300`
+    ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodeURIComponent(smiles)}/PNG?image_size=300x200`
     : null;
 
   if (!src) return null;
 
   return (
-    <div className="card p-6">
-      <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <Beaker size={18} className="text-violet-600" /> Chemical Structure
-      </h2>
-      <div className="flex justify-center items-center min-h-[200px] bg-white rounded-xl border border-gray-100 p-4 relative overflow-hidden">
+    <div className="flex flex-col items-center">
+      <div className="relative flex items-center justify-center w-40 h-32 bg-white border border-gray-200 rounded-lg overflow-hidden">
         {imgStatus === 'loading' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
-          </div>
+          <Loader2 size={18} className="animate-spin text-violet-300 absolute" />
         )}
-        {imgStatus === 'error' && (
-          <div className="flex flex-col items-center gap-2 text-gray-400 text-sm py-6">
-            <Beaker size={32} className="opacity-30" />
-            <span>Structure image not available</span>
-          </div>
+        {imgStatus === 'error' ? (
+          <span className="text-gray-300 text-xs">N/A</span>
+        ) : (
+          <img
+            src={src}
+            alt={`Structure of ${name}`}
+            className={`w-full h-full object-contain ${imgStatus === 'ok' ? '' : 'invisible'}`}
+            onLoad={() => setImgStatus('ok')}
+            onError={() => setImgStatus('error')}
+          />
         )}
-        <img
-          src={src}
-          alt={`2D chemical structure of ${name}`}
-          className={`max-w-full max-h-72 object-contain rounded-lg ${imgStatus === 'ok' ? '' : 'invisible absolute'}`}
-          style={{ background: 'white' }}
-          onLoad={() => setImgStatus('ok')}
-          onError={() => setImgStatus('error')}
-        />
       </div>
-      <p className="text-xs text-gray-400 text-center mt-2">
-        2D structure · Source: <a href="https://pubchem.ncbi.nlm.nih.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">PubChem</a>
-      </p>
+      <span className="text-[10px] text-gray-400 mt-1">Structure · PubChem</span>
     </div>
   );
 }
@@ -284,38 +273,43 @@ export default function DrugDetailPage() {
           {/* â”€â”€ Main content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="lg:col-span-2 space-y-5">
 
-            {/* Chemical Properties Table */}
+            {/* Chemical Properties Table + inline structure */}
             {(drug.molecular_formula || drug.smiles || drug.inchikey) && (
               <div className="card p-6">
                 <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <FlaskConical size={18} className="text-violet-600" /> Chemical Properties
                 </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-gray-100">
-                      {[
-                        { label: 'Molecular Formula', value: drug.molecular_formula, mono: true },
-                        { label: 'Molecular Weight', value: drug.molecular_weight ? `${Number(drug.molecular_weight).toFixed(4)} g/mol` : '', mono: false },
-                        { label: 'SMILES', value: drug.smiles, mono: true, truncate: true },
-                        { label: 'InChIKey', value: drug.inchikey, mono: true },
-                      ].filter(r => r.value).map(row => (
-                        <tr key={row.label} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 pr-4 text-gray-500 font-medium w-44 text-xs uppercase tracking-wide whitespace-nowrap">{row.label}</td>
-                          <td className={`py-2.5 text-gray-800 ${row.mono ? 'font-mono text-xs' : ''} ${row.truncate ? 'max-w-xs truncate' : ''}`}
-                            title={row.truncate ? String(row.value) : undefined}>
-                            {row.value}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex gap-6 items-start">
+                  <div className="flex-1 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-gray-100">
+                        {[
+                          { label: 'Molecular Formula', value: drug.molecular_formula, mono: true },
+                          { label: 'Molecular Weight', value: drug.molecular_weight ? `${Number(drug.molecular_weight).toFixed(4)} g/mol` : '', mono: false },
+                          { label: 'SMILES', value: drug.smiles, mono: true, truncate: true },
+                          { label: 'InChIKey', value: drug.inchikey, mono: true },
+                        ].filter(r => r.value).map(row => (
+                          <tr key={row.label} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-2.5 pr-4 text-gray-500 font-medium w-44 text-xs uppercase tracking-wide whitespace-nowrap">{row.label}</td>
+                            <td className={`py-2.5 text-gray-800 ${row.mono ? 'font-mono text-xs' : ''} ${row.truncate ? 'max-w-xs truncate' : ''}`}
+                              title={row.truncate ? String(row.value) : undefined}>
+                              {row.value}
+                            </td>
+                          </tr>
+                        ))}
+                        {(drug.smiles || drug.inchikey) && (
+                          <tr className="hover:bg-gray-50 transition-colors">
+                            <td className="py-2.5 pr-4 text-gray-500 font-medium text-xs uppercase tracking-wide whitespace-nowrap align-top">Structure</td>
+                            <td className="py-2.5">
+                              <ChemStructureInline smiles={drug.smiles} inchikey={drug.inchikey} name={drug.name} />
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Chemical Structure */}
-            {(drug.smiles || drug.inchikey) && (
-              <ChemStructure smiles={drug.smiles} inchikey={drug.inchikey} name={drug.name} />
             )}
 
             {/* Description */}
