@@ -263,3 +263,56 @@ export async function apiFetchDrugInteractions(
   if (!res.ok) return { total: 0, page: 1, per_page: perPage, total_pages: 0, items: [] };
   return res.json() as Promise<Paginated<DrugInteraction>>;
 }
+
+// ── Drug Network API ───────────────────────────────────────────────────────────
+
+export interface DrugNetworkProtein {
+  uniprot_id: string;
+  name: string;
+  gene_name: string;
+  type: 'target' | 'enzyme' | 'transporter' | 'carrier';
+  actions: string[];
+}
+
+export interface DrugNetworkInteraction {
+  drug_id: string;
+  name: string;
+  severity: string;
+  description: string;
+}
+
+export interface DrugNetworkData {
+  drug: {
+    id: string;
+    name: string;
+    drug_type: string;
+    description: string;
+    mechanism: string;
+    groups: string[];
+  };
+  proteins: DrugNetworkProtein[];
+  interactions: DrugNetworkInteraction[];
+  stats: {
+    targets: number;
+    enzymes: number;
+    transporters: number;
+    carriers: number;
+    drug_interactions: number;
+  };
+}
+
+/** Fetch full molecular network data for a drug (targets, enzymes, transporters, interactions) */
+export async function apiFetchDrugNetwork(
+  drugbankId: string,
+  maxInteractions = 80,
+): Promise<DrugNetworkData | null> {
+  try {
+    const res = await fetch(
+      `${BASE}/drugs/${encodeURIComponent(drugbankId)}/network?max_interactions=${maxInteractions}`,
+    );
+    if (!res.ok) return null;
+    return await res.json() as DrugNetworkData;
+  } catch {
+    return null;
+  }
+}

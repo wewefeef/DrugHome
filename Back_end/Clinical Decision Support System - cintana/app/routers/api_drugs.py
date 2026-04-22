@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
 
 from app.database import get_db
-from app.models import Drug, DrugProteinInteraction
+from app.models import Drug, DrugProteinInteraction, Protein, DrugInteraction
 from app.schemas import DrugCreate, DrugOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
 
@@ -217,6 +217,88 @@ def list_drugs_by_category(
         items=items,
     )
     cache_set(cache_key, result, ttl=600)
+    return result
+
+
+@router.get("/{drugbank_id}/network", summary="Get molecular network data for a drug")
+def get_drug_network(
+    drugbank_id: str,
+    max_interactions: int = Query(default=80, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns nodes and edges for the molecular network graph:
+    - The drug itself
+    - Protein interactions (targets, enzymes, transporters, carriers) with gene info
+    - Drug-drug interactions (limited by max_interactions)
+    """
+    cache_key = f"drugs:network:{drugbank_id.upper()}:{max_interactions}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    drug = db.query(Drug).filter(Drug.drugbank_id == drugbank_id.upper()).first()
+    if not drug:
+        raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
+
+    # Protein interactions with protein details
+    protein_rels = (
+        db.query(DrugProteinInteraction, Protein)
+        .join(Protein, DrugProteinInteraction.protein_id == Protein.id)
+        .filter(DrugProteinInteraction.drug_drugbank_id == drugbank_id.upper())
+        .all()
+    )
+
+    # Drug-drug interactions
+    drug_rels = (
+        db.query(DrugInteraction)
+        .filter(DrugInteraction.drug_drugbank_id == drugbank_id.upper())
+        .order_by(DrugInteraction.severity)
+        .limit(max_interactions)
+        .all()
+    )
+
+    proteins = [
+        {
+            "uniprot_id": p.uniprot_id or f"P{rel.protein_id}",
+            "name": p.name,
+            "gene_name": p.gene_name or "",
+            "type": rel.interaction_type or "target",
+            "actions": rel.actions or [],
+        }
+        for rel, p in protein_rels
+    ]
+
+    interactions = [
+        {
+            "drug_id": rel.interacting_drug_id,
+            "name": rel.interacting_drug_name or rel.interacting_drug_id,
+            "severity": rel.severity or "unknown",
+            "description": (rel.description or "")[:300],
+        }
+        for rel in drug_rels
+    ]
+
+    result = {
+        "drug": {
+            "id": drug.drugbank_id,
+            "name": drug.name,
+            "drug_type": drug.drug_type or "small molecule",
+            "description": (drug.description or "")[:600],
+            "mechanism": (drug.mechanism_of_action or "")[:600],
+            "groups": drug.groups,
+        },
+        "proteins": proteins,
+        "interactions": interactions,
+        "stats": {
+            "targets": sum(1 for p in proteins if p["type"] == "target"),
+            "enzymes": sum(1 for p in proteins if p["type"] == "enzyme"),
+            "transporters": sum(1 for p in proteins if p["type"] == "transporter"),
+            "carriers": sum(1 for p in proteins if p["type"] == "carrier"),
+            "drug_interactions": len(interactions),
+        },
+    }
+    cache_set(cache_key, result, ttl=300)
     return result
 
 
