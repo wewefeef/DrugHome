@@ -18,23 +18,23 @@ type Suggestion =
 
 const menuItems = [
   {
-    label: 'Khám phá',
+    label: 'Explore',
     children: [
-      { label: 'Cơ sở dữ liệu thuốc', icon: <Pill size={16} />, to: '/drugs', desc: 'Tra cứu 17,590+ loại thuốc' },
-      { label: 'Protein đích', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,309 protein mục tiêu' },
-      { label: 'Tương tác thuốc', icon: <Zap size={16} />, to: '/interactions', desc: '1,128,500+ cặp tương tác' },
+      { label: 'Drug Database', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,590+ drugs' },
+      { label: 'Target Proteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,309 target proteins' },
+      { label: 'Drug Interactions', icon: <Zap size={16} />, to: '/interactions', desc: '1,128,500+ interaction pairs' },
     ],
   },
   {
-    label: 'Tài nguyên',
+    label: 'Resources',
     children: [
-      { label: 'Tài liệu khoa học', icon: <BookOpen size={16} />, to: '/resources', desc: 'Nghiên cứu & tài liệu tham khảo' },
+      { label: 'Scientific Resources', icon: <BookOpen size={16} />, to: '/resources', desc: 'Research & references' },
     ],
   },
   {
-    label: 'Công cụ',
+    label: 'Tools',
     children: [
-      { label: 'Phân tích & Kiểm tra', icon: <BarChart2 size={16} />, to: '/analysis', desc: 'Kiểm tra tương tác đa thuốc' },
+      { label: 'Analysis & Check', icon: <BarChart2 size={16} />, to: '/analysis', desc: 'Multi-drug interaction checker' },
     ],
   },
 ];
@@ -212,7 +212,7 @@ export default function Header() {
           ))}
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 flex items-center gap-1.5">
             <Search size={11} />
-            Nhấn Enter xem tất cả · ↑↓ di chuyển · Esc đóng
+            Press Enter to see all · ↑↓ navigate · Esc to close
           </div>
         </div>,
         document.body
@@ -245,9 +245,9 @@ export default function Header() {
                   onChange={e => setSearchMode(e.target.value as SearchMode)}
                   className="bg-primary-700 text-white text-sm px-3 border-r border-primary-600 outline-none cursor-pointer min-w-[100px]"
                 >
-                  <option value="drug">Thuốc</option>
+                  <option value="drug">Drug</option>
                   <option value="protein">Protein</option>
-                  <option value="interaction">Tương tác</option>
+                  <option value="interaction">Interaction</option>
                 </select>
                 <input
                   type="text"
@@ -256,9 +256,9 @@ export default function Header() {
                   onKeyDown={handleKeyDown}
                   onFocus={() => { if (suggestions.length > 0) { setShowDropdown(true); if (containerRef.current) setDropdownRect(containerRef.current.getBoundingClientRect()); } }}
                   placeholder={
-                    searchMode === 'protein' ? 'Tên protein, gene...' :
-                    searchMode === 'interaction' ? 'Tên thuốc...' :
-                    'Tên thuốc, hoạt chất...'
+                    searchMode === 'protein' ? 'Protein name, gene...' :
+                    searchMode === 'interaction' ? 'Drug name...' :
+                    'Drug name, substance, DrugBank ID...'
                   }
                   className="flex-1 bg-white text-gray-800 px-4 py-2.5 text-sm outline-none placeholder-gray-400"
                   autoComplete="off"
@@ -268,7 +268,7 @@ export default function Header() {
                   className="bg-blue-400 hover:bg-blue-300 text-primary-900 px-5 font-semibold flex items-center gap-1.5 transition-colors"
                 >
                   <Search size={16} />
-                  <span className="hidden sm:inline text-sm">Tìm</span>
+                  <span className="hidden sm:inline text-sm">Search</span>
                 </button>
               </div>
 
@@ -321,7 +321,7 @@ export default function Header() {
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       <BarChart size={14} className="text-indigo-500" />
-                      Phân tích của tôi
+                      My Analyses
                     </Link>
                     <Link
                       to="/profile"
@@ -329,7 +329,7 @@ export default function Header() {
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       <UserCircle size={14} className="text-blue-500" />
-                      Hồ sơ cá nhân
+                      My Profile
                     </Link>
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <button
@@ -337,7 +337,7 @@ export default function Header() {
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <LogOut size={14} />
-                        Đăng xuất
+                        Sign Out
                       </button>
                     </div>
                   </div>
@@ -350,13 +350,13 @@ export default function Header() {
                   className="flex items-center gap-1.5 text-white border border-blue-400 hover:bg-blue-400 hover:text-primary-900 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                 >
                   <LogIn size={15} />
-                  Đăng nhập
+                  Sign In
                 </Link>
                 <Link
                   to="/register"
                   className="flex items-center gap-1.5 bg-blue-400 hover:bg-blue-300 text-primary-900 px-4 py-2 rounded-lg text-sm font-bold transition-all shadow"
                 >
-                  Đăng ký
+                  Sign Up
                 </Link>
               </>
             )}
@@ -411,10 +411,10 @@ export default function Header() {
           {/* Quick links */}
           <div className="ml-auto flex items-center gap-0.5">
             {[
-              { label: 'Thuốc', to: '/drugs' },
-              { label: 'Tương tác', to: '/interactions' },
-              { label: 'Protein', to: '/proteins' },
-              { label: 'Phân tích', to: '/analysis' },
+            { label: 'Drugs', to: '/drugs' },
+              { label: 'Interactions', to: '/interactions' },
+              { label: 'Proteins', to: '/proteins' },
+              { label: 'Analysis', to: '/analysis' },
             ].map(link => (
               <Link
                 key={link.to}
@@ -466,13 +466,13 @@ export default function Header() {
                   onClick={() => { logout(); setMobileOpen(false); navigate('/'); }}
                   className="w-full flex items-center gap-2 text-red-400 hover:bg-primary-700 px-3 py-2 rounded-lg text-sm"
                 >
-                  <LogOut size={15} /> Đăng xuất
+                  <LogOut size={15} /> Sign Out
                 </button>
               </div>
             ) : (
               <>
-                <Link to="/login" className="flex-1 text-center border border-blue-400 text-white py-2 rounded-lg text-sm font-medium" onClick={() => setMobileOpen(false)}>Đăng nhập</Link>
-                <Link to="/register" className="flex-1 text-center bg-blue-400 text-primary-900 py-2 rounded-lg text-sm font-bold" onClick={() => setMobileOpen(false)}>Đăng ký</Link>
+                <Link to="/login" className="flex-1 text-center border border-blue-400 text-white py-2 rounded-lg text-sm font-medium" onClick={() => setMobileOpen(false)}>Sign In</Link>
+                <Link to="/register" className="flex-1 text-center bg-blue-400 text-primary-900 py-2 rounded-lg text-sm font-bold" onClick={() => setMobileOpen(false)}>Sign Up</Link>
               </>
             )}
           </div>

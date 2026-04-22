@@ -121,6 +121,7 @@ export interface DrugListParams {
   group?: string;
   drug_type?: string;
   state?: string;
+  category_key?: string;
   page?: number;
   per_page?: number;
   signal?: AbortSignal;
@@ -129,10 +130,11 @@ export interface DrugListParams {
 /** Paginated drug list with server-side search and filtering */
 export async function apiFetchDrugs(params: DrugListParams = {}): Promise<Paginated<Drug>> {
   const sp = new URLSearchParams();
-  if (params.q)          sp.set('q', params.q);
-  if (params.group)      sp.set('group', params.group);
-  if (params.drug_type)  sp.set('drug_type', params.drug_type);
-  if (params.state)      sp.set('state', params.state);
+  if (params.q)             sp.set('q', params.q);
+  if (params.group)         sp.set('group', params.group);
+  if (params.drug_type)     sp.set('drug_type', params.drug_type);
+  if (params.state)         sp.set('state', params.state);
+  if (params.category_key)  sp.set('category_key', params.category_key);
   sp.set('page',     String(params.page ?? 1));
   sp.set('per_page', String(params.per_page ?? 24));
 
@@ -148,6 +150,21 @@ export async function apiFetchDrug(drugbankId: string): Promise<Drug | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Drug API error: ${res.status}`);
   return normalizeDrug(await res.json() as ApiDrug);
+}
+
+/** Fetch all drugs for a disease category from backend */
+export async function apiFetchDrugsByCategory(
+  categoryKey: string,
+  perPage = 300,
+): Promise<{ id: string; name: string }[]> {
+  try {
+    const res = await fetch(`${BASE}/drugs/categories/${encodeURIComponent(categoryKey)}?page=1&per_page=${perPage}`);
+    if (!res.ok) return [];
+    const data: Paginated<ApiDrug> = await res.json();
+    return data.items.map(d => ({ id: d.drugbank_id, name: d.name }));
+  } catch {
+    return [];
+  }
 }
 
 /** Lightweight drug search for autocomplete — returns [{id, name}] */

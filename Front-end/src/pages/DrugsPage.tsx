@@ -184,12 +184,28 @@ export default function DrugsPage() {
   const [activeQuery, setActiveQuery] = useState(searchParams.get("q") || "");
   const [drugType, setDrugType] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
+  const [diseaseCategory, setDiseaseCategory] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Disease categories (same as interaction page)
+  const DISEASE_CATEGORIES = [
+    { key: "pain",        label: "Pain & Fever",            icon: "💊", color: "red"    },
+    { key: "cardio",      label: "Cardiovascular",           icon: "❤️", color: "rose"   },
+    { key: "antibiotics", label: "Antibiotics",              icon: "🦠", color: "green"  },
+    { key: "cns",         label: "CNS & Psychiatry",         icon: "🧠", color: "blue"   },
+    { key: "diabetes",    label: "Diabetes & Endocrine",     icon: "⚗️", color: "amber"  },
+    { key: "neuro",       label: "Neurology",                icon: "🔬", color: "violet" },
+    { key: "oncology",    label: "Oncology & Chemo",         icon: "🎗️", color: "purple" },
+    { key: "gi",          label: "Gastrointestinal",         icon: "🫀", color: "orange" },
+    { key: "immuno",      label: "Immunology",               icon: "🛡️", color: "sky"    },
+    { key: "antiviral",   label: "Antifungals & Antivirals", icon: "🦠", color: "teal"   },
+    { key: "cholesterol", label: "Cholesterol & Lipids",     icon: "💉", color: "yellow" },
+    { key: "respiratory", label: "Respiratory",              icon: "🫁", color: "cyan"   },
+    { key: "rheuma",      label: "Rheumatology & Pain",      icon: "🦴", color: "stone"  },
+  ];
+
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  const DRUG_TYPES = ["All", "small molecule", "biotech"];
-  const GROUPS = ["All", "approved", "investigational", "experimental", "withdrawn", "illicit"];
 
   useEffect(() => {
     let cancelled = false;
@@ -199,8 +215,7 @@ export default function DrugsPage() {
       try {
         const result = await apiFetchDrugs({
           q: activeQuery || undefined,
-          group: groupFilter !== "All" ? groupFilter : undefined,
-          drug_type: drugType !== "All" ? drugType : undefined,
+          category_key: diseaseCategory || undefined,
           page,
           per_page: PAGE_SIZE,
         });
@@ -223,12 +238,6 @@ export default function DrugsPage() {
               d.id.toLowerCase().includes(q)
             );
           }
-          if (groupFilter !== "All") {
-            filtered = filtered.filter(d => d.groups.includes(groupFilter));
-          }
-          if (drugType !== "All") {
-            filtered = filtered.filter(d => d.type.toLowerCase() === drugType.toLowerCase());
-          }
           const total = filtered.length;
           const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
           const start = (page - 1) * PAGE_SIZE;
@@ -248,12 +257,12 @@ export default function DrugsPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [activeQuery, groupFilter, drugType, page]);
+  }, [activeQuery, diseaseCategory, page]);
 
-  const activeFiltersCount = [drugType !== "All", groupFilter !== "All"].filter(Boolean).length;
+  const activeFiltersCount = diseaseCategory ? 1 : 0;
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setActiveQuery(query); setPage(1); };
-  const resetFilters = useCallback(() => { setDrugType("All"); setGroupFilter("All"); setPage(1); }, []);
+  const resetFilters = useCallback(() => { setDrugType("All"); setGroupFilter("All"); setDiseaseCategory(""); setPage(1); }, []);
   const gotoPage = useCallback((p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   return (
@@ -273,7 +282,7 @@ export default function DrugsPage() {
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight">Drug Database</h1>
               <p className="text-blue-300 text-sm mt-0.5">
-                {loading ? 'Đang tải...' : `${total.toLocaleString()} thuốc từ DrugBank®`}
+                {loading ? 'Loading...' : `${total.toLocaleString()} drugs from DrugBank®`}
               </p>
             </div>
           </div>
@@ -311,35 +320,27 @@ export default function DrugsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 -mt-4">
-        {/* ── Filter panel ─────────────────────── */}
+        {/* ── Filter panel (disease categories) ─── */}
         {showFilters && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5 grid sm:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Drug Type</label>
-              <div className="flex flex-wrap gap-1.5">
-                {DRUG_TYPES.map(t => (
-                  <button key={t} onClick={() => { setDrugType(t); setPage(1); }}
-                    className={"text-xs px-2.5 py-1 rounded-full font-medium capitalize transition-all " + (drugType === t ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status</label>
-              <div className="flex flex-wrap gap-1.5">
-                {['All', 'approved', 'investigational', 'experimental', 'withdrawn', 'illicit'].map(g => (
-                  <button key={g} onClick={() => { setGroupFilter(g); setPage(1); }}
-                    className={"text-xs px-2.5 py-1 rounded-full font-medium transition-all " + (groupFilter === g ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}>
-                    {g}
-                  </button>
-                ))}
-              </div>
-              {activeFiltersCount > 0 && (
-                <button onClick={resetFilters} className="mt-3 text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
-                  <X size={11} /> Clear filters
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Disease Category</label>
+              {diseaseCategory && (
+                <button onClick={resetFilters} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+                  <X size={11} /> Clear
                 </button>
               )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {DISEASE_CATEGORIES.map(cat => (
+                <button
+                  key={cat.key}
+                  onClick={() => { setDiseaseCategory(diseaseCategory === cat.key ? "" : cat.key); setPage(1); }}
+                  className={"text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1 " + (diseaseCategory === cat.key ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}
+                >
+                  <span>{cat.icon}</span> {cat.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -352,8 +353,9 @@ export default function DrugsPage() {
               : (<>
                   Showing 
                   <span className="font-bold text-primary-800">{total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}</span>
-                   trong <span className="font-bold text-primary-800">{total.toLocaleString()}</span> drugs
-                  {activeQuery && <span> cho “<span className="font-semibold">{activeQuery}</span>”</span>}
+                   of <span className="font-bold text-primary-800">{total.toLocaleString()}</span> drugs
+                  {activeQuery && <span> for "<span className="font-semibold">{activeQuery}</span>"</span>}
+                  {diseaseCategory && <span> · {DISEASE_CATEGORIES.find(c => c.key === diseaseCategory)?.label}</span>}
                 </>)}
           </div>
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">

@@ -17,10 +17,10 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (/[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { score, label: 'Yếu', color: '#ef4444' };
-  if (score <= 2) return { score, label: 'Trung bình', color: '#f97316' };
-  if (score <= 3) return { score, label: 'Khá mạnh', color: '#eab308' };
-  return { score, label: 'Mạnh', color: '#22c55e' };
+  if (score <= 1) return { score, label: 'Weak', color: '#ef4444' };
+  if (score <= 2) return { score, label: 'Fair', color: '#f97316' };
+  if (score <= 3) return { score, label: 'Good', color: '#eab308' };
+  return { score, label: 'Strong', color: '#22c55e' };
 }
 
 // ── Input component ───────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
     e.preventDefault();
     setError('');
     if (!identifier.trim() || !password) {
-      setError('Vui lòng nhập đầy đủ thông tin');
+      setError('Please fill in all fields');
       return;
     }
     setLoading(true);
@@ -95,11 +95,11 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
       });
       let data: Record<string, unknown>;
       try { data = await res.json(); } catch { data = {}; }
-      if (!res.ok) throw new Error((data.detail as string) || 'Đăng nhập thất bại');
+      if (!res.ok) throw new Error((data.detail as string) || 'Login failed');
       login(data.access_token as string, data.user as import('../context/AuthContext').AuthUser);
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -108,19 +108,19 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <InputField
-        label="Tên đăng nhập hoặc Email"
+        label="Username or Email"
         value={identifier}
         onChange={setIdentifier}
-        placeholder="username hoặc email@example.com"
+        placeholder="username or email@example.com"
         icon={<AtSign size={16} />}
         autoComplete="username"
       />
       <InputField
-        label="Mật khẩu"
+        label="Password"
         type={showPw ? 'text' : 'password'}
         value={password}
         onChange={setPassword}
-        placeholder="Nhập mật khẩu"
+        placeholder="Enter password"
         icon={<Lock size={16} />}
         autoComplete="current-password"
         suffix={
@@ -135,9 +135,9 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
         <button
           type="button"
           className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-          onClick={() => alert('Tính năng đặt lại mật khẩu qua email sẽ sớm ra mắt.')}
+          onClick={() => alert('Password reset via email will be available soon.')}
         >
-          Quên mật khẩu?
+          Forgot password?
         </button>
       </div>
 
@@ -154,13 +154,13 @@ function LoginForm({ onSwitch, from }: { onSwitch: () => void; from: string }) {
         className="w-full flex items-center justify-center gap-2 bg-[#133670] hover:bg-[#0b1f47] text-white py-3 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        {loading ? 'Signing in...' : 'Sign In'}
       </button>
 
       <p className="text-center text-sm text-gray-500">
-        Chưa có tài khoản?{' '}
+        Don't have an account?{' '}
         <button type="button" onClick={onSwitch} className="text-blue-600 font-semibold hover:underline">
-          Đăng ký ngay
+          Sign up now
         </button>
       </p>
     </form>
@@ -187,11 +187,11 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!fullName.trim()) errs.fullName = 'Vui lòng nhập họ tên';
-    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) errs.email = 'Email không hợp lệ';
-    if (!username.trim() || username.length < 3) errs.username = 'Ít nhất 3 ký tự';
-    if (password.length < 8) errs.password = 'Mật khẩu phải có ít nhất 8 ký tự';
-    if (password !== confirmPassword) errs.confirmPassword = 'Mật khẩu xác nhận không khớp';
+    if (!fullName.trim()) errs.fullName = 'Please enter your full name';
+    if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) errs.email = 'Invalid email';
+    if (!username.trim() || username.length < 3) errs.username = 'At least 3 characters';
+    if (password.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (password !== confirmPassword) errs.confirmPassword = 'Passwords do not match';
     return errs;
   };
 
@@ -222,12 +222,12 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
           const msg = (data.detail as { msg: string }[]).map((d) => d.msg).join(', ');
           throw new Error(msg);
         }
-        throw new Error((data.detail as string) || 'Đăng ký thất bại. Vui lòng thử lại.');
+        throw new Error((data.detail as string) || 'Registration failed. Please try again.');
       }
       login(data.access_token as string, data.user as import('../context/AuthContext').AuthUser);
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
+      setApiError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -236,10 +236,10 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <InputField
-        label="Họ và tên"
+        label="Full name"
         value={fullName}
         onChange={setFullName}
-        placeholder="Nguyễn Văn A"
+        placeholder="John Doe"
         icon={<User size={16} />}
         error={fieldErrors.fullName}
         autoComplete="name"
@@ -255,7 +255,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
         autoComplete="email"
       />
       <InputField
-        label="Tên đăng nhập"
+        label="Username"
         value={username}
         onChange={setUsername}
         placeholder="username"
@@ -266,14 +266,14 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
 
       {/* Password with strength */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+        <label className="block text-sm font-medium text-gray-700">Password</label>
         <div className="relative">
           <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type={showPw ? 'text' : 'password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="Ít nhất 8 ký tự"
+            placeholder="At least 8 characters"
             autoComplete="new-password"
             className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm outline-none transition-all
               ${fieldErrors.password ? 'border-red-400 bg-red-50 focus:ring-2 focus:ring-red-200' : 'border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'}`}
@@ -300,11 +300,11 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
       </div>
 
       <InputField
-        label="Nhập lại mật khẩu"
+        label="Confirm password"
         type={showCp ? 'text' : 'password'}
         value={confirmPassword}
         onChange={setConfirmPassword}
-        placeholder="Nhập lại mật khẩu"
+        placeholder="Re-enter password"
         icon={<Lock size={16} />}
         error={fieldErrors.confirmPassword}
         autoComplete="new-password"
@@ -317,7 +317,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
       {/* Match indicator */}
       {confirmPassword && !fieldErrors.confirmPassword && (
         <p className="text-green-600 text-xs flex items-center gap-1">
-          <CheckCircle size={11} /> Mật khẩu khớp
+          <CheckCircle size={11} /> Passwords match
         </p>
       )}
 
@@ -334,13 +334,13 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
         className="w-full flex items-center justify-center gap-2 bg-[#133670] hover:bg-[#0b1f47] text-white py-3 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-        {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+        {loading ? 'Creating account...' : 'Create Account'}
       </button>
 
       <p className="text-center text-sm text-gray-500">
-        Đã có tài khoản?{' '}
+        Already have an account?{' '}
         <button type="button" onClick={onSwitch} className="text-blue-600 font-semibold hover:underline">
-          Đăng nhập
+          Sign in
         </button>
       </p>
     </form>
@@ -407,7 +407,7 @@ export default function AuthPage() {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Đăng nhập
+              Sign In
             </button>
             <button
               onClick={() => setMode('register')}
@@ -417,19 +417,19 @@ export default function AuthPage() {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Đăng ký
+              Sign Up
             </button>
           </div>
 
           {/* Heading */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">
-              {mode === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}
+              {mode === 'login' ? 'Welcome back' : 'Create a new account'}
             </h1>
             <p className="text-gray-500 text-sm mt-1">
               {mode === 'login'
-                ? 'Đăng nhập để lưu lịch sử và cá nhân hoá trải nghiệm'
-                : 'Miễn phí · Không cần thẻ tín dụng'}
+                ? 'Sign in to save history and personalize your experience'
+                : 'Free · No credit card required'}
             </p>
           </div>
 
@@ -441,7 +441,7 @@ export default function AuthPage() {
 
         {/* Back link */}
         <p className="text-center text-sm text-blue-300 mt-6">
-          <Link to="/" className="hover:text-white transition-colors">← Quay về trang chủ</Link>
+          <Link to="/" className="hover:text-white transition-colors">← Back to home</Link>
         </p>
       </div>
     </div>

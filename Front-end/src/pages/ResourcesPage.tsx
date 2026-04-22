@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen, ChevronRight, Search, FlaskConical, Beaker, Activity,
@@ -18,15 +18,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <Activity size={22} className="text-blue-500" />,
     color: 'from-blue-50 to-indigo-50 border-blue-200',
     accent: 'bg-blue-500',
-    title: 'Dược động học (Pharmacokinetics)',
-    subtitle: 'ADME — Hấp thu, Phân bố, Chuyển hóa, Thải trừ',
-    summary: 'Nghiên cứu quá trình cơ thể xử lý thuốc theo thời gian. Bao gồm 4 giai đoạn ADME và các tham số lâm sàng quan trọng như AUC, Cmax, T½.',
+    title: 'Pharmacokinetics',
+    subtitle: 'ADME — Absorption, Distribution, Metabolism, Elimination',
+    summary: 'Studies how the body processes drugs over time. Covers the 4 ADME stages and key clinical parameters such as AUC, Cmax, and T½.',
     tags: ['ADME', 'Bioavailability', 'Half-life', 'Clearance', 'Volume of distribution'],
     keyPoints: [
-      'Sinh khả dụng (F%) phản ánh tỷ lệ thuốc đến tuần hoàn hệ thống',
-      'Thể tích phân bố (Vd) cho biết mức độ phân bố thuốc vào mô',
-      'Độ thanh thải (CL) phụ thuộc chức năng thận và gan',
-      'Thời gian bán thải (t½ = 0,693 × Vd / CL) quyết định liều lặp lại',
+      'Bioavailability (F%) reflects the fraction of drug reaching systemic circulation',
+      'Volume of distribution (Vd) indicates the extent of drug distribution into tissues',
+      'Clearance (CL) depends on renal and hepatic function',
+      'Half-life (t½ = 0.693 × Vd / CL) determines dosing interval',
     ],
     formula: 't½ = 0.693 × Vd / CL',
     color_formula: 'text-blue-700 bg-blue-50',
@@ -36,15 +36,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <Target size={22} className="text-purple-500" />,
     color: 'from-purple-50 to-violet-50 border-purple-200',
     accent: 'bg-purple-500',
-    title: 'Dược lực học (Pharmacodynamics)',
-    subtitle: 'Cơ chế tác dụng — Receptor — Signal transduction',
-    summary: 'Nghiên cứu tác động của thuốc lên cơ thể — cơ chế phân tử, liên kết receptor, đường truyền tín hiệu và phản ứng sinh lý.',
+    title: 'Pharmacodynamics',
+    subtitle: 'Mechanism of action — Receptor — Signal transduction',
+    summary: 'Studies drug effects on the body — molecular mechanisms, receptor binding, signal transduction, and physiological responses.',
     tags: ['Receptor binding', 'Agonist', 'Antagonist', 'EC50', 'Efficacy vs Potency'],
     keyPoints: [
-      'Agonist đầy đủ: kích hoạt receptor đến mức tối đa',
-      'Partial agonist: hiệu quả tối đa thấp hơn agonist nội sinh',
-      'Competitive antagonist: tranh chấp vị trí gắn — có thể vượt qua bằng tăng nồng độ',
-      'EC50 thể hiện nồng độ đạt 50% hiệu quả tối đa',
+      'Full agonist: activates receptor to maximum effect',
+      'Partial agonist: lower maximum efficacy than endogenous agonist',
+      'Competitive antagonist: competes for binding site — can be overcome by increasing agonist concentration',
+      'EC50 represents the concentration achieving 50% of maximum effect',
     ],
     formula: 'E = Emax × [C]^n / (EC50^n + [C]^n)',
     color_formula: 'text-purple-700 bg-purple-50',
@@ -54,15 +54,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <FlaskConical size={22} className="text-amber-500" />,
     color: 'from-amber-50 to-yellow-50 border-amber-200',
     accent: 'bg-amber-500',
-    title: 'Enzyme CYP450 & Chuyển hóa thuốc',
+    title: 'CYP450 Enzymes & Drug Metabolism',
     subtitle: 'CYP3A4 · CYP2D6 · CYP2C9 · CYP2C19 · CYP1A2',
-    summary: 'Hệ enzyme Cytochrome P450 ở gan chịu trách nhiệm chuyển hóa >75% thuốc trên thị trường. Ức chế hoặc cảm ứng CYP gây ra phần lớn tương tác thuốc nghiêm trọng.',
+    summary: 'The hepatic Cytochrome P450 enzyme system metabolizes >75% of marketed drugs. CYP inhibition or induction causes the majority of serious drug interactions.',
     tags: ['CYP3A4', 'CYP2D6', 'Inhhibitor', 'Inducer', 'Substrate', 'Prodrug'],
     keyPoints: [
-      'CYP3A4 chuyển hóa ~50% tất cả thuốc — bị ức chế bởi grapefruit juice',
-      'CYP2D6 có đa hình di truyền: Poor/Intermediate/Extensive/Ultra-rapid Metabolizer',
-      'Rifampicin là inducer CYP mạnh nhất — giảm hiệu quả nhiều thuốc',
-      'Ketoconazole, clarithromycin là inhibitor CYP3A4 quan trọng lâm sàng',
+      'CYP3A4 metabolizes ~50% of all drugs — inhibited by grapefruit juice',
+      'CYP2D6 has genetic polymorphisms: Poor/Intermediate/Extensive/Ultra-rapid Metabolizer',
+      'Rifampicin is the most potent CYP inducer — reduces efficacy of many drugs',
+      'Ketoconazole and clarithromycin are clinically important CYP3A4 inhibitors',
     ],
     formula: 'Vm = Vmax × [S] / (Km + [S])',
     color_formula: 'text-amber-700 bg-amber-50',
@@ -72,15 +72,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <Zap size={22} className="text-red-500" />,
     color: 'from-red-50 to-rose-50 border-red-200',
     accent: 'bg-red-500',
-    title: 'Tương tác thuốc — Drug Interactions',
+    title: 'Drug Interactions',
     subtitle: 'PK interactions · PD interactions · Major vs Moderate vs Minor',
-    summary: 'Tương tác thuốc xảy ra khi hiệu quả/độc tính của thuốc bị thay đổi bởi sự hiện diện của thuốc, thực phẩm hoặc chất khác. Phân loại theo cơ chế và mức độ lâm sàng.',
+    summary: 'Drug interactions occur when the efficacy/toxicity of a drug is altered by another drug, food, or substance. Classified by mechanism and clinical severity.',
     tags: ['PK interaction', 'PD interaction', 'Synergy', 'Antagonism', 'Warfarin', 'Major'],
     keyPoints: [
-      'Tương tác dược động học: thay đổi hấp thu, phân bố, chuyển hóa, thải trừ',
-      'Tương tác dược lực học: cộng hưởng (additive) hoặc đối kháng (antagonism)',
-      'Warfarin + NSAIDs: tăng nguy cơ xuất huyết — cần theo dõi INR',
-      'ACE inhibitor + Kali: nguy cơ tăng kali huyết nghiêm trọng',
+      'Pharmacokinetic interactions: altered absorption, distribution, metabolism, or elimination',
+      'Pharmacodynamic interactions: additive or antagonistic effects',
+      'Warfarin + NSAIDs: increased bleeding risk — monitor INR',
+      'ACE inhibitor + Potassium: risk of serious hyperkalemia',
     ],
     formula: 'Risk = Σ(major × 3 + moderate × 1.5 + minor × 0.5)',
     color_formula: 'text-red-700 bg-red-50',
@@ -90,15 +90,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <Heart size={22} className="text-rose-500" />,
     color: 'from-rose-50 to-pink-50 border-rose-200',
     accent: 'bg-rose-500',
-    title: 'Drug Classes theo Nhóm Bệnh',
+    title: 'Drug Classes by Disease Group',
     subtitle: 'Cardiovascular · CNS · Anti-infective · Oncology · Endocrine',
-    summary: 'Phân loại thuốc theo ứng dụng điều trị giúp hiểu mối liên hệ giữa cơ chế tác dụng và bệnh lý mục tiêu — nền tảng của y học lâm sàng.',
+    summary: 'Classifying drugs by therapeutic application helps understand the relationship between mechanism of action and target disease — the foundation of clinical medicine.',
     tags: ['ATC Code', 'WHO Essential', 'First-line', 'Monotherapy', 'Stepwise'],
     keyPoints: [
-      'Hệ ATC (Anatomical Therapeutic Chemical) phân loại thuốc thành 5 cấp độ',
-      'WHO Essential Medicines List 2023: 502 thuốc thiết yếu toàn cầu',
-      'Thuốc tim mạch (C): beta-blocker, ACEi, statin — nhóm doanh thu lớn nhất',
-      'Kháng sinh (J01): phân loại theo phổ tác dụng và cơ chế tác động vi khuẩn',
+      'The ATC (Anatomical Therapeutic Chemical) system classifies drugs into 5 levels',
+      'WHO Essential Medicines List 2023: 502 globally essential medicines',
+      'Cardiovascular drugs (C): beta-blockers, ACEi, statins — highest revenue group',
+      'Antibiotics (J01): classified by spectrum and mechanism of antibacterial action',
     ],
     formula: 'ATC Level 1→5: A → C02 → C02A → C02AA → C02AA01',
     color_formula: 'text-rose-700 bg-rose-50',
@@ -108,15 +108,15 @@ const PHARMACOLOGY_TOPICS = [
     icon: <Stethoscope size={22} className="text-teal-500" />,
     color: 'from-teal-50 to-emerald-50 border-teal-200',
     accent: 'bg-teal-500',
-    title: 'Thử nghiệm lâm sàng & EBM',
+    title: 'Clinical Trials & EBM',
     subtitle: 'Phase I–IV · RCT · NNT · NNH · Evidence grading',
-    summary: 'Y học dựa vào bằng chứng (EBM) sử dụng kết quả từ thử nghiệm lâm sàng đối chứng ngẫu nhiên để hướng dẫn quyết định điều trị. Các chỉ số NNT/NNH đánh giá hiệu quả thực tế.',
+    summary: 'Evidence-Based Medicine (EBM) uses results from randomized controlled trials to guide treatment decisions. NNT/NNH metrics evaluate real-world efficacy.',
     tags: ['RCT', 'Blinding', 'P-value', 'Confidence Interval', 'NNT', 'GRADE'],
     keyPoints: [
-      'Phase I: an toàn, liều dung nạp — 20–100 tình nguyện viên khỏe mạnh',
-      'Phase II: hiệu quả sơ bộ, tác dụng phụ — 100–300 bệnh nhân',
-      'Phase III: hiệu quả, so sánh điều trị chuẩn — hàng nghìn bệnh nhân',
-      'NNT = 1/ARR — số bệnh nhân cần điều trị để tránh 1 biến cố bất lợi',
+      'Phase I: safety, dose tolerance — 20–100 healthy volunteers',
+      'Phase II: preliminary efficacy, side effects — 100–300 patients',
+      'Phase III: efficacy, comparison to standard treatment — thousands of patients',
+      'NNT = 1/ARR — number of patients needed to treat to prevent 1 adverse event',
     ],
     formula: 'NNT = 1 / (CER − EER)',
     color_formula: 'text-teal-700 bg-teal-50',
@@ -124,108 +124,108 @@ const PHARMACOLOGY_TOPICS = [
 ];
 
 const GLOSSARY: { term: string; def: string; category: string }[] = [
-  { term: 'Bioavailability (F)', def: 'Phần trăm liều thuốc đưa vào cơ thể đạt được tuần hoàn hệ thống ở dạng không đổi. IV = 100%; uống thường < 100% do first-pass effect.', category: 'PK' },
-  { term: 'Half-life (t½)', def: 'Thời gian để nồng độ thuốc trong huyết tương giảm còn 50%. Sau 4–5 t½ thuốc đạt trạng thái ổn định (steady-state).', category: 'PK' },
-  { term: 'Clearance (CL)', def: 'Thể tích huyết tương được "làm sạch" thuốc mỗi đơn vị thời gian (L/h). Bao gồm hepatic CL và renal CL.', category: 'PK' },
-  { term: 'Volume of Distribution (Vd)', def: 'Thể tích lý thuyết mà thuốc phân bố vào nếu nồng độ đồng nhất với huyết tương. Vd cao → phân bố vào mô nhiều.', category: 'PK' },
-  { term: 'EC50', def: 'Nồng độ thuốc đạt 50% hiệu quả tối đa. Giá trị thấp → thuốc có potency cao hơn.', category: 'PD' },
-  { term: 'Therapeutic Index (TI)', def: 'TI = TD50/ED50. Tỷ số giữa liều gây độc và liều có tác dụng. TI thấp (warfarin, digoxin, lithium) cần theo dõi nồng độ máu.', category: 'PD' },
-  { term: 'Prodrug', def: 'Hợp chất dược lý không hoạt tính, chỉ có tác dụng sau khi được enzyme chuyển đổi thành dạng hoạt tính in vivo. Ví dụ: codeine → morphine (CYP2D6).', category: 'PK' },
-  { term: 'First-pass Effect', def: 'Hiện tượng thuốc bị chuyển hóa tại gan hoặc ruột trước khi vào tuần hoàn chung, làm giảm sinh khả dụng khi dùng đường uống.', category: 'PK' },
-  { term: 'Competitive Antagonist', def: 'Chất gắn vào cùng vị trí với agonist nhưng không kích hoạt receptor. Có thể bị vượt qua bằng tăng nồng độ agonist.', category: 'PD' },
-  { term: 'Non-competitive Antagonist', def: 'Gắn vào vị trí dị lập thể hoặc cộng hóa trị với receptor. Giảm Emax, không thể vượt qua bằng tăng nồng độ agonist.', category: 'PD' },
-  { term: 'Receptor Downregulation', def: 'Giảm số lượng receptor do tiếp xúc kéo dài với agonist. Cơ chế này giải thích hiện tượng tachyphylaxis và dung nạp thuốc.', category: 'PD' },
-  { term: 'CYP Inhibition', def: 'Ức chế enzyme CYP450 làm giảm chuyển hóa substrate → tăng nồng độ thuốc → tăng tác dụng/độc tính tiềm ẩn.', category: 'Interaction' },
-  { term: 'P-glycoprotein (P-gp)', def: 'Protein vận chuyển efflux tại ruột, BBB, thận. Giới hạn hấp thu và phân bố nhiều thuốc. Substrate: digoxin, dabigatran. Inhibitor: amiodarone.', category: 'PK' },
-  { term: 'Protein Binding', def: 'Phần thuốc gắn với albumin và protein huyết tương. Chỉ dạng tự do có hoạt tính. Warfarin gắn 99% protein — tương tác có thể tăng dạng tự do nguy hiểm.', category: 'PK' },
-  { term: 'NNT (Number Needed to Treat)', def: 'Số bệnh nhân cần điều trị để ngăn ngừa 1 biến cố bất lợi so với nhóm đối chứng. NNT thấp = hiệu quả điều trị cao.', category: 'EBM' },
-  { term: 'Blood-Brain Barrier (BBB)', def: 'Hàng rào máu não do tế bào nội mô mao mạch não tạo thành. Chỉ cho phép các phân tử nhỏ, không phân cực, lipophilic đi qua.', category: 'PK' },
+  { term: 'Bioavailability (F)', def: 'Percentage of administered drug reaching systemic circulation unchanged. IV = 100%; oral usually < 100% due to first-pass effect.', category: 'PK' },
+  { term: 'Half-life (t½)', def: 'Time for plasma drug concentration to decrease by 50%. After 4–5 t½ the drug reaches steady-state.', category: 'PK' },
+  { term: 'Clearance (CL)', def: 'Volume of plasma cleared of drug per unit time (L/h). Includes hepatic CL and renal CL.', category: 'PK' },
+  { term: 'Volume of Distribution (Vd)', def: 'Theoretical volume into which a drug would need to be distributed to produce the observed plasma concentration. High Vd → extensive tissue distribution.', category: 'PK' },
+  { term: 'EC50', def: 'Concentration achieving 50% of maximum effect. Lower value → higher drug potency.', category: 'PD' },
+  { term: 'Therapeutic Index (TI)', def: 'TI = TD50/ED50. Ratio of toxic dose to effective dose. Low TI (warfarin, digoxin, lithium) requires blood level monitoring.', category: 'PD' },
+  { term: 'Prodrug', def: 'Pharmacologically inactive compound that becomes active only after enzymatic conversion in vivo. Example: codeine → morphine (CYP2D6).', category: 'PK' },
+  { term: 'First-pass Effect', def: 'Metabolism of a drug by the liver or gut wall before reaching systemic circulation, reducing oral bioavailability.', category: 'PK' },
+  { term: 'Competitive Antagonist', def: 'Binds to the same site as the agonist but does not activate the receptor. Can be overcome by increasing agonist concentration.', category: 'PD' },
+  { term: 'Non-competitive Antagonist', def: 'Binds allosterically or covalently to the receptor. Reduces Emax; cannot be overcome by increasing agonist concentration.', category: 'PD' },
+  { term: 'Receptor Downregulation', def: 'Reduction in receptor number due to prolonged agonist exposure. Explains tachyphylaxis and drug tolerance.', category: 'PD' },
+  { term: 'CYP Inhibition', def: 'CYP450 enzyme inhibition reduces substrate metabolism → increased drug concentration → potential increased effect/toxicity.', category: 'Interaction' },
+  { term: 'P-glycoprotein (P-gp)', def: 'Efflux transporter protein in the gut, BBB, and kidneys. Limits absorption and distribution of many drugs. Substrates: digoxin, dabigatran. Inhibitor: amiodarone.', category: 'PK' },
+  { term: 'Protein Binding', def: 'Fraction of drug bound to albumin and plasma proteins. Only the free form is pharmacologically active. Warfarin is 99% protein-bound — interactions can dangerously increase free fraction.', category: 'PK' },
+  { term: 'NNT (Number Needed to Treat)', def: 'Number of patients needing treatment to prevent 1 adverse event compared to control. Low NNT = high treatment efficacy.', category: 'EBM' },
+  { term: 'Blood-Brain Barrier (BBB)', def: 'Selective barrier formed by brain capillary endothelial cells. Only small, non-polar, lipophilic molecules can cross.', category: 'PK' },
 ];
 
 const ATC_GROUPS = [
-  { code: 'A', label: 'Đường tiêu hóa & Chuyển hóa', color: 'bg-green-100 text-green-800 border-green-200', examples: ['Metformin', 'Omeprazole', 'Simvastatin'] },
-  { code: 'B', label: 'Máu & Cơ quan tạo máu', color: 'bg-red-100 text-red-800 border-red-200', examples: ['Warfarin', 'Aspirin', 'Heparin'] },
-  { code: 'C', label: 'Tim mạch', color: 'bg-pink-100 text-pink-800 border-pink-200', examples: ['Atorvastatin', 'Amlodipine', 'Lisinopril'] },
-  { code: 'D', label: 'Da liễu', color: 'bg-orange-100 text-orange-800 border-orange-200', examples: ['Hydrocortisone', 'Tretinoin', 'Clotrimazole'] },
-  { code: 'G', label: '泌尿sinh dục & Hormone sinh dục', color: 'bg-purple-100 text-purple-800 border-purple-200', examples: ['Sildenafil', 'Testosterone', 'Estradiol'] },
-  { code: 'H', label: 'Hormone hệ thống', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', examples: ['Levothyroxine', 'Prednisone', 'Insulin'] },
-  { code: 'J', label: 'Kháng khuẩn — nhiễm khuẩn', color: 'bg-blue-100 text-blue-800 border-blue-200', examples: ['Amoxicillin', 'Ciprofloxacin', 'Azithromycin'] },
-  { code: 'L', label: 'Chống ung thư & Điều miễn dịch', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', examples: ['Methotrexate', 'Cyclophosphamide', 'Imatinib'] },
-  { code: 'M', label: 'Cơ xương khớp', color: 'bg-teal-100 text-teal-800 border-teal-200', examples: ['Ibuprofen', 'Diclofenac', 'Allopurinol'] },
-  { code: 'N', label: 'Hệ thần kinh', color: 'bg-violet-100 text-violet-800 border-violet-200', examples: ['Diazepam', 'Sertraline', 'Levodopa'] },
-  { code: 'R', label: 'Hô hấp', color: 'bg-sky-100 text-sky-800 border-sky-200', examples: ['Salbutamol', 'Fluticasone', 'Montelukast'] },
-  { code: 'S', label: 'Giác quan (Mắt/Tai)', color: 'bg-lime-100 text-lime-800 border-lime-200', examples: ['Timolol', 'Ciprofloxacin ophthalmic', 'Betamethasone'] },
+  { code: 'A', label: 'Alimentary tract & Metabolism', color: 'bg-green-100 text-green-800 border-green-200', examples: ['Metformin', 'Omeprazole', 'Simvastatin'] },
+  { code: 'B', label: 'Blood & Blood-forming organs', color: 'bg-red-100 text-red-800 border-red-200', examples: ['Warfarin', 'Aspirin', 'Heparin'] },
+  { code: 'C', label: 'Cardiovascular', color: 'bg-pink-100 text-pink-800 border-pink-200', examples: ['Atorvastatin', 'Amlodipine', 'Lisinopril'] },
+  { code: 'D', label: 'Dermatologicals', color: 'bg-orange-100 text-orange-800 border-orange-200', examples: ['Hydrocortisone', 'Tretinoin', 'Clotrimazole'] },
+  { code: 'G', label: 'Genitourinary & Sex hormones', color: 'bg-purple-100 text-purple-800 border-purple-200', examples: ['Sildenafil', 'Testosterone', 'Estradiol'] },
+  { code: 'H', label: 'Systemic hormones', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', examples: ['Levothyroxine', 'Prednisone', 'Insulin'] },
+  { code: 'J', label: 'Antiinfectives — systemic', color: 'bg-blue-100 text-blue-800 border-blue-200', examples: ['Amoxicillin', 'Ciprofloxacin', 'Azithromycin'] },
+  { code: 'L', label: 'Antineoplastics & Immunomodulators', color: 'bg-indigo-100 text-indigo-800 border-indigo-200', examples: ['Methotrexate', 'Cyclophosphamide', 'Imatinib'] },
+  { code: 'M', label: 'Musculoskeletal', color: 'bg-teal-100 text-teal-800 border-teal-200', examples: ['Ibuprofen', 'Diclofenac', 'Allopurinol'] },
+  { code: 'N', label: 'Nervous system', color: 'bg-violet-100 text-violet-800 border-violet-200', examples: ['Diazepam', 'Sertraline', 'Levodopa'] },
+  { code: 'R', label: 'Respiratory', color: 'bg-sky-100 text-sky-800 border-sky-200', examples: ['Salbutamol', 'Fluticasone', 'Montelukast'] },
+  { code: 'S', label: 'Sensory organs (Eyes/Ears)', color: 'bg-lime-100 text-lime-800 border-lime-200', examples: ['Timolol', 'Ciprofloxacin ophthalmic', 'Betamethasone'] },
 ];
 
 const RESEARCH_ARTICLES = [
   {
     id: 1,
-    badge: 'Dược động học',
+    badge: 'Pharmacokinetics',
     badgeColor: 'bg-blue-100 text-blue-700',
-    title: 'Ảnh hưởng của đa hình CYP2D6 đến liều clopidogrel trong bệnh nhân tim mạch',
+    title: 'Impact of CYP2D6 Polymorphisms on Clopidogrel Dosing in Cardiovascular Patients',
     authors: 'Mega JL, Close SL, Wiviott SD et al.',
     journal: 'NEJM', year: 2009, impact: '91.2',
-    summary: 'Nghiên cứu phát hiện bệnh nhân mang allele mất chức năng CYP2D6 có hiệu quả kháng kết tập tiểu cầu của clopidogrel giảm đáng kể, tăng nguy cơ biến cố tim mạch.',
+    summary: 'The study found that patients carrying loss-of-function CYP2D6 alleles had significantly reduced antiplatelet efficacy of clopidogrel, increasing cardiovascular event risk.',
     tags: ['CYP2D6', 'Clopidogrel', 'Pharmacogenomics'],
     icon: <FlaskConical size={16} />,
     color: 'border-l-blue-500',
   },
   {
     id: 2,
-    badge: 'Tương tác thuốc',
+    badge: 'Drug Interactions',
     badgeColor: 'bg-red-100 text-red-700',
-    title: 'Tương tác Warfarin-NSAIDs và nguy cơ xuất huyết tiêu hóa: Meta-analysis',
+    title: 'Warfarin-NSAID Interactions and GI Bleeding Risk: Meta-analysis',
     authors: 'Herings RM, Stricker BH, de Boer A et al.',
     journal: 'Lancet', year: 1995, impact: '168.9',
-    summary: 'Phân tích gộp 12 nghiên cứu cho thấy dùng NSAID đồng thời với warfarin tăng nguy cơ nhập viện do xuất huyết tiêu hóa lên 15 lần so với nhóm chứng.',
+    summary: 'Meta-analysis of 12 studies showed concurrent NSAID use with warfarin increased GI bleeding hospitalization risk 15-fold compared to controls.',
     tags: ['Warfarin', 'NSAIDs', 'Drug Interaction', 'GI Bleeding'],
     icon: <AlertTriangle size={16} />,
     color: 'border-l-red-500',
   },
   {
     id: 3,
-    badge: 'Thử nghiệm lâm sàng',
+    badge: 'Clinical Trial',
     badgeColor: 'bg-teal-100 text-teal-700',
-    title: 'The JUPITER Trial: Rosuvastatin trong phòng ngừa bệnh tim mạch ở người CRP cao',
+    title: 'The JUPITER Trial: Rosuvastatin in Cardiovascular Prevention in High-CRP Patients',
     authors: 'Ridker PM, Danielson E, Fonseca FA et al.',
     journal: 'NEJM', year: 2008, impact: '91.2',
-    summary: 'RCT trên 17,802 bệnh nhân. Rosuvastatin 20mg giảm 44% biến cố tim mạch chính và 20% tử vong toàn nguyên nhân — buộc ngừng sớm vì lợi ích rõ ràng.',
+    summary: 'RCT in 17,802 patients. Rosuvastatin 20mg reduced major cardiovascular events by 44% and all-cause mortality by 20% — trial stopped early due to clear benefit.',
     tags: ['Statin', 'CVD Prevention', 'RCT', 'NNT=25'],
     icon: <Heart size={16} />,
     color: 'border-l-teal-500',
   },
   {
     id: 4,
-    badge: 'Dược lực học',
+    badge: 'Pharmacodynamics',
     badgeColor: 'bg-purple-100 text-purple-700',
-    title: 'Cơ chế ức chế không cạnh tranh của Omeprazole tại H+/K+-ATPase dạ dày',
+    title: 'Non-competitive Inhibition Mechanism of Omeprazole at Gastric H+/K+-ATPase',
     authors: 'Wallmark B, Jarandi H, Kaul B.',
     journal: 'J Biological Chemistry', year: 1984, impact: '5.0',
-    summary: 'Nghiên cứu cơ bản xác lập cơ chế ức chế không hồi phục của omeprazole — covalent bond với Cys813/Cys892 của H+/K+-ATPase, giải thích hiệu quả kéo dài trong điều trị loét.',
+    summary: 'Basic research establishing the irreversible inhibition mechanism of omeprazole — covalent bond with Cys813/Cys892 of H+/K+-ATPase, explaining prolonged efficacy in ulcer treatment.',
     tags: ['PPI', 'Omeprazole', 'Proton pump', 'Covalent inhibition'],
     icon: <Beaker size={16} />,
     color: 'border-l-purple-500',
   },
   {
     id: 5,
-    badge: 'Dược di truyền',
+    badge: 'Pharmacogenomics',
     badgeColor: 'bg-amber-100 text-amber-700',
-    title: 'Pharmacogenomics của HLA-B*57:01 và phản ứng quá mẫn Abacavir',
+    title: 'Pharmacogenomics of HLA-B*57:01 and Abacavir Hypersensitivity',
     authors: 'Mallal S, Nolan D, Witt C et al.',
     journal: 'Lancet', year: 2002, impact: '168.9',
-    summary: 'Phát hiện liên kết mạnh mẽ giữa allele HLA-B*57:01 và hội chứng quá mẫn với abacavir (thuốc ARV HIV). Sàng lọc gen này trước điều trị giúp tránh hoàn toàn phản ứng nghiêm trọng.',
+    summary: 'Discovered the strong association between HLA-B*57:01 allele and abacavir hypersensitivity syndrome (HIV ARV). Pre-treatment genetic screening completely prevents severe reactions.',
     tags: ['Pharmacogenomics', 'HIV', 'Abacavir', 'HLA typing'],
     icon: <Brain size={16} />,
     color: 'border-l-amber-500',
   },
   {
     id: 6,
-    badge: 'Ung thư học',
+    badge: 'Oncology',
     badgeColor: 'bg-indigo-100 text-indigo-700',
-    title: 'Imatinib ức chế BCR-ABL tyrosine kinase trong bạch cầu mạn dòng tủy',
+    title: 'Imatinib Inhibits BCR-ABL Tyrosine Kinase in Chronic Myeloid Leukemia',
     authors: 'Druker BJ, Talpaz M, Resta DJ et al.',
     journal: 'NEJM', year: 2001, impact: '91.2',
-    summary: 'Thử nghiệm lâm sàng landmark phase II. Imatinib đạt 53% complete hematologic response ở CML blast crisis — mở đầu kỷ nguyên targeted therapy trong ung thư học.',
+    summary: 'Landmark phase II clinical trial. Imatinib achieved 53% complete hematologic response in CML blast crisis — launching the era of targeted therapy in oncology.',
     tags: ['Imatinib', 'CML', 'BCR-ABL', 'Targeted therapy'],
     icon: <Microscope size={16} />,
     color: 'border-l-indigo-500',
@@ -233,10 +233,10 @@ const RESEARCH_ARTICLES = [
 ];
 
 const DRUG_FACTS_BASE = [
-  { icon: <Database size={20} />, valueKey: 'drug_count' as const, label: 'Thuốc trong database', color: 'text-blue-600', fallback: '17,430' },
-  { icon: <Zap size={20} />, valueKey: null, label: 'Cặp tương tác đã phân loại', color: 'text-red-600', fallback: '1,128,500+' },
-  { icon: <Target size={20} />, valueKey: 'protein_count' as const, label: 'Protein đích (targets)', color: 'text-purple-600', fallback: '5,206' },
-  { icon: <Globe size={20} />, valueKey: null, label: 'Quốc gia phê duyệt', color: 'text-teal-600', fallback: '100+' },
+  { icon: <Database size={20} />, valueKey: 'drug_count' as const, label: 'Drugs in database', color: 'text-blue-600', fallback: '17,430' },
+  { icon: <Zap size={20} />, valueKey: null, label: 'Classified interaction pairs', color: 'text-red-600', fallback: '1,128,500+' },
+  { icon: <Target size={20} />, valueKey: 'protein_count' as const, label: 'Target proteins', color: 'text-purple-600', fallback: '5,206' },
+  { icon: <Globe size={20} />, valueKey: null, label: 'Approving countries', color: 'text-teal-600', fallback: '100+' },
 ];
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -302,9 +302,9 @@ export default function ResourcesPage() {
 
         <div className="max-w-7xl mx-auto px-4 py-14 relative">
           <nav className="flex items-center gap-2 text-sm text-slate-400 mb-6">
-            <Link to="/" className="hover:text-white transition-colors">Trang chủ</Link>
+            <Link to="/" className="hover:text-white transition-colors">Home</Link>
             <ChevronRight size={14} />
-            <span className="text-white font-medium">Tài nguyên khoa học</span>
+            <span className="text-white font-medium">Scientific Resources</span>
           </nav>
 
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -313,19 +313,19 @@ export default function ResourcesPage() {
                 <Microscope size={13} /> DrugBank® v5 · 2026 Edition
               </div>
               <h1 className="text-4xl lg:text-5xl font-extrabold leading-tight mb-4">
-                Thư viện<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-violet-300">Dược lý học</span>
+                Pharmacology<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-violet-300">Library</span>
               </h1>
               <p className="text-slate-300 text-base leading-relaxed mb-8 max-w-lg">
-                Tổng hợp kiến thức dược động học, dược lực học, tương tác thuốc và bằng chứng lâm sàng — từ cơ bản đến nâng cao.
-                Dữ liệu từ DrugBank, WHO và các nghiên cứu landmark.
+                A comprehensive knowledge base covering pharmacokinetics, pharmacodynamics, drug interactions, and clinical evidence — from basic to advanced.
+                Data sourced from DrugBank, WHO, and landmark studies.
               </p>
               <div className="flex flex-wrap gap-3">
                 {(['topics', 'glossary', 'articles', 'atc', 'classes'] as const).map(s => ({
-                  topics: { label: 'Chủ đề dược lý', icon: <BookOpen size={14} /> },
-                  glossary: { label: 'Thuật ngữ', icon: <FileText size={14} /> },
-                  articles: { label: 'Nghiên cứu tiêu biểu', icon: <Microscope size={14} /> },
-                  atc: { label: 'Phân loại ATC', icon: <Layers size={14} /> },
-                  classes: { label: 'Nhóm thuốc', icon: <Pill size={14} /> },
+                  topics: { label: 'Pharmacology Topics', icon: <BookOpen size={14} /> },
+                  glossary: { label: 'Glossary', icon: <FileText size={14} /> },
+                  articles: { label: 'Featured Research', icon: <Microscope size={14} /> },
+                  atc: { label: 'ATC Classification', icon: <Layers size={14} /> },
+                  classes: { label: 'Drug Groups', icon: <Pill size={14} /> },
                 }[s])).map((item, idx) => {
                   const keys = ['topics', 'glossary', 'articles', 'atc', 'classes'] as const;
                   return (
@@ -363,7 +363,7 @@ export default function ResourcesPage() {
                     <Pill size={18} className="text-indigo-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-indigo-300 font-medium">Thuốc nổi bật</p>
+                    <p className="text-xs text-indigo-300 font-medium">Featured Drugs</p>
                     <p className="font-bold text-white text-sm truncate">{featuredDrugs[0].name}</p>
                     <p className="text-slate-400 text-xs truncate">{featuredDrugs[0].mechanism?.slice(0, 80)}...</p>
                   </div>
@@ -382,11 +382,11 @@ export default function ResourcesPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex overflow-x-auto gap-0.5 scrollbar-hide">
             {([
-              { id: 'topics', label: 'Chủ đề dược lý', icon: <BookOpen size={14} /> },
-              { id: 'glossary', label: 'Thuật ngữ dược lý', icon: <FileText size={14} /> },
-              { id: 'articles', label: 'Nghiên cứu tiêu biểu', icon: <Microscope size={14} /> },
-              { id: 'atc', label: 'Phân loại ATC/WHO', icon: <Layers size={14} /> },
-              { id: 'classes', label: 'Nhóm thuốc', icon: <Pill size={14} /> },
+              { id: 'topics', label: 'Pharmacology Topics', icon: <BookOpen size={14} /> },
+              { id: 'glossary', label: 'Pharmacology Glossary', icon: <FileText size={14} /> },
+              { id: 'articles', label: 'Featured Research', icon: <Microscope size={14} /> },
+              { id: 'atc', label: 'ATC/WHO Classification', icon: <Layers size={14} /> },
+              { id: 'classes', label: 'Drug Groups', icon: <Pill size={14} /> },
             ] as const).map(tab => (
               <button key={tab.id} onClick={() => setActiveSection(tab.id)}
                 className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
@@ -407,8 +407,8 @@ export default function ResourcesPage() {
         {activeSection === 'topics' && (
           <div>
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Chủ đề dược lý cốt lõi</h2>
-              <p className="text-gray-500 text-sm">Từ cơ bản đến nâng cao — nền tảng kiến thức cho mọi nhà lâm sàng</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Core Pharmacology Topics</h2>
+              <p className="text-gray-500 text-sm">From basics to advanced — essential knowledge for every clinician</p>
             </div>
             <div className="space-y-4">
               {PHARMACOLOGY_TOPICS.map(topic => (
@@ -442,7 +442,7 @@ export default function ResourcesPage() {
                       <div className="grid md:grid-cols-2 gap-6 mt-5">
                         <div>
                           <h4 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                            <ShieldCheck size={14} className="text-gray-500" /> Điểm lâm sàng quan trọng
+                            <ShieldCheck size={14} className="text-gray-500" /> Key clinical points
                           </h4>
                           <ul className="space-y-2.5">
                             {topic.keyPoints.map((kp, i) => (
@@ -457,18 +457,18 @@ export default function ResourcesPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
-                            <Atom size={14} className="text-gray-500" /> Công thức cơ bản
+                            <Atom size={14} className="text-gray-500" /> Basic formula
                           </h4>
                           <div className={`rounded-xl p-4 font-mono text-sm font-bold border ${topic.color_formula}`}>
                             {topic.formula}
                           </div>
                           <div className="mt-4 bg-white/60 rounded-xl p-4 border border-gray-200/50">
                             <p className="text-xs text-gray-500 leading-relaxed">
-                              <strong className="text-gray-700">Liên kết nhanh:</strong>{' '}
-                              {topic.id === 'pk' && <><Link to="/drugs" className="text-indigo-600 hover:underline">Tra cứu thuốc → PK data</Link> · <Link to="/interactions" className="text-indigo-600 hover:underline">Kiểm tra tương tác</Link></>}
-                              {topic.id === 'cyp' && <><Link to="/interactions" className="text-indigo-600 hover:underline">Xem cặp tương tác CYP</Link> · <Link to="/proteins" className="text-indigo-600 hover:underline">Protein CYP</Link></>}
-                              {topic.id === 'interaction' && <><Link to="/interactions" className="text-indigo-600 hover:underline">Drug Interaction Checker</Link> · <Link to="/analysis" className="text-indigo-600 hover:underline">Lịch sử kiểm tra</Link></>}
-                              {(topic.id === 'pd' || topic.id === 'therapeutic' || topic.id === 'clinical') && <><Link to="/drugs" className="text-indigo-600 hover:underline">Duyệt danh sách thuốc</Link> · <Link to="/proteins" className="text-indigo-600 hover:underline">Protein đích</Link></>}
+                              <strong className="text-gray-700">Quick links:</strong>{' '}
+                              {topic.id === 'pk' && <><Link to="/drugs" className="text-indigo-600 hover:underline">Browse Drugs → PK data</Link> · <Link to="/interactions" className="text-indigo-600 hover:underline">Check Interactions</Link></>}
+                              {topic.id === 'cyp' && <><Link to="/interactions" className="text-indigo-600 hover:underline">View CYP interaction pairs</Link> · <Link to="/proteins" className="text-indigo-600 hover:underline">CYP Proteins</Link></>}
+                              {topic.id === 'interaction' && <><Link to="/interactions" className="text-indigo-600 hover:underline">Drug Interaction Checker</Link> · <Link to="/analysis" className="text-indigo-600 hover:underline">Check History</Link></>}
+                              {(topic.id === 'pd' || topic.id === 'therapeutic' || topic.id === 'clinical') && <><Link to="/drugs" className="text-indigo-600 hover:underline">Browse drug list</Link> · <Link to="/proteins" className="text-indigo-600 hover:underline">Target Proteins</Link></>}
                             </p>
                           </div>
                         </div>
@@ -485,15 +485,15 @@ export default function ResourcesPage() {
         {activeSection === 'glossary' && (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Thuật ngữ dược học</h2>
-              <p className="text-gray-500 text-sm">Định nghĩa chuẩn các khái niệm dược lý — từ điển lâm sàng tham khảo nhanh</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Pharmacology Glossary</h2>
+              <p className="text-gray-500 text-sm">Standard definitions of pharmacological concepts — a quick clinical reference dictionary</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm focus-within:border-indigo-400 transition-colors">
                 <Search size={15} className="text-gray-400 shrink-0" />
                 <input value={glossarySearch} onChange={e => setGlossarySearch(e.target.value)}
-                  placeholder="Tìm thuật ngữ..." className="flex-1 text-sm outline-none placeholder-gray-400" />
+                  placeholder="Search glossary..." className="flex-1 text-sm outline-none placeholder-gray-400" />
               </div>
               <div className="flex gap-2 flex-wrap">
                 {glossaryCategories.map(c => (
@@ -527,7 +527,7 @@ export default function ResourcesPage() {
               {filteredGlossary.length === 0 && (
                 <div className="col-span-2 text-center py-12 text-gray-400">
                   <FileText size={32} className="mx-auto mb-3 opacity-30" />
-                  <p>Không tìm thấy thuật ngữ phù hợp</p>
+                  <p>No matching terms found</p>
                 </div>
               )}
             </div>
@@ -535,7 +535,7 @@ export default function ResourcesPage() {
             <div className="mt-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-5 flex items-start gap-3">
               <Info size={16} className="text-indigo-500 mt-0.5 shrink-0" />
               <p className="text-sm text-indigo-700">
-                <strong>Nguồn tham khảo:</strong> Goodman & Gilman's Pharmacology 14th Ed · Katzung Basic & Clinical Pharmacology 15th Ed · WHO Model Formulary · FDA Prescribing Information databases
+                <strong>References:</strong> Goodman & Gilman's Pharmacology 14th Ed · Katzung Basic & Clinical Pharmacology 15th Ed · WHO Model Formulary · FDA Prescribing Information databases
               </p>
             </div>
           </div>
@@ -545,8 +545,8 @@ export default function ResourcesPage() {
         {activeSection === 'articles' && (
           <div>
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Nghiên cứu lâm sàng tiêu biểu</h2>
-              <p className="text-gray-500 text-sm">Các công trình landmark thay đổi thực hành dược lâm sàng và tim mạch học</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Featured Clinical Studies</h2>
+              <p className="text-gray-500 text-sm">Landmark studies that changed clinical pharmacy and cardiology practice</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-5">
@@ -581,7 +581,7 @@ export default function ResourcesPage() {
                     </div>
                     <Link to="/interactions"
                       className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
-                      Kiểm tra thuốc liên quan <ArrowRight size={11} />
+                      Check related drugs <ArrowRight size={11} />
                     </Link>
                   </div>
                 </div>
@@ -590,9 +590,9 @@ export default function ResourcesPage() {
 
             <div className="mt-8 grid sm:grid-cols-3 gap-4">
               {[
-                { icon: <Award size={20} />, label: 'Công trình Nobel Y học', value: '14 nghiên cứu thuốc', color: 'text-amber-500' },
-                { icon: <Users size={20} />, label: 'Bệnh nhân trong thử nghiệm', value: '> 500,000', color: 'text-teal-500' },
-                { icon: <TrendingUp size={20} />, label: 'Tỷ lệ thuốc FDA thành công', value: '~12% phase I', color: 'text-indigo-500' },
+                { icon: <Award size={20} />, label: 'Nobel Medicine Awards', value: '14 drug studies', color: 'text-amber-500' },
+                { icon: <Users size={20} />, label: 'Patients in trials', value: '> 500,000', color: 'text-teal-500' },
+                { icon: <TrendingUp size={20} />, label: 'FDA drug approval rate', value: '~12% phase I', color: 'text-indigo-500' },
               ].map(stat => (
                 <div key={stat.label} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4">
                   <div className={stat.color}>{stat.icon}</div>
@@ -610,27 +610,27 @@ export default function ResourcesPage() {
         {activeSection === 'atc' && (
           <div>
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Hệ thống phân loại ATC / WHO</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">ATC / WHO Classification System</h2>
               <p className="text-gray-500 text-sm max-w-2xl">
-                Anatomical Therapeutic Chemical (ATC) — hệ thống phân loại quốc tế do WHO phát triển. Mã ATC 5 cấp xác định thuốc theo cơ quan đích, chỉ định điều trị và thành phần hóa học.
+                Anatomical Therapeutic Chemical (ATC) — an international classification system developed by WHO. The 5-level ATC code identifies drugs by target organ, therapeutic indication, and chemical composition.
               </p>
             </div>
 
             {/* ATC structure explanation */}
             <div className="bg-gradient-to-r from-indigo-900 to-purple-900 rounded-2xl p-6 mb-8 text-white">
-              <h3 className="font-bold mb-4 text-sm uppercase tracking-wide text-indigo-300">Cấu trúc mã ATC 5 cấp</h3>
+              <h3 className="font-bold mb-4 text-sm uppercase tracking-wide text-indigo-300">5-Level ATC Code Structure</h3>
               <div className="flex items-center gap-2 flex-wrap">
                 {[
-                  { level: '1', code: 'C', label: 'Giải phẫu', color: 'bg-blue-500' },
-                  { level: '2', code: 'C10', label: 'Nhóm trị liệu', color: 'bg-indigo-500' },
-                  { level: '3', code: 'C10A', label: 'Phân nhóm dược lý', color: 'bg-violet-500' },
-                  { level: '4', code: 'C10AA', label: 'Phân nhóm hóa học', color: 'bg-purple-500' },
-                  { level: '5', code: 'C10AA01', label: 'Hoạt chất (Simvastatin)', color: 'bg-fuchsia-500' },
+                  { level: '1', code: 'C', label: 'Anatomical', color: 'bg-blue-500' },
+                  { level: '2', code: 'C10', label: 'Therapeutic group', color: 'bg-indigo-500' },
+                  { level: '3', code: 'C10A', label: 'Pharmacological subgroup', color: 'bg-violet-500' },
+                  { level: '4', code: 'C10AA', label: 'Chemical subgroup', color: 'bg-purple-500' },
+                  { level: '5', code: 'C10AA01', label: 'Active substance (Simvastatin)', color: 'bg-fuchsia-500' },
                 ].map((step, i) => (
                   <div key={step.level} className="flex items-center gap-2">
                     {i > 0 && <ChevronRight size={14} className="text-white/40 shrink-0" />}
                     <div className={`${step.color} rounded-xl px-4 py-2.5 text-center min-w-[100px]`}>
-                      <div className="text-[10px] font-medium text-white/70 mb-0.5">Cấp {step.level}</div>
+                      <div className="text-[10px] font-medium text-white/70 mb-0.5">Level {step.level}</div>
                       <div className="font-bold text-sm">{step.code}</div>
                       <div className="text-[10px] text-white/80 mt-0.5">{step.label}</div>
                     </div>
@@ -663,7 +663,7 @@ export default function ResourcesPage() {
 
             <div className="mt-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
               <Info size={15} className="mt-0.5 shrink-0" />
-              <span>WHO cập nhật danh mục ATC hàng năm. Phiên bản hiện tại: <strong>WHO ATC 2024</strong>. Định nghĩa DDD (Defined Daily Dose) đi kèm để đánh giá mức tiêu thụ thuốc quốc gia.</span>
+              <span>WHO updates the ATC catalogue annually. Current version: <strong>WHO ATC 2024</strong>. DDD (Defined Daily Dose) definitions are included to assess national drug consumption.</span>
             </div>
           </div>
         )}
@@ -672,13 +672,13 @@ export default function ResourcesPage() {
         {activeSection === 'classes' && (
           <div>
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Nhóm thuốc từ cơ sở dữ liệu</h2>
-              <p className="text-gray-500 text-sm">Dữ liệu thực từ DrugBank — phân loại theo loại phân tử và trạng thái phê duyệt</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Drug Groups from Database</h2>
+              <p className="text-gray-500 text-sm">Real data from DrugBank — classified by molecule type and approval status</p>
             </div>
 
             {loadingDrugs ? (
               <div className="flex items-center justify-center py-20 text-gray-400 gap-3">
-                <Activity size={18} className="animate-spin" /> Đang tải dữ liệu thuốc...
+                <Activity size={18} className="animate-spin" /> Loading drug data...
               </div>
             ) : (
               <div className="space-y-10">
@@ -687,7 +687,7 @@ export default function ResourcesPage() {
                 <section>
                   <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Star size={16} className="text-amber-500 fill-amber-400" />
-                    Thuốc phê duyệt nổi bật — có cơ chế tác dụng đầy đủ
+                    Featured approved drugs — with complete mechanism of action
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {featuredDrugs.map(drug => (
@@ -711,7 +711,7 @@ export default function ResourcesPage() {
                           <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{drug.mechanism.slice(0, 90)}...</p>
                         )}
                         <div className="mt-3 flex items-center gap-2 text-indigo-600">
-                          <span className="text-[11px] font-medium">Xem chi tiết</span>
+                          <span className="text-[11px] font-medium">View details</span>
                           <ArrowRight size={10} />
                         </div>
                       </Link>
@@ -724,15 +724,15 @@ export default function ResourcesPage() {
                   <section key={groupName}>
                     <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                       <Tag size={15} className="text-gray-500" />
-                      Nhóm: <span className="text-indigo-700">{groupName}</span>
-                      <span className="text-xs text-gray-400 font-normal">({drugs.length} mẫu)</span>
+                      Group: <span className="text-indigo-700">{groupName}</span>
+                      <span className="text-xs text-gray-400 font-normal">({drugs.length} samples)</span>
                     </h3>
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                       <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
-                        <div className="px-5 py-3">Tên thuốc</div>
+                        <div className="px-5 py-3">Drug Name</div>
                         <div className="px-5 py-3">DrugBank ID</div>
-                        <div className="px-5 py-3 hidden md:block">Loại phân tử</div>
-                        <div className="px-5 py-3 hidden lg:block">Protein đích</div>
+                        <div className="px-5 py-3 hidden md:block">Molecule Type</div>
+                        <div className="px-5 py-3 hidden lg:block">Target Proteins</div>
                       </div>
                       {drugs.slice(0, 8).map((drug, i) => (
                         <div key={drug.id}
@@ -758,7 +758,7 @@ export default function ResourcesPage() {
                       {drugs.length > 8 && (
                         <div className="px-5 py-3 border-t border-gray-100">
                           <Link to="/drugs" className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
-                            Xem tất cả {groupName.toLowerCase()} drugs <ArrowRight size={10} />
+                            View all {groupName.toLowerCase()} drugs <ArrowRight size={10} />
                           </Link>
                         </div>
                       )}
@@ -776,17 +776,17 @@ export default function ResourcesPage() {
       <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white mt-10">
         <div className="max-w-7xl mx-auto px-4 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
-            <h3 className="font-bold text-lg mb-1">Kiểm tra tương tác thuốc ngay</h3>
-            <p className="text-indigo-300 text-sm">Ứng dụng kiến thức dược lý vào thực hành — kiểm tra 24,386+ cặp tương tác đã phân loại.</p>
+            <h3 className="font-bold text-lg mb-1">Check Drug Interactions Now</h3>
+            <p className="text-indigo-300 text-sm">Apply pharmacology knowledge in practice — check 24,386+ classified interaction pairs.</p>
           </div>
           <div className="flex gap-3 shrink-0">
             <Link to="/interactions"
               className="flex items-center gap-2 bg-white text-indigo-900 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors">
-              <Zap size={15} className="text-amber-500" /> Kiểm tra tương tác
+              <Zap size={15} className="text-amber-500" /> Check Interactions
             </Link>
             <Link to="/drugs"
               className="flex items-center gap-2 border border-white/30 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-white/10 transition-colors">
-              <Pill size={14} /> Tra cứu thuốc
+              <Pill size={14} /> Browse Drugs
             </Link>
           </div>
         </div>

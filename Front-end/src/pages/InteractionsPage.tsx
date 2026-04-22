@@ -6,7 +6,7 @@ import {
   Save, Check, LogIn,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
-import { apiSearchDrugs } from "../lib/api";
+import { apiSearchDrugs, apiFetchDrugsByCategory } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -475,6 +475,8 @@ export default function InteractionsPage() {
   const [categories, setCategories] = useState<DrugCategory[]>([]);
   const [catLoading, setCatLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [catDrugsFromApi, setCatDrugsFromApi] = useState<DrugEntry[]>([]);
+  const [catDrugsLoading, setCatDrugsLoading] = useState(false);
   const [selectedDrugs, setSelectedDrugs] = useState<DrugEntry[]>([]);
   const [drugSearch, setDrugSearch] = useState("");
   const [drugSuggestions, setDrugSuggestions] = useState<DrugEntry[]>([]);
@@ -535,6 +537,26 @@ export default function InteractionsPage() {
       .then(r => r.json())
       .then((data: DrugCategory[]) => { setCategories(data); setCatLoading(false); });
   }, []);
+
+  // When a category is selected, fetch full drug list from API
+  useEffect(() => {
+    if (!activeCategory) { setCatDrugsFromApi([]); return; }
+    let cancelled = false;
+    setCatDrugsLoading(true);
+    apiFetchDrugsByCategory(activeCategory, 300).then(drugs => {
+      if (!cancelled) {
+        // If API returned drugs, use them; else fall back to static JSON list
+        if (drugs.length > 0) {
+          setCatDrugsFromApi(drugs);
+        } else {
+          const staticCat = categories.find(c => c.key === activeCategory);
+          setCatDrugsFromApi(staticCat?.drugs ?? []);
+        }
+        setCatDrugsLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeCategory, categories]);
 
   // Load drug meta for network visualization (lazy background load)
   // Local drug list for fallback search
@@ -730,9 +752,9 @@ export default function InteractionsPage() {
   }, [vizState, selectedDrugs, interactions]);
 
   const activeCat = categories.find(c => c.key === activeCategory);
-  const catDrugsFiltered = activeCat
-    ? activeCat.drugs.filter(d => !drugSearch || d.name.toLowerCase().includes(drugSearch.toLowerCase()))
-    : [];
+  const catDrugsFiltered = catDrugsFromApi.length > 0
+    ? catDrugsFromApi.filter(d => !drugSearch || d.name.toLowerCase().includes(drugSearch.toLowerCase()))
+    : (activeCat?.drugs ?? []).filter(d => !drugSearch || d.name.toLowerCase().includes(drugSearch.toLowerCase()));
   const cc = (col: string) => CAT_COLORS[col] ?? CAT_COLORS.blue;
 
   return (
@@ -821,7 +843,7 @@ export default function InteractionsPage() {
                             <span className="text-base shrink-0">{cat.icon}</span>
                             <span className="flex-1 truncate">{cat.label}</span>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isActive ? `bg-white/60 ${cols.tx}` : "bg-gray-100 text-gray-400"}`}>
-                              {cat.count}
+                              {isActive && catDrugsFromApi.length > 0 ? catDrugsFromApi.length : cat.count}
                             </span>
                           </button>
                         );
@@ -863,23 +885,29 @@ export default function InteractionsPage() {
                   )}
 
                   {/* Drugs from active category */}
-                  {activeCat && catDrugsFiltered.length > 0 && !drugSearch && (
-                    <div className="mt-2 space-y-0.5 max-h-52 overflow-y-auto">
-                      {catDrugsFiltered.map(drug => {
-                        const isSel = !!selectedDrugs.find(s => s.id === drug.id);
-                        return (
-                          <button key={drug.id}
-                            onClick={() => isSel ? removeDrug(drug.id) : addDrug(drug)}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all ${isSel ? "bg-primary-50 text-primary-700 font-semibold" : "hover:bg-gray-50 text-gray-700"}`}>
-                            <span className="truncate flex-1 text-left">{drug.name}</span>
-                            <div className="flex items-center gap-1 shrink-0 ml-1">
-                              <span className="font-mono text-[9px] text-gray-400">{drug.id}</span>
-                              {isSel ? <X size={10} className="text-primary-400" /> : <Plus size={10} className="text-gray-300" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  {activeCat && !drugSearch && (
+                    catDrugsLoading
+                      ? <div className="mt-2 flex items-center justify-center py-4 text-gray-400 text-xs">
+                          <Loader2 size={13} className="animate-spin mr-1.5" /> Loading drugs&hellip;
+                        </div>
+                      : catDrugsFiltered.length > 0
+                        ? <div className="mt-2 space-y-0.5 max-h-52 overflow-y-auto">
+                            {catDrugsFiltered.map(drug => {
+                              const isSel = !!selectedDrugs.find(s => s.id === drug.id);
+                              return (
+                                <button key={drug.id}
+                                  onClick={() => isSel ? removeDrug(drug.id) : addDrug(drug)}
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all ${isSel ? "bg-primary-50 text-primary-700 font-semibold" : "hover:bg-gray-50 text-gray-700"}`}>
+                                  <span className="truncate flex-1 text-left">{drug.name}</span>
+                                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                                    <span className="font-mono text-[9px] text-gray-400">{drug.id}</span>
+                                    {isSel ? <X size={10} className="text-primary-400" /> : <Plus size={10} className="text-gray-300" />}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        : null
                   )}
                 </div>
               </div>
@@ -895,7 +923,7 @@ export default function InteractionsPage() {
                       onClick={clearAll}
                       className="flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded-lg transition-colors border border-red-100 hover:border-red-200"
                     >
-                      <X size={9} /> Đặt lại
+                      <X size={9} /> Reset
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -1022,7 +1050,7 @@ export default function InteractionsPage() {
                       <div className="px-5 py-2.5 flex items-center justify-between bg-indigo-50 border-b border-indigo-100">
                         <span className="text-xs text-indigo-700 flex items-center gap-1.5">
                           <Check size={11} className="text-indigo-500" />
-                          Đã khôi phục phiên làm việc trước — dữ liệu lưu từ lần kiểm tra gần nhất
+                          Restored previous session — data saved from last check
                         </span>
                         <button onClick={() => setRestored(false)} className="text-indigo-400 hover:text-indigo-700">
                           <X size={12} />
@@ -1074,10 +1102,10 @@ export default function InteractionsPage() {
                         : saveState === "guest" ? "text-orange-600 bg-orange-50 border border-orange-200"
                         : "text-gray-400"
                       }`}>
-                        {saveState === "saving" ? <><Loader2 size={12} className="animate-spin" /> Đang lưu...</>
-                          : saveState === "saved" ? <><Check size={12} /> Đã lưu vào phân tích</>
-                          : saveState === "guest" ? <><LogIn size={12} /> Đăng nhập để lưu lịch sử</>
-                          : <><Save size={11} className="opacity-40" /> Tự động lưu</>}
+                        {saveState === "saving" ? <><Loader2 size={12} className="animate-spin" /> Saving...</>
+                          : saveState === "saved" ? <><Check size={12} /> Saved to analysis</>
+                          : saveState === "guest" ? <><LogIn size={12} /> Sign in to save history</>
+                          : <><Save size={11} className="opacity-40" /> Auto-save</>}
                       </div>
                     </div>
                   </div>

@@ -31,20 +31,32 @@ from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_dele
 
 
 def _build_fulltext_query(raw: str) -> str:
-    """Convert a user search string to MySQL boolean FULLTEXT format.
-
-    Each word becomes ``+word*`` (must contain, prefix match).
-    Words shorter than 3 chars are included as-is (no prefix) because
-    MySQL's minimum token size is 3 by default.
-    """
+    """Convert a user search string to MySQL boolean FULLTEXT format."""
     words = raw.strip().split()
     parts = []
     for w in words:
-        w = re.sub(r'[+\-><()\~*"@]', '', w)  # strip FULLTEXT operators
+        w = re.sub(r'[+\-><()\~*"@]', '', w)
         if not w:
             continue
         parts.append(f"+{w}*" if len(w) >= 3 else w)
     return " ".join(parts) if parts else raw
+
+# Disease category → MySQL LIKE keywords for the JSON categories column
+CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "pain":        ["Analgesic", "Antipyretic", "Anti-Inflammatory", "Opioid", "Migraine", "Nonsteroidal"],
+    "cardio":      ["Cardiovascular", "Antihypertensive", "Antiarrhythmic", "Vasodilator", "Anticoagulant", "Antiplatelet", "Cardiac", "Diuretic"],
+    "antibiotics": ["Anti-Bacterial", "Antibiotic", "Antimicrobial", "Anti-Infective", "Bactericidal"],
+    "cns":         ["Central Nervous System", "Antidepressant", "Antipsychotic", "Anxiolytic", "Sedative", "Hypnotic", "Stimulant"],
+    "diabetes":    ["Hypoglycemic", "Antidiabetic", "Insulin", "Endocrine", "Hormones"],
+    "neuro":       ["Anticonvulsant", "Parkinson", "Alzheimer", "Multiple Sclerosis", "Neuropathy", "Neurology"],
+    "oncology":    ["Antineoplastic", "Chemotherapy", "Cancer", "Immunotherapy", "Cytotoxic"],
+    "gi":          ["Gastrointestinal", "Antacid", "Proton Pump", "Laxative", "Antiemetic", "Digestive"],
+    "immuno":      ["Immunosuppressive", "Immunomodulatory", "Autoimmune", "Antibodies", "Monoclonal"],
+    "antiviral":   ["Antiviral", "Antifungal", "Antiparasitic", "HIV", "Hepatitis", "Antiretroviral"],
+    "cholesterol": ["Lipid", "Statin", "Cholesterol", "Fibrate", "Antilipemic"],
+    "respiratory": ["Respiratory", "Bronchodilator", "Antiasthmatic", "Expectorant", "Antitussive"],
+    "rheuma":      ["Rheumatoid", "Anti-Rheumatic", "Gout", "Bone", "Arthritis", "NSAID"],
+}
 
 router = APIRouter(prefix="/api/v1/drugs", tags=["Drugs"])
 
@@ -57,11 +69,12 @@ def list_drugs(
     drug_type: str = Query(default="", description="Filter: small molecule | biotech"),
     state: str = Query(default="", description="Filter: solid | liquid | gas"),
     group: str = Query(default="", description="Filter by group e.g. approved"),
+    category_key: str = Query(default="", description="Filter by disease category key e.g. pain | cardio"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    cache_key = f"drugs:list:{q}:{drug_type}:{state}:{group}:{page}:{per_page}"
+    cache_key = f"drugs:list:{q}:{drug_type}:{state}:{group}:{category_key}:{page}:{per_page}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
@@ -105,18 +118,23 @@ def list_drugs(
         qs = qs.filter(Drug.state == state.strip())
 
     if group.strip():
-        # drug_groups is pipe-separated (e.g. "approved|withdrawn").
-        # Use prefix-friendly LIKE when the group is a whole token.
-        # The ix_drugs_groups prefix index helps here.
         g = group.strip()
         qs = qs.filter(
             or_(
-                Drug._drug_groups_raw.like(f"{g}|%"),    # group at start
-                Drug._drug_groups_raw.like(f"%|{g}|%"),  # group in middle
-                Drug._drug_groups_raw.like(f"%|{g}"),    # group at end
-                Drug._drug_groups_raw == g,               # only group
+                Drug._drug_groups_raw.like(f"{g}|%"),
+                Drug._drug_groups_raw.like(f"%|{g}|%"),
+                Drug._drug_groups_raw.like(f"%|{g}"),
+                Drug._drug_groups_raw == g,
             )
         )
+
+    if category_key.strip() and category_key.strip() in CATEGORY_KEYWORDS:
+        keywords = CATEGORY_KEYWORDS[category_key.strip()]
+        cat_filters = [
+            text("CAST(categories AS CHAR) LIKE :ck_" + str(i)).bindparams(**{"ck_" + str(i): f"%{kw}%"})
+            for i, kw in enumerate(keywords)
+        ]
+        qs = qs.filter(or_(*cat_filters))
 
     total = qs.count()
     offset = (page - 1) * per_page
@@ -163,6 +181,44 @@ def list_drugs(
 
 
 # ── Read: single ──────────────────────────────────────────────────────────────
+
+@router.get("/categories/{category_key}", response_model=PaginatedResponse, summary="List drugs by disease category")
+def list_drugs_by_category(
+    category_key: str,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=200, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Return drugs belonging to a disease category. Used by the interaction checker panel."""
+    if category_key not in CATEGORY_KEYWORDS:
+        raise HTTPException(status_code=404, detail=f"Unknown category key: {category_key}")
+
+    cache_key = f"drugs:cat:{category_key}:{page}:{per_page}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    keywords = CATEGORY_KEYWORDS[category_key]
+    cat_filters = [
+        text("CAST(categories AS CHAR) LIKE :ck_" + str(i)).bindparams(**{"ck_" + str(i): f"%{kw}%"})
+        for i, kw in enumerate(keywords)
+    ]
+    qs = db.query(Drug).filter(or_(*cat_filters))
+
+    total = qs.count()
+    offset = (page - 1) * per_page
+    drugs = qs.order_by(Drug.name).offset(offset).limit(per_page).all()
+
+    items = [DrugOut.model_validate(d) for d in drugs]
+
+    result = PaginatedResponse(
+        total=total, page=page, per_page=per_page,
+        total_pages=ceil(total / per_page) if total else 0,
+        items=items,
+    )
+    cache_set(cache_key, result, ttl=600)
+    return result
+
 
 @router.get("/{drugbank_id}", response_model=DrugOut, summary="Get a single drug")
 def get_drug(drugbank_id: str, db: Session = Depends(get_db)):

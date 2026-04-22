@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { apiFetchDrugInteractions } from '../lib/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -47,10 +47,10 @@ interface Stats {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const SEV = {
-  major:    { bg: 'bg-red-50 border-red-200',    text: 'text-red-700',    dot: 'bg-red-500',    label: 'Nguy hiểm cao' },
-  moderate: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700',  dot: 'bg-amber-400',  label: 'Trung bình' },
-  minor:    { bg: 'bg-green-50 border-green-200', text: 'text-green-700',  dot: 'bg-green-500',  label: 'Thấp' },
-  unknown:  { bg: 'bg-green-50 border-green-200', text: 'text-green-700',  dot: 'bg-green-500',  label: 'Thấp' },
+  major:    { bg: 'bg-red-50 border-red-200',    text: 'text-red-700',    dot: 'bg-red-500',    label: 'High Risk' },
+  moderate: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700',  dot: 'bg-amber-400',  label: 'Moderate' },
+  minor:    { bg: 'bg-green-50 border-green-200', text: 'text-green-700',  dot: 'bg-green-500',  label: 'Low' },
+  unknown:  { bg: 'bg-green-50 border-green-200', text: 'text-green-700',  dot: 'bg-green-500',  label: 'Low' },
 };
 const normSev = (s: string) => (['major','moderate','minor'].includes(s) ? s as keyof typeof SEV : 'minor');
 
@@ -68,47 +68,47 @@ function parsePathway(ix: InteractionRec): PathwayInfo {
   const d = (ix.description || '').toLowerCase();
 
   if (d.includes('seroton'))
-    return { mechanism: 'Hội chứng Serotonin', effect: 'Tăng nồng độ Serotonin — ngộ độc', recommendation: 'Tránh phối hợp tuyệt đối. Nguy cơ tính mạng.', category: 'serotonin', interactionType: 'PD' };
+    return { mechanism: 'Serotonin Syndrome', effect: 'Elevated serotonin — toxicity', recommendation: 'Avoid concurrent use. Life-threatening risk.', category: 'serotonin', interactionType: 'PD' };
   if (d.includes('qt prolongat') || d.includes('torsade') || d.includes('arrhythmia') || d.includes('cardiac arrhyth'))
-    return { mechanism: 'Kéo dài khoảng QT tim', effect: 'Rối loạn nhịp / Torsades de Pointes', recommendation: 'Theo dõi ECG. Tránh phối hợp nếu có thể.', category: 'cardiac', interactionType: 'PD' };
+    return { mechanism: 'QT interval prolongation', effect: 'Arrhythmia / Torsades de Pointes', recommendation: 'Monitor ECG. Avoid combination if possible.', category: 'cardiac', interactionType: 'PD' };
   if (d.includes('bleeding') || d.includes('hemorrhag') || d.includes('anticoagulant effect') || d.includes('risk of bleeding'))
-    return { mechanism: 'Tăng cường hoạt động chống đông', effect: 'Nguy cơ chảy máu nghiêm trọng', recommendation: 'Theo dõi INR, PT/aPTT. Điều chỉnh liều anticoagulant.', category: 'bleeding', interactionType: 'PD' };
+    return { mechanism: 'Enhanced anticoagulant activity', effect: 'Risk of serious bleeding', recommendation: 'Monitor INR, PT/aPTT. Adjust anticoagulant dose.', category: 'bleeding', interactionType: 'PD' };
   if (d.includes('nephrotox') || d.includes('renal toxicity') || d.includes('acute kidney'))
-    return { mechanism: 'Độc tính thận cộng hưởng', effect: 'Tăng nguy cơ suy thận cấp', recommendation: 'Theo dõi creatinine/GFR. Điều chỉnh liều theo chức năng thận.', category: 'renal', interactionType: 'PD' };
+    return { mechanism: 'Additive nephrotoxicity', effect: 'Increased risk of acute kidney injury', recommendation: 'Monitor creatinine/GFR. Adjust dose per renal function.', category: 'renal', interactionType: 'PD' };
   if (d.includes('hepatotox') || d.includes('liver toxicity') || d.includes('hepatic'))
-    return { mechanism: 'Độc tính gan cộng hưởng', effect: 'Tổn thương tế bào gan', recommendation: 'Theo dõi men gan (ALT/AST). Cân nhắc thay thế thuốc.', category: 'hepatic', interactionType: 'PD' };
+    return { mechanism: 'Additive hepatotoxicity', effect: 'Hepatocellular damage', recommendation: 'Monitor liver enzymes (ALT/AST). Consider alternative.', category: 'hepatic', interactionType: 'PD' };
   if (d.includes('cns depression') || d.includes('sedation') || d.includes('respiratory depression'))
-    return { mechanism: 'Ức chế thần kinh trung ương', effect: 'An thần sâu / Ức chế hô hấp', recommendation: 'Giảm liều, theo dõi tri giác và hô hấp chặt chẽ.', category: 'cns', interactionType: 'PD' };
+    return { mechanism: 'CNS depression', effect: 'Deep sedation / respiratory depression', recommendation: 'Reduce dose. Monitor consciousness and respiration closely.', category: 'cns', interactionType: 'PD' };
   if (d.includes('cyp') || d.includes('metabolism of') || d.includes('metabolized by') || d.includes('cytochrome')) {
     const isDecreased = d.includes('decreased') || d.includes('inhibit') || d.includes('reduced');
     return {
-      mechanism: 'Ức chế/Cảm ứng enzym CYP450',
-      effect: isDecreased ? 'Tăng nồng độ thuốc trong huyết tương' : 'Giảm nồng độ thuốc trong huyết tương',
-      recommendation: isDecreased ? 'Giảm liều và theo dõi nồng độ thuốc trong máu.' : 'Tăng liều và theo dõi hiệu quả điều trị.',
+      mechanism: 'CYP450 enzyme inhibition/induction',
+      effect: isDecreased ? 'Increased plasma drug concentration' : 'Decreased plasma drug concentration',
+      recommendation: isDecreased ? 'Reduce dose and monitor plasma drug levels.' : 'Increase dose and monitor therapeutic effect.',
       category: 'metabolic', interactionType: 'PK',
     };
   }
   if (d.includes('serum concentration') || d.includes('plasma concentration') || d.includes('blood level') || d.includes('auc'))
-    return { mechanism: 'Thay đổi phân phối / thải trừ', effect: 'Thay đổi nồng độ thuốc trong máu', recommendation: 'Theo dõi nồng độ thuốc và điều chỉnh liều phù hợp.', category: 'pk', interactionType: 'PK' };
+    return { mechanism: 'Altered distribution / elimination', effect: 'Changed blood drug concentration', recommendation: 'Monitor drug levels and adjust dose accordingly.', category: 'pk', interactionType: 'PK' };
   if (d.includes('absorption') || d.includes('bioavailability') || d.includes('cmax'))
-    return { mechanism: 'Ảnh hưởng hấp thu đường tiêu hóa', effect: 'Giảm sinh khả dụng của thuốc', recommendation: 'Uống cách nhau ít nhất 2–4 giờ.', category: 'absorption', interactionType: 'PK' };
+    return { mechanism: 'GI absorption affected', effect: 'Reduced drug bioavailability', recommendation: 'Take at least 2–4 hours apart.', category: 'absorption', interactionType: 'PK' };
   if (d.includes('protein binding') || d.includes('plasma protein'))
-    return { mechanism: 'Cạnh tranh gắn protein huyết tương', effect: 'Tăng dạng tự do của thuốc', recommendation: 'Theo dõi tác dụng và độc tính của cả hai thuốc.', category: 'protein', interactionType: 'PK' };
+    return { mechanism: 'Plasma protein binding competition', effect: 'Increased free drug fraction', recommendation: 'Monitor effects and toxicity of both drugs.', category: 'protein', interactionType: 'PK' };
 
-  return { mechanism: 'Tương tác dược động học / lực học', effect: 'Thay đổi tác dụng hoặc độc tính', recommendation: 'Theo dõi lâm sàng chặt chẽ khi phối hợp hai thuốc.', category: 'pk', interactionType: 'PK' };
+  return { mechanism: 'Pharmacokinetic / pharmacodynamic interaction', effect: 'Altered efficacy or toxicity', recommendation: 'Monitor clinically when combining the two drugs.', category: 'pk', interactionType: 'PK' };
 }
 
 const CAT_STYLE: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
   serotonin:  { bg: 'bg-pink-50',    border: 'border-pink-300',   text: 'text-pink-700',    icon: '🧠', label: 'Serotonin' },
-  cardiac:    { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '❤️', label: 'Tim mạch' },
-  bleeding:   { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '🩸', label: 'Chảy máu' },
-  renal:      { bg: 'bg-teal-50',    border: 'border-teal-300',   text: 'text-teal-700',    icon: '🫘', label: 'Thận' },
-  hepatic:    { bg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700',  icon: '🫀', label: 'Gan' },
+  cardiac:    { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '❤️', label: 'Cardiovascular' },
+  bleeding:   { bg: 'bg-red-50',     border: 'border-red-300',    text: 'text-red-700',     icon: '🩸', label: 'Bleeding' },
+  renal:      { bg: 'bg-teal-50',    border: 'border-teal-300',   text: 'text-teal-700',    icon: '🫘', label: 'Renal' },
+  hepatic:    { bg: 'bg-yellow-50',  border: 'border-yellow-300', text: 'text-yellow-700',  icon: '🫀', label: 'Hepatic' },
   metabolic:  { bg: 'bg-orange-50',  border: 'border-orange-300', text: 'text-orange-700',  icon: '⚗️',  label: 'CYP450' },
   pk:         { bg: 'bg-blue-50',    border: 'border-blue-300',   text: 'text-blue-700',    icon: '🔬', label: 'PK' },
-  absorption: { bg: 'bg-purple-50',  border: 'border-purple-300', text: 'text-purple-700',  icon: '💊', label: 'Hấp thu' },
+  absorption: { bg: 'bg-purple-50',  border: 'border-purple-300', text: 'text-purple-700',  icon: '💊', label: 'Absorption' },
   protein:    { bg: 'bg-indigo-50',  border: 'border-indigo-300', text: 'text-indigo-700',  icon: '🧬', label: 'Protein' },
-  cns:        { bg: 'bg-slate-50',   border: 'border-slate-300',  text: 'text-slate-700',   icon: '🧬', label: 'TKTW' },
+  cns:        { bg: 'bg-slate-50',   border: 'border-slate-300',  text: 'text-slate-700',   icon: '🧬', label: 'CNS' },
 };
 
 function fmtDate(iso: string) {
@@ -135,11 +135,11 @@ function PathwayDiagram({ ix }: { ix: InteractionRec }) {
         {/* Drug nodes (stacked) */}
         <div className="flex flex-col gap-2.5">
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
-            <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Thuốc A</div>
+            <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Drug A</div>
             <div className="text-xs font-bold text-blue-700 truncate" title={ix.drug_a_name}>{ix.drug_a_name}</div>
           </div>
           <div className="bg-violet-50 border-2 border-violet-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
-            <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Thuốc B</div>
+            <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Drug B</div>
             <div className="text-xs font-bold text-violet-700 truncate" title={ix.drug_b_name}>{ix.drug_b_name}</div>
           </div>
         </div>
@@ -165,7 +165,7 @@ function PathwayDiagram({ ix }: { ix: InteractionRec }) {
         {/* Effect node */}
         <div className={`rounded-xl px-4 py-3.5 w-40 text-center border-2 shadow-sm ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
           <div className="text-2xl mb-1.5">⚠️</div>
-          <div className={`text-[9px] font-bold uppercase tracking-widest mb-1 opacity-70 ${sev.text}`}>Kết quả lâm sàng</div>
+          <div className={`text-[9px] font-bold uppercase tracking-widest mb-1 opacity-70 ${sev.text}`}>Clinical Outcome</div>
           <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
         </div>
       </div>
@@ -173,16 +173,16 @@ function PathwayDiagram({ ix }: { ix: InteractionRec }) {
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-200">
         <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-          <span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300" /> Thuốc A
+          <span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300" /> Drug A
         </span>
         <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-          <span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300" /> Thuốc B
+          <span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300" /> Drug B
         </span>
         <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-          <span className={`w-3 h-3 rounded-full ${cat.bg} border ${cat.border}`} /> Cơ chế ({pw.interactionType})
+          <span className={`w-3 h-3 rounded-full ${cat.bg} border ${cat.border}`} /> Mechanism ({pw.interactionType})
         </span>
         <span className="flex items-center gap-1.5 text-[10px] text-gray-400">
-          <span className={`w-3 h-3 rounded-full ${sev.bg}`} style={{ border: `1px solid ${sevBorderColor}` }} /> Hậu quả
+          <span className={`w-3 h-3 rounded-full ${sev.bg}`} style={{ border: `1px solid ${sevBorderColor}` }} /> Outcome
         </span>
       </div>
     </div>
@@ -195,10 +195,10 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
   const sevBorderColor = ix.severity === 'major' ? '#fca5a5' : ix.severity === 'moderate' ? '#fcd34d' : '#86efac';
 
   const severityMeta = {
-    major:    { label: 'Nguy hiểm cao', desc: 'Tương tác có thể đe dọa tính mạng hoặc gây tổn thương không hồi phục. Cần can thiệp y tế ngay.', icon: '🚨' },
-    moderate: { label: 'Trung bình',    desc: 'Tương tác có thể gây biến cố lâm sàng đáng kể. Cần điều chỉnh liều hoặc theo dõi chặt chẽ.',      icon: '⚠️' },
-    minor:    { label: 'Thấp',          desc: 'Tương tác ít có ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.',                   icon: 'ℹ️' },
-    unknown:  { label: 'Thấp',          desc: 'Tương tác ít có ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.',                   icon: 'ℹ️' },
+    major:    { label: 'High Risk',  desc: 'Interaction may be life-threatening or cause irreversible damage. Immediate medical intervention required.', icon: '🚨' },
+    moderate: { label: 'Moderate',    desc: 'Interaction may cause significant clinical events. Dose adjustment or close monitoring required.',      icon: '⚠️' },
+    minor:    { label: 'Low',           desc: 'Interaction has limited clinical significance. Usually no intervention required but should be monitored.',   icon: 'ℹ️' },
+    unknown:  { label: 'Low',           desc: 'Interaction has limited clinical significance. Usually no intervention required but should be monitored.',   icon: 'ℹ️' },
   };
   const sm = severityMeta[normSev(ix.severity)];
 
@@ -220,7 +220,7 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
               <div className="flex items-center gap-2 flex-wrap">
                 <RiskBadge sev={ix.severity} />
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sev.bg} ${sev.text}`}>{sm.icon} {sm.label}</span>
-                <span className="text-[10px] text-gray-400 italic">Nguồn: DrugBank® v5</span>
+                <span className="text-[10px] text-gray-400 italic">Source: DrugBank® v5</span>
               </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/10 transition-colors shrink-0">
@@ -237,7 +237,7 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
         {/* ── Pathway Diagram ── */}
         <div className="px-6 py-5 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <Activity size={14} className="text-violet-500" /> Sơ đồ đường đi tương tác
+            <Activity size={14} className="text-violet-500" /> Interaction Pathway Diagram
           </h3>
           <PathwayDiagram ix={ix} />
         </div>
@@ -245,33 +245,33 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
         {/* ── Mechanism analysis cards ── */}
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <FlaskConical size={14} className="text-orange-500" /> Phân tích cơ chế
+            <FlaskConical size={14} className="text-orange-500" /> Mechanism Analysis
           </h3>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Loại tương tác</div>
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Interaction Type</div>
               <div className="text-2xl font-extrabold text-primary-700">{pw.interactionType}</div>
               <div className="text-[10px] text-gray-400 mt-0.5">
-                {pw.interactionType === 'PK' ? 'Dược động học' : 'Dược lực học'}
+                {pw.interactionType === 'PK' ? 'Pharmacokinetic' : 'Pharmacodynamic'}
               </div>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-3">
-              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Cơ chế chính</div>
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Main Mechanism</div>
               <div className="text-xs font-bold text-gray-700 leading-tight">{pw.mechanism}</div>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-3">
-              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Hậu quả dự kiến</div>
+              <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Expected Outcome</div>
               <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
             </div>
           </div>
           <div className="mt-3 bg-white rounded-xl border border-gray-200 p-3">
             <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-              {pw.interactionType === 'PK' ? '⚙️ Tương tác dược động học (PK)' : '⚡ Tương tác dược lực học (PD)'}
+              {pw.interactionType === 'PK' ? '⚙️ Pharmacokinetic Interaction (PK)' : '⚡ Pharmacodynamic Interaction (PD)'}
             </div>
             <p className="text-xs text-gray-600 leading-relaxed">
               {pw.interactionType === 'PK'
-                ? 'Tương tác xảy ra ở cấp độ hấp thu, phân phối, chuyển hóa hoặc thải trừ — ảnh hưởng đến nồng độ thuốc trong máu mà không ảnh hưởng trực tiếp đến receptor.'
-                : 'Tương tác xảy ra ở cấp độ hiệu quả sinh học — hai thuốc tác động lên cùng receptor, enzyme hoặc con đường tín hiệu, gây tăng/giảm hiệu quả hoặc tăng độc tính.'}
+                ? 'Interaction occurs at the level of absorption, distribution, metabolism, or elimination — affecting blood drug concentration without directly acting on receptors.'
+                : 'Interaction occurs at the pharmacological level — both drugs act on the same receptor, enzyme, or signaling pathway, increasing/decreasing efficacy or increasing toxicity.'}
             </p>
           </div>
         </div>
@@ -279,23 +279,23 @@ function InteractionDetailModal({ ix, onClose }: { ix: InteractionRec; onClose: 
         {/* ── Full DrugBank description ── */}
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-            <FileText size={14} className="text-blue-500" /> Mô tả chi tiết (DrugBank)
+            <FileText size={14} className="text-blue-500" /> Detailed description (DrugBank)
           </h3>
           <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
-            {ix.description || 'Không có mô tả chi tiết trong cơ sở dữ liệu DrugBank cho cặp thuốc này.'}
+            {ix.description || 'No detailed description available in DrugBank for this drug pair.'}
           </p>
         </div>
 
         {/* ── Clinical recommendation ── */}
         <div className="px-6 py-5">
           <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-            <Shield size={14} className="text-green-500" /> Khuyến nghị lâm sàng
+            <Shield size={14} className="text-green-500" /> Clinical Recommendation
           </h3>
           <div className={`rounded-xl border-2 p-4 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
             <p className={`text-sm font-semibold ${sev.text}`}>⚕️ {pw.recommendation}</p>
           </div>
           <p className="text-[10px] text-gray-400 mt-3 italic text-center">
-            ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+            ⚠️ For academic reference only — does not replace professional clinical advice.
           </p>
         </div>
       </div>
@@ -350,17 +350,17 @@ function SessionCard({ session, onDelete, onEdit, onOpen }: {
               <h3 className="font-semibold text-gray-800 text-sm hover:text-violet-700 transition-colors">{session.title}</h3>
               {session.major_count > 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                  <AlertTriangle size={9} /> {session.major_count} nguy hiểm
+                  <AlertTriangle size={9} /> {session.major_count} high risk
                 </span>
               )}
               {session.total_interactions > 0 && (
-                <span className="text-[10px] text-violet-500 font-medium">Xem phân tích →</span>
+                <span className="text-[10px] text-violet-500 font-medium">View analysis →</span>
               )}
             </div>
             <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
               <span className="flex items-center gap-1"><Clock size={10} />{fmtDateShort(session.created_at)}</span>
-              <span className="flex items-center gap-1"><Pill size={10} />{session.total_drugs} thuốc</span>
-              <span className="flex items-center gap-1"><Zap size={10} />{session.total_interactions} tương tác</span>
+              <span className="flex items-center gap-1"><Pill size={10} />{session.total_drugs} drugs</span>
+              <span className="flex items-center gap-1"><Zap size={10} />{session.total_interactions} interactions</span>
             </div>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
@@ -499,14 +499,14 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
               <h2 className="font-extrabold text-gray-800 text-base">{session.title}</h2>
               {session.major_count > 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                  <AlertTriangle size={9}/> {session.major_count} nguy hiểm cao
+                  <AlertTriangle size={9}/> {session.major_count} high risk
                 </span>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-400">
               <span className="flex items-center gap-1"><Clock size={10}/>{fmtDate(session.created_at)}</span>
-              <span className="flex items-center gap-1"><Pill size={10}/>{session.total_drugs} thuốc</span>
-              <span className="flex items-center gap-1"><Zap size={10}/>{session.total_interactions} tương tác</span>
+              <span className="flex items-center gap-1"><Pill size={10}/>{session.total_drugs} drugs</span>
+              <span className="flex items-center gap-1"><Zap size={10}/>{session.total_interactions} interactions</span>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0"><X size={16}/></button>
@@ -531,7 +531,7 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
         {/* Loading indicator while fetching live data */}
         {dataGap && fetchLoading && (
           <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex items-center gap-2">
-            <RefreshCw size={12} className="animate-spin shrink-0"/> Đang tải dữ liệu tương tác từ cơ sở dữ liệu...
+            <RefreshCw size={12} className="animate-spin shrink-0"/> Loading interaction data from database...
           </div>
         )}
 
@@ -539,7 +539,7 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
         {dataGap && !fetchLoading && liveIxs !== null && liveIxs.length === 0 && (
           <div className="px-6 py-3 bg-orange-50 border-b border-orange-100 text-xs text-orange-700 flex gap-2">
             <AlertTriangle size={12} className="shrink-0 mt-0.5"/>
-            Không tìm thấy chi tiết tương tác trong CSDL hiện tại. Dữ liệu có thể chưa được đồng bộ đầy đủ.
+            Interaction details not found in current database. Data may not be fully synchronized.
           </div>
         )}
 
@@ -547,8 +547,8 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
         {dataGap && fetchLoading ? (
           <div className="px-6 py-16 text-center flex flex-col items-center gap-3 text-gray-400">
             <RefreshCw size={28} className="animate-spin text-blue-400"/>
-            <p className="text-sm font-medium">Đang phân tích tương tác...</p>
-            <p className="text-xs opacity-60">Truy vấn cơ sở dữ liệu DrugBank</p>
+            <p className="text-sm font-medium">Analyzing interactions...</p>
+            <p className="text-xs opacity-60">Querying DrugBank database</p>
           </div>
         ) : (
           <>
@@ -556,7 +556,7 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
             {allPairs.length > 1 && (
               <div className="px-6 pt-4 pb-2 border-b border-gray-100">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                  {allPairs.length} cặp — chọn để xem phân tích:
+                  {allPairs.length} pairs — select to view analysis:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {allPairs.map((p, i) => {
@@ -588,7 +588,7 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
               )
             ) : (
               <div className="px-6 py-12 text-center text-gray-400 text-sm">
-                Không có thuốc nào trong phác đồ.
+                No drugs in the regimen.
               </div>
             )}
           </>
@@ -607,7 +607,7 @@ function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) 
         <div>
           <div className="font-bold text-sm text-green-700">{drugA.name} × {drugB.name}</div>
           <div className="text-xs mt-0.5 text-green-600 opacity-80">
-            Không tìm thấy tương tác đã biết trong cơ sở dữ liệu DrugBank® v5
+            No known interactions found in DrugBank® v5
           </div>
         </div>
       </div>
@@ -615,17 +615,17 @@ function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) 
       {/* Safe pathway diagram */}
       <div>
         <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-          <Activity size={14} className="text-violet-500"/> Sơ đồ kiểm tra tương tác
+          <Activity size={14} className="text-violet-500"/> Interaction Check Diagram
         </h3>
         <div className="rounded-xl bg-slate-50 border border-gray-200 p-5 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max mx-auto justify-center">
             <div className="flex flex-col gap-2.5">
               <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
-                <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Thuốc A</div>
+                <div className="text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">💊 Drug A</div>
                 <div className="text-xs font-bold text-blue-700 truncate" title={drugA.name}>{drugA.name}</div>
               </div>
               <div className="bg-violet-50 border-2 border-violet-200 rounded-xl px-4 py-2.5 w-32 text-center shadow-sm">
-                <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Thuốc B</div>
+                <div className="text-[9px] font-bold text-violet-400 uppercase tracking-wider mb-0.5">💊 Drug B</div>
                 <div className="text-xs font-bold text-violet-700 truncate" title={drugB.name}>{drugB.name}</div>
               </div>
             </div>
@@ -634,8 +634,8 @@ function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) 
             </svg>
             <div className="bg-green-50 border-2 border-green-300 rounded-xl px-4 py-3.5 w-40 text-center shadow-sm">
               <div className="text-2xl mb-1.5">🔬</div>
-              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">Kiểm tra DrugBank</div>
-              <div className="text-xs font-bold text-green-700">24,386+ cặp đã phân loại</div>
+              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">DrugBank Check</div>
+              <div className="text-xs font-bold text-green-700">24,386+ classified pairs</div>
             </div>
             <svg width="32" height="12" viewBox="0 0 32 12" fill="none" className="shrink-0">
               <path d="M0 6 H24" stroke="#86efac" strokeWidth="1.5" strokeLinecap="round"/>
@@ -643,14 +643,14 @@ function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) 
             </svg>
             <div className="bg-green-50 border-2 border-green-300 rounded-xl px-4 py-3.5 w-40 text-center shadow-sm">
               <div className="text-2xl mb-1.5">✅</div>
-              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">Kết quả</div>
-              <div className="text-xs font-bold text-green-700">Không có tương tác đã biết</div>
+              <div className="text-[9px] font-bold text-green-500 uppercase tracking-widest mb-1">Result</div>
+              <div className="text-xs font-bold text-green-700">No known interaction</div>
             </div>
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-gray-200 text-[10px] text-gray-400">
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300"/>{drugA.name}</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300"/>{drugB.name}</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-200 border border-green-300"/>An toàn</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-200 border border-green-300"/>Safe</span>
           </div>
         </div>
       </div>
@@ -658,26 +658,26 @@ function SafePairDetail({ drugA, drugB }: { drugA: DrugSnap; drugB: DrugSnap }) 
       {/* Explanation */}
       <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
         <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-          <FileText size={14} className="text-blue-500"/> Ý nghĩa lâm sàng
+          <FileText size={14} className="text-blue-500"/> Clinical Significance
         </h3>
         <div className="grid grid-cols-1 gap-2 text-xs text-gray-600">
           <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
             <span className="text-green-500 font-bold shrink-0">✓</span>
-            <span><strong>Không có tương tác đã biết</strong> trong cơ sở dữ liệu DrugBank v5 — bộ dữ liệu hơn 24,000 cặp tương tác lâm sàng đã được phân loại.</span>
+            <span><strong>No known interaction</strong> in the DrugBank v5 database — over 24,000 classified clinical interaction pairs.</span>
           </div>
           <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
             <span className="text-amber-500 font-bold shrink-0">⚠</span>
-            <span><strong>Không có tương tác đã biết ≠ hoàn toàn an toàn</strong>. Cơ sở dữ liệu chỉ ghi nhận các tương tác đã được nghiên cứu và công bố.</span>
+            <span><strong>No known interaction ≠ completely safe</strong>. The database only records interactions that have been studied and published.</span>
           </div>
           <div className="flex gap-2 bg-white rounded-lg p-3 border border-gray-100">
             <span className="text-blue-500 font-bold shrink-0">ℹ</span>
-            <span>Nên tham khảo dược sĩ lâm sàng hoặc bác sĩ điều trị trước khi phối hợp thuốc trong thực tế.</span>
+            <span>Consult a clinical pharmacist or treating physician before combining drugs in practice.</span>
           </div>
         </div>
       </div>
 
       <p className="text-[10px] text-gray-400 italic text-center pb-2">
-        ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+        ⚠️ For academic reference only — does not replace professional clinical advice.
       </p>
     </div>
   );
@@ -691,10 +691,10 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
   const sevBorderColor = ix.severity === 'major' ? '#fca5a5' : ix.severity === 'moderate' ? '#fcd34d' : '#86efac';
 
   const severityMeta = {
-    major:    { label: 'Nguy hiểm cao', desc: 'Tương tác có thể đe dọa tính mạng. Cần can thiệp y tế ngay.', icon: '🚨' },
-    moderate: { label: 'Trung bình',    desc: 'Có thể gây biến cố lâm sàng đáng kể. Cần điều chỉnh liều hoặc theo dõi chặt.', icon: '⚠️' },
-    minor:    { label: 'Thấp',          desc: 'Ít ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.', icon: 'ℹ️' },
-    unknown:  { label: 'Thấp',          desc: 'Ít ý nghĩa lâm sàng. Thường không cần can thiệp nhưng nên theo dõi.', icon: 'ℹ️' },
+    major:    { label: 'High Risk', desc: 'Interaction may be life-threatening. Immediate medical intervention required.', icon: '🚨' },
+    moderate: { label: 'Moderate',  desc: 'May cause significant clinical events. Dose adjustment or close monitoring required.', icon: '⚠️' },
+    minor:    { label: 'Low',       desc: 'Limited clinical significance. Usually no intervention required but should be monitored.', icon: 'ℹ️' },
+    unknown:  { label: 'Low',       desc: 'Limited clinical significance. Usually no intervention required but should be monitored.', icon: 'ℹ️' },
   };
   const sm = severityMeta[normSev(ix.severity)];
 
@@ -713,7 +713,7 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
       {/* Pathway diagram */}
       <div>
         <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-          <Activity size={14} className="text-violet-500"/> Sơ đồ đường đi tương tác
+          <Activity size={14} className="text-violet-500"/> Interaction Pathway Diagram
         </h3>
         <PathwayDiagram ix={ix} />
       </div>
@@ -721,31 +721,31 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
       {/* Mechanism cards */}
       <div className="bg-gray-50 rounded-xl p-4">
         <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-          <FlaskConical size={14} className="text-orange-500"/> Phân tích cơ chế
+          <FlaskConical size={14} className="text-orange-500"/> Mechanism Analysis
         </h3>
         <div className="grid grid-cols-3 gap-3 mb-3">
           <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Loại tương tác</div>
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Interaction Type</div>
             <div className="text-2xl font-extrabold text-violet-700">{pw.interactionType}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">{pw.interactionType === 'PK' ? 'Dược động học' : 'Dược lực học'}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{pw.interactionType === 'PK' ? 'Pharmacokinetic' : 'Pharmacodynamic'}</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Cơ chế chính</div>
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Main Mechanism</div>
             <div className="text-xs font-bold text-gray-700 leading-tight">{pw.mechanism}</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-3">
-            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Hậu quả dự kiến</div>
+            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Expected Outcome</div>
             <div className={`text-xs font-bold leading-tight ${sev.text}`}>{pw.effect}</div>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-3">
           <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-            {pw.interactionType === 'PK' ? '⚙️ Dược động học (PK)' : '⚡ Dược lực học (PD)'}
+            {pw.interactionType === 'PK' ? '⚙️ Pharmacokinetics (PK)' : '⚡ Pharmacodynamic (PD)'}
           </div>
           <p className="text-xs text-gray-600 leading-relaxed">
             {pw.interactionType === 'PK'
-              ? 'Tương tác ở cấp độ hấp thu, phân phối, chuyển hóa hoặc thải trừ — ảnh hưởng nồng độ thuốc trong máu mà không tác động trực tiếp đến receptor.'
-              : 'Tương tác ở cấp độ hiệu quả sinh học — hai thuốc tác động lên cùng receptor, enzyme hoặc con đường tín hiệu, gây tăng/giảm hiệu quả hoặc độc tính.'}
+              ? 'Interaction at the level of absorption, distribution, metabolism, or elimination — affecting blood drug concentration without directly acting on receptors.'
+              : 'Interaction at the pharmacological level — both drugs act on the same receptor, enzyme, or signaling pathway, altering efficacy or toxicity.'}
           </p>
         </div>
       </div>
@@ -753,17 +753,17 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
       {/* Full description */}
       <div>
         <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-          <FileText size={14} className="text-blue-500"/> Mô tả chi tiết (DrugBank)
+          <FileText size={14} className="text-blue-500"/> Detailed description (DrugBank)
         </h3>
         <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">
-          {ix.description || 'Không có mô tả chi tiết trong cơ sở dữ liệu DrugBank cho cặp thuốc này.'}
+          {ix.description || 'No detailed description available in DrugBank for this drug pair.'}
         </p>
       </div>
 
       {/* Clinical recommendation */}
       <div>
         <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-          <Shield size={14} className="text-green-500"/> Khuyến nghị lâm sàng
+          <Shield size={14} className="text-green-500"/> Clinical Recommendation
         </h3>
         <div className={`rounded-xl border-2 p-4 ${sev.bg}`} style={{ borderColor: sevBorderColor }}>
           <p className={`text-sm font-semibold ${sev.text}`}>⚕️ {pw.recommendation}</p>
@@ -771,7 +771,7 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
       </div>
 
       <p className="text-[10px] text-gray-400 italic text-center pb-2">
-        ⚠️ Thông tin chỉ mang tính tham khảo học thuật — không thay thế tư vấn lâm sàng chuyên nghiệp.
+        ⚠️ For academic reference only — does not replace professional clinical advice.
       </p>
     </div>
   );
@@ -789,33 +789,33 @@ function EditModal({ session, onClose, onSave }: {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-800">Chỉnh sửa phiên</h2>
+          <h2 className="font-bold text-gray-800">Edit Session</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tên phiên</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Session Name</label>
             <input value={title} onChange={e => setTitle(e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nhãn (phân cách bằng |)</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Labels (separated by |)</label>
             <input value={tags} onChange={e => setTags(e.target.value)}
-              placeholder="Cardiology|ICU|Tiểu đường" 
+              placeholder="Cardiology|ICU|Diabetes" 
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Ghi chú lâm sàng</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Clinical Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-              placeholder="Ghi chú về bệnh nhân, bối cảnh lâm sàng..."
+              placeholder="Notes about patient, clinical context..."
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400 resize-none" />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Hủy</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
           <button onClick={() => { onSave(session.id, title, tags, notes); onClose(); }}
             className="flex items-center gap-1.5 px-4 py-2 bg-primary-800 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition-colors">
-            <Save size={14} /> Lưu
+            <Save size={14} /> Save
           </button>
         </div>
       </div>
@@ -873,7 +873,7 @@ export default function AnalysisPage() {
           const detail = JSON.parse(raw) as { drugs_snapshot: DrugSnap[]; interactions_found: InteractionRec[] };
           const guestSession: Session = {
             id: -1,
-            title: `Phác đồ: ${(detail.drugs_snapshot ?? []).map(d => d.name).join(', ')}`,
+            title: `Regimen: ${(detail.drugs_snapshot ?? []).map(d => d.name).join(', ')}`,
             tags: null,
             total_drugs: detail.drugs_snapshot?.length ?? 0,
             total_interactions: detail.interactions_found?.length ?? 0,
@@ -905,13 +905,13 @@ export default function AnalysisPage() {
         fetch(`/api/v1/sessions?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}${filterTag ? `&tag=${encodeURIComponent(filterTag)}` : ''}`, { headers: authHeader }),
         fetch('/api/v1/sessions/stats', { headers: authHeader }),
       ]);
-      if (!sRes.ok || !stRes.ok) throw new Error('Backend không phản hồi');
+      if (!sRes.ok || !stRes.ok) throw new Error('Backend not responding');
       setSessions(await sRes.json());
       setStats(await stRes.json());
       setBackendOk(true);
     } catch {
       setBackendOk(false);
-      setError('Không kết nối được máy chủ backend.');
+      setError('Could not connect to backend server.');
     } finally {
       setLoading(false);
     }
@@ -926,7 +926,7 @@ export default function AnalysisPage() {
       setSessions([]);
       return;
     }
-    if (!token || !confirm('Xóa phiên này?')) return;
+    if (!token || !confirm('Delete this session?')) return;
     await fetch(`/api/v1/sessions/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
     setSessions(prev => prev.filter(s => s.id !== id));
     if (stats) setStats({ ...stats, total_sessions: stats.total_sessions - 1 });
@@ -963,24 +963,24 @@ export default function AnalysisPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <nav className="flex items-center gap-2 text-sm text-violet-300 mb-4">
-                <Link to="/" className="hover:text-white transition-colors">Trang chủ</Link>
+                <Link to="/" className="hover:text-white transition-colors">Home</Link>
                 <ChevronRight size={14} />
-                <span className="text-white font-medium">Công cụ phân tích</span>
+                <span className="text-white font-medium">Analysis Tools</span>
               </nav>
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-sm">
                   <BarChart2 size={26} className="text-violet-200" />
                 </div>
-                <h1 className="text-3xl font-bold">Phân tích & Lịch sử tương tác</h1>
+                <h1 className="text-3xl font-bold">Analysis & Interaction History</h1>
               </div>
               <p className="text-violet-200 text-sm max-w-xl">
-                Lưu trữ vĩnh viễn các phiên kiểm tra tương tác thuốc, phân loại theo nhóm bệnh lý, và theo dõi xu hướng lâm sàng.
+                Permanently store drug interaction check sessions, categorize by disease groups, and track clinical trends.
               </p>
             </div>
             <button onClick={() => navigate('/interactions')}
               className="shrink-0 flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
               <Zap size={15} className="text-amber-300" />
-              Kiểm tra tương tác mới
+              New Interaction Check
             </button>
           </div>
 
@@ -988,10 +988,10 @@ export default function AnalysisPage() {
           {stats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
               {[
-                { label: 'Phiên lưu', value: stats.total_sessions, icon: <Database size={16} />, color: 'text-violet-300' },
-                { label: 'Tương tác kiểm tra', value: stats.total_interactions_checked, icon: <Zap size={16} />, color: 'text-amber-300' },
-                { label: 'Cặp nguy hiểm cao', value: stats.total_major, icon: <AlertTriangle size={16} />, color: 'text-red-300' },
-                { label: 'Cặp trung bình', value: stats.total_moderate, icon: <Shield size={16} />, color: 'text-orange-300' },
+                { label: 'Saved Sessions', value: stats.total_sessions, icon: <Database size={16} />, color: 'text-violet-300' },
+                { label: 'Interactions Checked', value: stats.total_interactions_checked, icon: <Zap size={16} />, color: 'text-amber-300' },
+                { label: 'High Risk Pairs', value: stats.total_major, icon: <AlertTriangle size={16} />, color: 'text-red-300' },
+                { label: 'Moderate Pairs', value: stats.total_moderate, icon: <Shield size={16} />, color: 'text-orange-300' },
               ].map(item => (
                 <div key={item.label} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                   <div className={`flex items-center gap-1.5 text-xs font-medium mb-1 ${item.color}`}>
@@ -1011,11 +1011,11 @@ export default function AnalysisPage() {
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-amber-800">
               <LogIn size={15} className="shrink-0 text-amber-600"/>
-              <span>Bạn đang xem với tư cách khách. Kết quả kiểm tra <strong>chỉ lưu trong phiên này</strong> — tắt tab hoặc tải lại trang sẽ mất.</span>
+              <span>You are viewing as a guest. Check results are <strong>saved in this session only</strong> — closing the tab or reloading will lose them.</span>
             </div>
             <Link to="/auth"
               className="shrink-0 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg transition-colors">
-              Đăng nhập / Đăng ký
+              Sign In / Sign Up
             </Link>
           </div>
         </div>
@@ -1026,9 +1026,9 @@ export default function AnalysisPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-0.5">
             {([
-              { id: 'history', label: 'Lịch sử phiên', icon: <Clock size={14} /> },
-              { id: 'stats', label: 'Thống kê', icon: <TrendingUp size={14} /> },
-              { id: 'compare', label: 'So sánh thuốc', icon: <Activity size={14} /> },
+              { id: 'history', label: 'Session History', icon: <Clock size={14} /> },
+              { id: 'stats', label: 'Statistics', icon: <TrendingUp size={14} /> },
+              { id: 'compare', label: 'Drug Comparison', icon: <Activity size={14} /> },
             ] as const).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
@@ -1049,8 +1049,8 @@ export default function AnalysisPage() {
           <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-amber-700 text-sm">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <div>
-              <strong>Backend chưa kết nối.</strong> Dữ liệu lịch sử yêu cầu kết nối đến máy chủ backend.
-              Tính năng kiểm tra tương tác vẫn hoạt động bình thường.
+              <strong>Backend not connected.</strong> History data requires a connection to the backend server.
+              The interaction checker still works normally.
             </div>
           </div>
         )}
@@ -1063,7 +1063,7 @@ export default function AnalysisPage() {
               <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm focus-within:border-violet-400 transition-colors">
                 <Search size={15} className="text-gray-400 shrink-0" />
                 <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Tìm phiên theo tên thuốc..."
+                  placeholder="Search sessions by drug name..."
                   className="flex-1 text-sm outline-none text-gray-700 placeholder-gray-400" />
                 {search && <button onClick={() => setSearch('')}><X size={14} className="text-gray-400" /></button>}
               </div>
@@ -1081,24 +1081,24 @@ export default function AnalysisPage() {
                 </div>
               )}
               <button onClick={fetchAll} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors shrink-0">
-                <RefreshCw size={13} /> Tải lại
+                <RefreshCw size={13} /> Reload
               </button>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-20 text-gray-400 gap-3">
-                <RefreshCw size={18} className="animate-spin" /> Đang tải lịch sử...
+                <RefreshCw size={18} className="animate-spin" /> Loading history...
               </div>
             ) : sessions.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <BarChart2 size={28} className="text-violet-300" />
                 </div>
-                <h3 className="font-semibold text-gray-700 mb-1">Chưa có phiên nào</h3>
-                <p className="text-gray-400 text-sm mb-5">Kiểm tra tương tác thuốc và nhấn "Lưu phiên" để lưu vào đây.</p>
+                <h3 className="font-semibold text-gray-700 mb-1">No sessions yet</h3>
+                <p className="text-gray-400 text-sm mb-5">Check drug interactions and click "Save Session" to save here.</p>
                 <Link to="/interactions"
                   className="inline-flex items-center gap-2 bg-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors">
-                  <Zap size={14} /> Bắt đầu kiểm tra tương tác
+                  <Zap size={14} /> Start Interaction Check
                 </Link>
               </div>
             ) : (
@@ -1121,18 +1121,18 @@ export default function AnalysisPage() {
             {/* Severity breakdown */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
-                <Shield size={16} className="text-violet-600" /> Phân bố mức độ tương tác
+                <Shield size={16} className="text-violet-600" /> Interaction Severity Distribution
               </h3>
               {(() => {
                 const total = stats.total_major + stats.total_moderate + stats.total_minor;
                 return total === 0 ? (
-                  <p className="text-sm text-gray-400">Chưa có dữ liệu</p>
+                  <p className="text-sm text-gray-400">No data available</p>
                 ) : (
                   <div className="space-y-4">
                     {[
-                      { label: 'Nguy hiểm cao', count: stats.total_major, color: 'bg-red-500', textColor: 'text-red-600', pct: Math.round((stats.total_major/total)*100) },
-                      { label: 'Trung bình', count: stats.total_moderate, color: 'bg-amber-400', textColor: 'text-amber-600', pct: Math.round((stats.total_moderate/total)*100) },
-                      { label: 'Thấp / Không rõ', count: stats.total_minor, color: 'bg-green-500', textColor: 'text-green-600', pct: Math.round((stats.total_minor/total)*100) },
+                      { label: 'High Risk', count: stats.total_major, color: 'bg-red-500', textColor: 'text-red-600', pct: Math.round((stats.total_major/total)*100) },
+                      { label: 'Moderate', count: stats.total_moderate, color: 'bg-amber-400', textColor: 'text-amber-600', pct: Math.round((stats.total_moderate/total)*100) },
+                      { label: 'Low / Unknown', count: stats.total_minor, color: 'bg-green-500', textColor: 'text-green-600', pct: Math.round((stats.total_minor/total)*100) },
                     ].map(row => (
                       <div key={row.label}>
                         <div className="flex items-center justify-between mb-1.5">
@@ -1145,7 +1145,7 @@ export default function AnalysisPage() {
                       </div>
                     ))}
                     <div className="mt-4 pt-4 border-t border-gray-50 text-sm text-gray-400">
-                      Tổng {total.toLocaleString()} cặp tương tác từ {stats.total_sessions} phiên
+                      Total {total.toLocaleString()} interaction pairs from {stats.total_sessions} sessions
                     </div>
                   </div>
                 );
@@ -1155,10 +1155,10 @@ export default function AnalysisPage() {
             {/* Top drugs */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
-                <Star size={16} className="text-amber-500" /> Thuốc kiểm tra nhiều nhất
+                <Star size={16} className="text-amber-500" /> Most Frequently Checked Drugs
               </h3>
               {stats.most_checked_drugs.length === 0 ? (
-                <p className="text-sm text-gray-400">Chưa có dữ liệu</p>
+                <p className="text-sm text-gray-400">No data available</p>
               ) : (
                 <MiniBarChart
                   data={stats.most_checked_drugs}
@@ -1171,10 +1171,10 @@ export default function AnalysisPage() {
             {/* Sessions by month */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
               <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
-                <TrendingUp size={16} className="text-blue-500" /> Phiên kiểm tra theo tháng
+                <TrendingUp size={16} className="text-blue-500" /> Check Sessions by Month
               </h3>
               {stats.sessions_by_month.length === 0 ? (
-                <p className="text-sm text-gray-400">Chưa có dữ liệu</p>
+                <p className="text-sm text-gray-400">No data available</p>
               ) : (
                 <div className="flex items-end gap-2 h-32">
                   {(() => {
@@ -1196,9 +1196,9 @@ export default function AnalysisPage() {
               <div className="flex items-start gap-3">
                 <Info size={16} className="text-violet-500 mt-0.5 shrink-0" />
                 <div className="text-sm text-violet-700">
-                  <strong>Về dữ liệu thống kê:</strong> Số liệu được tổng hợp từ tất cả các phiên kiểm tra đã lưu.
-                  Dữ liệu tương tác dựa trên DrugBank® v5 — 24,386+ cặp tương tác được phân loại.
-                  Chỉ dùng cho mục đích tham khảo học thuật, không thay thế tư vấn lâm sàng chuyên nghiệp.
+                  <strong>About statistics:</strong> Data aggregated from all saved check sessions.
+                  Interaction data based on DrugBank® v5 — 24,386+ classified interaction pairs.
+                  For academic reference only. Does not replace professional clinical advice.
                 </div>
               </div>
             </div>
@@ -1272,35 +1272,35 @@ function DrugComparePanel() {
   const d1 = selected[0], d2 = selected[1];
 
   const rows: { label: string; key: keyof Drug }[] = [
-    { label: 'Tên', key: 'name' },
-    { label: 'Loại', key: 'type' },
-    { label: 'Nhóm', key: 'groups' },
-    { label: 'Trạng thái', key: 'state' },
-    { label: 'Công thức', key: 'molecular_formula' },
-    { label: 'Phân tử lượng', key: 'molecular_weight' },
-    { label: 'Chỉ định', key: 'indication' },
-    { label: 'Cơ chế', key: 'mechanism' },
-    { label: 'Số Protein đích', key: 'targets' },
-    { label: 'Số Enzyme', key: 'enzymes' },
-    { label: 'Số Transporter', key: 'transporters' },
+    { label: 'Name', key: 'name' },
+    { label: 'Type', key: 'type' },
+    { label: 'Groups', key: 'groups' },
+    { label: 'Status', key: 'state' },
+    { label: 'Formula', key: 'molecular_formula' },
+    { label: 'Mol. Weight', key: 'molecular_weight' },
+    { label: 'Indication', key: 'indication' },
+    { label: 'Mechanism', key: 'mechanism' },
+    { label: 'Target Proteins', key: 'targets' },
+    { label: 'Enzymes', key: 'enzymes' },
+    { label: 'Transporters', key: 'transporters' },
   ];
 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="font-bold text-gray-800 text-lg mb-1">So sánh thuốc</h2>
-        <p className="text-sm text-gray-500">Chọn 2 thuốc để so sánh thông số dược học từ cơ sở dữ liệu.</p>
+        <h2 className="font-bold text-gray-800 text-lg mb-1">Drug Comparison</h2>
+        <p className="text-sm text-gray-500">Select 2 drugs to compare pharmacological parameters from the database.</p>
       </div>
       <div className="grid grid-cols-2 gap-4 mb-6">
         {([0, 1] as const).map(idx => (
           <div key={idx} className="relative">
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-              {idx === 0 ? 'Thuốc thứ nhất' : 'Thuốc thứ hai'}
+              {idx === 0 ? 'First Drug' : 'Second Drug'}
             </label>
             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 focus-within:border-violet-400 shadow-sm transition-colors">
               <Pill size={14} className="text-gray-400 shrink-0" />
               <input value={query[idx]} onChange={e => search(idx, e.target.value)}
-                placeholder="Tìm tên thuốc..."
+                placeholder="Search drug name..."
                 className="flex-1 text-sm outline-none text-gray-700" autoComplete="off" />
               {selected[idx] && <button onClick={() => { const sel: [Drug|null, Drug|null] = [...selected] as any; sel[idx] = null; setSelected(sel); const q2: [string,string] = [...query] as any; q2[idx]=''; setQuery(q2); }}><X size={13} className="text-gray-400" /></button>}
             </div>
@@ -1324,7 +1324,7 @@ function DrugComparePanel() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-3 bg-gradient-to-r from-violet-900 to-indigo-900 text-white">
-            <div className="px-5 py-4 border-r border-white/10 text-xs font-semibold uppercase tracking-wide text-violet-200">Thông số</div>
+            <div className="px-5 py-4 border-r border-white/10 text-xs font-semibold uppercase tracking-wide text-violet-200">Parameters</div>
             <div className="px-5 py-4 border-r border-white/10">
               <div className="font-bold text-sm truncate">{d1.name}</div>
               <div className="text-violet-300 text-xs mt-0.5">{d1.id}</div>
@@ -1353,11 +1353,11 @@ function DrugComparePanel() {
           <div className="grid grid-cols-2 gap-3 p-5 border-t border-gray-100">
             <Link to={`/drugs/${d1.id}`}
               className="flex items-center justify-center gap-1.5 text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 py-2.5 rounded-xl transition-colors">
-              Xem chi tiết {d1.name} <ArrowRight size={13} />
+              View details {d1.name} <ArrowRight size={13} />
             </Link>
             <Link to={`/drugs/${d2.id}`}
               className="flex items-center justify-center gap-1.5 text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 py-2.5 rounded-xl transition-colors">
-              Xem chi tiết {d2.name} <ArrowRight size={13} />
+              View details {d2.name} <ArrowRight size={13} />
             </Link>
           </div>
         </div>
@@ -1366,7 +1366,7 @@ function DrugComparePanel() {
           <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Activity size={24} className="text-violet-300" />
           </div>
-          <p className="text-gray-400 text-sm">Chọn 2 thuốc ở trên để xem bảng so sánh</p>
+          <p className="text-gray-400 text-sm">Select 2 drugs above to view comparison table</p>
         </div>
       )}
     </div>

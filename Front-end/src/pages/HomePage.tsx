@@ -38,17 +38,17 @@ function HeroBanner() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-primary-700/60 border border-primary-600 rounded-full px-4 py-1.5 mb-6">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-blue-200 text-sm font-medium">Hệ thống mới nhất — Dữ liệu DrugBank 2024</span>
+            <span className="text-blue-200 text-sm font-medium">Latest System — DrugBank 2024 Data</span>
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4">
-            Hệ thống thông tin<br />
+            Intelligent Pharmaceutical<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-300">
-              dược phẩm thông minh
+              Information System
             </span>
           </h1>
           <p className="text-blue-200 text-lg md:text-xl mb-10 leading-relaxed max-w-2xl mx-auto">
-            Tra cứu thuốc, kiểm tra tương tác, phân tích protein đích — tất cả trong một nền tảng hỗ trợ quyết định lâm sàng.
+            Search drugs, check interactions, analyze target proteins — all in one clinical decision support platform.
           </p>
 
           {/* Search Widget */}
@@ -58,15 +58,15 @@ function HeroBanner() {
               onChange={e => setType(e.target.value)}
               className="bg-gray-50 text-gray-700 text-sm font-medium px-4 py-3 rounded-xl border border-gray-200 outline-none cursor-pointer"
             >
-              <option value="drug">💊 Thuốc</option>
+              <option value="drug">💊 Drug</option>
               <option value="protein">🧬 Protein</option>
-              <option value="interaction">⚡ Tương tác</option>
+              <option value="interaction">⚡ Interaction</option>
             </select>
             <input
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Nhập tên thuốc, hoạt chất, DrugBank ID..."
+              placeholder="Enter drug name, substance, DrugBank ID..."
               className="flex-1 px-4 py-3 text-gray-800 outline-none text-sm rounded-xl bg-transparent"
             />
             <button
@@ -74,13 +74,13 @@ function HeroBanner() {
               className="bg-primary-800 hover:bg-primary-900 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors text-sm shadow"
             >
               <Search size={16} />
-              Tìm kiếm
+              Search
             </button>
           </form>
 
           {/* Quick suggestions */}
           <div className="flex flex-wrap justify-center gap-2">
-            <span className="text-blue-300 text-sm">Tìm nhanh:</span>
+            <span className="text-blue-300 text-sm">Quick search:</span>
             {suggestions.map(s => (
               <button
                 key={s}
@@ -121,18 +121,18 @@ function StatsSection() {
   }, []);
 
   const stats = [
-    { value: drugCount, label: 'Thuốc', sub: 'Đã được phê duyệt & thực nghiệm', icon: <Pill size={28} />, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { value: '1,128,500+', label: 'Tương tác thuốc', sub: 'Cặp tương tác đã ghi nhận', icon: <Zap size={28} />, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { value: proteinCount, label: 'Protein đích', sub: 'Protein mục tiêu phân tử', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { value: '41,908', label: 'Tương tác thuốc-protein', sub: 'Liên kết dược lực học', icon: <Database size={28} />, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { value: drugCount, label: 'Drugs', sub: 'Approved & experimental', icon: <Pill size={28} />, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { value: '1,128,500+', label: 'Drug Interactions', sub: 'Recorded interaction pairs', icon: <Zap size={28} />, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { value: proteinCount, label: 'Target Proteins', sub: 'Molecular target proteins', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { value: '41,908', label: 'Drug-Protein Interactions', sub: 'Pharmacodynamic bindings', icon: <Database size={28} />, color: 'text-purple-600', bg: 'bg-purple-50' },
   ];
 
   return (
     <section className="py-12 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-primary-900">Dữ liệu trực tiếp từ hệ thống</h2>
-          <p className="text-gray-500 mt-1 text-sm">Cập nhật liên tục từ DrugBank® và các nguồn dữ liệu y sinh học</p>
+          <h2 className="text-2xl font-bold text-primary-900">Live data from the system</h2>
+          <p className="text-gray-500 mt-1 text-sm">Continuously updated from DrugBank® and biomedical data sources</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((s) => (
@@ -158,39 +158,39 @@ function FeaturesSection() {
   const features = [
     {
       icon: <Pill size={32} />,
-      title: 'Cơ sở dữ liệu thuốc',
-      desc: 'Tra cứu thông tin chi tiết về thuốc: cơ chế tác dụng, chỉ định, chống chỉ định, dược động học và dữ liệu lâm sàng.',
+      title: 'Drug Database',
+      desc: 'Detailed drug information: mechanism of action, indications, contraindications, pharmacokinetics and clinical data.',
       to: '/drugs',
       color: 'from-blue-600 to-blue-800',
-      badge: '17,590 thuốc',
-      highlights: ['Thông tin FDA đầy đủ', 'Cơ chế tác dụng', 'Dược động học', 'Phân loại ATC'],
+      badge: '17,590 drugs',
+      highlights: ['Full FDA data', 'Mechanism of action', 'Pharmacokinetics', 'ATC classification'],
     },
     {
       icon: <Zap size={32} />,
-      title: 'Kiểm tra tương tác',
-      desc: 'Phân tích tương tác giữa nhiều loại thuốc cùng lúc, phân loại mức độ nghiêm trọng và đưa ra khuyến nghị lâm sàng.',
+      title: 'Interaction Checker',
+      desc: 'Analyze interactions between multiple drugs simultaneously, classify severity levels and provide clinical recommendations.',
       to: '/interactions',
       color: 'from-amber-500 to-orange-600',
-      badge: '1,128,500+ tương tác',
-      highlights: ['Multi-drug checker', 'Phân loại nguy hiểm', 'Cơ chế tương tác', 'Cảnh báo lâm sàng'],
+      badge: '1,128,500+ interactions',
+      highlights: ['Multi-drug checker', 'Risk classification', 'Interaction mechanism', 'Clinical alerts'],
     },
     {
       icon: <FlaskConical size={32} />,
-      title: 'Protein đích',
-      desc: 'Khám phá dữ liệu protein mục tiêu phân tử, thông tin gen, cấu trúc và mối liên hệ với các thuốc điều trị.',
+      title: 'Target Proteins',
+      desc: 'Explore molecular target protein data, gene information, structures and relationships with therapeutic drugs.',
       to: '/proteins',
       color: 'from-emerald-600 to-teal-700',
-      badge: '5,309 protein',
-      highlights: ['Dữ liệu UniProt', 'Cấu trúc 3D', 'Thông tin gen', 'Liên kết thuốc'],
+      badge: '5,309 proteins',
+      highlights: ['UniProt data', '3D structure', 'Gene info', 'Drug binding'],
     },
     {
       icon: <BarChart2 size={32} />,
-      title: 'Công cụ phân tích',
-      desc: 'Phân tích toàn diện hồ sơ thuốc, tạo báo cáo tương tác và hỗ trợ quyết định lâm sàng thông minh.',
+      title: 'Analysis Tools',
+      desc: 'Comprehensive drug profile analysis, interaction report generation and intelligent clinical decision support.',
       to: '/analysis',
       color: 'from-purple-600 to-indigo-700',
       badge: 'AI-Powered',
-      highlights: ['Phân tích đa thuốc', 'Báo cáo PDF', 'Risk scoring', 'CDS thông minh'],
+      highlights: ['Multi-drug analysis', 'PDF reports', 'Risk scoring', 'Smart CDS'],
     },
   ];
 
@@ -198,9 +198,9 @@ function FeaturesSection() {
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12">
-          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Chức năng chính</span>
-          <h2 className="section-title mt-2">Toàn bộ công cụ dược phẩm<br />trong một nền tảng</h2>
-          <p className="text-gray-500 mt-3 max-w-xl mx-auto">Được xây dựng dành cho sinh viên, nhà nghiên cứu và chuyên gia y tế trong việc tra cứu và phân tích thông tin dược phẩm.</p>
+          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Key Features</span>
+          <h2 className="section-title mt-2">All pharmaceutical tools<br />in one platform</h2>
+          <p className="text-gray-500 mt-3 max-w-xl mx-auto">Built for students, researchers and healthcare professionals to look up and analyze pharmaceutical information.</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -230,7 +230,7 @@ function FeaturesSection() {
                   ))}
                 </ul>
                 <div className="flex items-center gap-1 text-primary-700 text-sm font-semibold group-hover:gap-2 transition-all">
-                  Khám phá <ArrowRight size={14} />
+                  Explore <ArrowRight size={14} />
                 </div>
               </div>
             </Link>
@@ -246,18 +246,18 @@ function FeaturesSection() {
 // ──────────────────────────────────────────────
 function HowItWorksSection() {
   const steps = [
-    { num: '01', title: 'Tìm kiếm thuốc', desc: 'Nhập tên thuốc, hoạt chất hoặc mã DrugBank vào ô tìm kiếm.', icon: <Search size={20} /> },
-    { num: '02', title: 'Xem thông tin chi tiết', desc: 'Xem đầy đủ thông tin dược lý, chỉ định, chống chỉ định và protein đích.', icon: <BookOpen size={20} /> },
-    { num: '03', title: 'Kiểm tra tương tác', desc: 'Thêm nhiều thuốc vào danh sách để kiểm tra tương tác đa chiều.', icon: <Shield size={20} /> },
-    { num: '04', title: 'Phân tích & Báo cáo', desc: 'Xuất báo cáo phân tích, rủi ro và khuyến nghị lâm sàng.', icon: <TrendingUp size={20} /> },
+    { num: '01', title: 'Search for a drug', desc: 'Enter the drug name, substance or DrugBank code in the search box.', icon: <Search size={20} /> },
+    { num: '02', title: 'View detailed info', desc: 'See full pharmacology, indications, contraindications and target proteins.', icon: <BookOpen size={20} /> },
+    { num: '03', title: 'Check interactions', desc: 'Add multiple drugs to the list to check multi-directional interactions.', icon: <Shield size={20} /> },
+    { num: '04', title: 'Analyze & Report', desc: 'Export analysis reports, risk assessments and clinical recommendations.', icon: <TrendingUp size={20} /> },
   ];
 
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12">
-          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Hướng dẫn sử dụng</span>
-          <h2 className="section-title mt-2">Chỉ 4 bước đơn giản</h2>
+          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">How it works</span>
+          <h2 className="section-title mt-2">Just 4 simple steps</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {steps.map((step, i) => (
@@ -290,12 +290,12 @@ function HowItWorksSection() {
 // ──────────────────────────────────────────────
 function PopularDrugs() {
   const drugs = [
-    { id: 'DB00945', name: 'Aspirin', generic: 'Acetylsalicylic acid', category: 'NSAID / Chống kết tập tiểu cầu', status: 'approved', risk: 'Low' },
-    { id: 'DB01050', name: 'Ibuprofen', generic: 'Ibuprofen', category: 'NSAID / Chống viêm', status: 'approved', risk: 'Low' },
-    { id: 'DB00331', name: 'Metformin', generic: 'Metformin hydrochloride', category: 'Hạ đường huyết', status: 'approved', risk: 'Low' },
-    { id: 'DB01077', name: 'Amoxicillin', generic: 'Amoxicillin trihydrate', category: 'Kháng sinh β-lactam', status: 'approved', risk: 'Medium' },
-    { id: 'DB00213', name: 'Omeprazole', generic: 'Omeprazole', category: 'Ức chế bơm proton', status: 'approved', risk: 'Low' },
-    { id: 'DB00682', name: 'Warfarin', generic: 'Warfarin sodium', category: 'Chống đông máu', status: 'approved', risk: 'High' },
+    { id: 'DB00945', name: 'Aspirin', generic: 'Acetylsalicylic acid', category: 'NSAID / Antiplatelet', status: 'approved', risk: 'Low' },
+    { id: 'DB01050', name: 'Ibuprofen', generic: 'Ibuprofen', category: 'NSAID / Anti-inflammatory', status: 'approved', risk: 'Low' },
+    { id: 'DB00331', name: 'Metformin', generic: 'Metformin hydrochloride', category: 'Hypoglycemic', status: 'approved', risk: 'Low' },
+    { id: 'DB01077', name: 'Amoxicillin', generic: 'Amoxicillin trihydrate', category: 'β-lactam antibiotic', status: 'approved', risk: 'Medium' },
+    { id: 'DB00213', name: 'Omeprazole', generic: 'Omeprazole', category: 'Proton pump inhibitor', status: 'approved', risk: 'Low' },
+    { id: 'DB00682', name: 'Warfarin', generic: 'Warfarin sodium', category: 'Anticoagulant', status: 'approved', risk: 'High' },
   ];
 
   const riskColor: Record<string, string> = {
@@ -309,11 +309,11 @@ function PopularDrugs() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Phổ biến nhất</span>
-            <h2 className="section-title mt-1">Thuốc được tra cứu nhiều</h2>
+            <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Most Popular</span>
+            <h2 className="section-title mt-1">Most frequently searched drugs</h2>
           </div>
           <Link to="/drugs" className="flex items-center gap-1 text-primary-700 hover:text-primary-900 font-medium text-sm transition-colors">
-            Xem tất cả <ChevronRight size={16} />
+            View all <ChevronRight size={16} />
           </Link>
         </div>
 
@@ -354,19 +354,19 @@ function CTASection() {
           <Star size={32} className="text-yellow-300" />
         </div>
         <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
-          Sẵn sàng khám phá hệ thống dược phẩm?
+          Ready to explore the pharmaceutical system?
         </h2>
         <p className="text-blue-200 text-lg mb-8 max-w-xl mx-auto">
-          Bắt đầu tra cứu thuốc, kiểm tra tương tác và phân tích dược lý ngay hôm nay — miễn phí cho mục đích học thuật.
+          Start searching drugs, checking interactions and analyzing pharmacology now — free for academic use.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/drugs" className="bg-white text-primary-800 hover:bg-blue-50 font-bold px-8 py-3.5 rounded-xl transition-colors shadow-lg flex items-center gap-2 justify-center">
             <Search size={18} />
-            Tìm kiếm thuốc ngay
+            Search drugs now
           </Link>
           <Link to="/analysis" className="border-2 border-blue-300 text-white hover:bg-primary-700 font-bold px-8 py-3.5 rounded-xl transition-colors flex items-center gap-2 justify-center">
             <Zap size={18} />
-            Kiểm tra tương tác
+            Check interactions
           </Link>
         </div>
       </div>

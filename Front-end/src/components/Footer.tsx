@@ -15,7 +15,7 @@ export default function Footer() {
               <span className="text-white font-bold text-lg">MediDB</span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Hệ thống thông tin dược phẩm thông minh hỗ trợ quyết định lâm sàng, được xây dựng từ dữ liệu DrugBank.
+              Intelligent pharmaceutical information system supporting clinical decision-making, built from DrugBank data.
             </p>
             <div className="flex gap-3 mt-4">
               <a href="mailto:support@medidb.edu.vn" className="text-gray-400 hover:text-blue-300 transition-colors">
@@ -29,13 +29,13 @@ export default function Footer() {
 
           {/* Khám phá */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Khám phá</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Explore</h4>
             <ul className="space-y-2.5 text-sm">
               {[
-                { label: 'Cơ sở dữ liệu thuốc', to: '/drugs' },
-                { label: 'Protein đích', to: '/proteins' },
-                { label: 'Tương tác thuốc', to: '/interactions' },
-                { label: 'Phân tích tương tác', to: '/analysis' },
+                { label: 'Drug Database', to: '/drugs' },
+                { label: 'Target Proteins', to: '/proteins' },
+                { label: 'Drug Interactions', to: '/interactions' },
+                { label: 'Interaction Analysis', to: '/analysis' },
               ].map(item => (
                 <li key={item.to}>
                   <Link to={item.to} className="text-gray-400 hover:text-blue-300 transition-colors">
@@ -48,13 +48,13 @@ export default function Footer() {
 
           {/* Tài nguyên */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Tài nguyên</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Resources</h4>
             <ul className="space-y-2.5 text-sm">
               {[
-                { label: 'Tài liệu hướng dẫn', to: '/resources' },
+                { label: 'Documentation', to: '/resources' },
                 { label: 'API Reference', to: '/api-docs' },
                 { label: 'DrugBank Database', href: 'https://www.drugbank.ca', external: true },
-                { label: 'Báo cáo đồ án', to: '/report' },
+                { label: 'Project Report', to: '/report' },
               ].map(item => (
                 <li key={item.label}>
                   {'href' in item ? (
@@ -73,13 +73,13 @@ export default function Footer() {
 
           {/* Thông tin */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Thông tin</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">About</h4>
             <ul className="space-y-2.5 text-sm">
               {[
-                { label: 'Giới thiệu dự án', to: '/about' },
-                { label: 'Nhóm phát triển', to: '/team' },
-                { label: 'Điều khoản sử dụng', to: '/terms' },
-                { label: 'Chính sách bảo mật', to: '/privacy' },
+                { label: 'About the project', to: '/about' },
+                { label: 'Development team', to: '/team' },
+                { label: 'Terms of use', to: '/terms' },
+                { label: 'Privacy policy', to: '/privacy' },
               ].map(item => (
                 <li key={item.to}>
                   <Link to={item.to} className="text-gray-400 hover:text-blue-300 transition-colors">
