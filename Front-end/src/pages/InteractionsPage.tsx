@@ -10,7 +10,7 @@ import { apiSearchDrugs, apiFetchDrugsByCategory, apiFetchDrugNetwork } from "..
 import type { DrugNetworkData } from "../lib/api";
 
 /* ─────────── TYPES ─────────── */
-interface DrugEntry { id: string; name: string; }
+interface DrugEntry { id: string; name: string; targetCount?: number; enzymeCount?: number; }
 interface DrugCategory { key: string; label: string; icon: string; color: string; count: number; drugs: DrugEntry[]; }
 type NodeType = "drug_main" | "drug_int" | "target" | "enzyme" | "transporter" | "carrier" | "gene";
 
@@ -401,8 +401,9 @@ export default function InteractionsPage() {
     if (!activeCategory) { setCatDrugsFromApi([]); return; }
     let cancelled = false;
     setCatDrugsLoading(true);
-    apiFetchDrugsByCategory(activeCategory, 300).then(drugs => {
+    apiFetchDrugsByCategory(activeCategory, 500, true).then(drugs => {
       if (!cancelled) {
+        // has_network=true: only drugs with protein data. Fall back to full list only if 0 returned.
         setCatDrugsFromApi(drugs.length > 0 ? drugs : (categories.find(c => c.key === activeCategory)?.drugs ?? []));
         setCatDrugsLoading(false);
       }
@@ -860,39 +861,55 @@ export default function InteractionsPage() {
                   )}
               </div>
 
-              {/* Drug list from category */}
+              {/* Drug list from category — only drugs with network data */}
               {activeCategory && (
                 <div className="px-3 pb-3 border-b" style={{ borderColor: "#1e3a5f" }}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>
-                      {activeCat?.icon} {activeCat?.label}
-                    </span>
-                    <span className="text-[10px]" style={{ color: "#1e3a5f" }}>{catDrugsFiltered.length}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>
+                        {activeCat?.icon} {activeCat?.label}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#22c55e18", color: "#22c55e", border: "1px solid #22c55e30" }}>
+                        {catDrugsFiltered.length} with data
+                      </span>
+                    </div>
+                    {catDrugsFiltered.length === 0 && !catDrugsLoading && (
+                      <span className="text-[9px]" style={{ color: "#ef4444" }}>no network data</span>
+                    )}
                   </div>
                   {catDrugsLoading
                     ? <div className="flex items-center justify-center py-4 gap-1.5 text-xs" style={{ color: "#334155" }}><Loader2 size={11} className="animate-spin" /> Loading…</div>
-                    : (
-                      <div className="space-y-px max-h-52 overflow-y-auto pr-0.5">
-                        {catDrugsFiltered.map(drug => {
-                          const isSel = !!networkDrugs.find(s => s.id === drug.id);
-                          const disabled = !isSel && networkDrugs.length >= 6;
-                          return (
-                            <button key={drug.id} onClick={() => isSel ? removeNetworkDrug(drug.id) : addNetworkDrug(drug)}
-                              disabled={disabled}
-                              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
-                              style={{ background: isSel ? "#1e3a5f" : "transparent", color: isSel ? "#93c5fd" : "#64748b" }}
-                              onMouseEnter={e => { if (!isSel && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#0a0f1e"; }}
-                              onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
-                              <span className="truncate flex-1 text-left font-medium">{drug.name}</span>
-                              <div className="flex items-center gap-1 shrink-0 ml-1">
-                                <span className="font-mono text-[9px]" style={{ color: "#1e3a5f" }}>{drug.id}</span>
-                                {isSel ? <X size={8} style={{ color: "#60a5fa" }} /> : <Plus size={8} style={{ color: "#1e3a5f" }} />}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    : catDrugsFiltered.length === 0
+                      ? (
+                        <p className="text-[11px] py-3 text-center leading-relaxed" style={{ color: "#334155" }}>
+                          No drugs in this category have protein network data.
+                        </p>
+                      )
+                      : (
+                        <div className="space-y-px max-h-56 overflow-y-auto pr-0.5">
+                          {catDrugsFiltered.map(drug => {
+                            const isSel = !!networkDrugs.find(s => s.id === drug.id);
+                            const disabled = !isSel && networkDrugs.length >= 6;
+                            const totalP = (drug.targetCount ?? 0) + (drug.enzymeCount ?? 0);
+                            return (
+                              <button key={drug.id} onClick={() => isSel ? removeNetworkDrug(drug.id) : addNetworkDrug(drug)}
+                                disabled={disabled}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
+                                style={{ background: isSel ? "#1e3a5f" : "transparent", color: isSel ? "#93c5fd" : "#64748b" }}
+                                onMouseEnter={e => { if (!isSel && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#0a0f1e"; }}
+                                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                                <span className="truncate flex-1 text-left font-medium">{drug.name}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {totalP > 0 && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#ef444418", color: "#ef4444" }}>{totalP}P</span>
+                                  )}
+                                  {isSel ? <X size={8} style={{ color: "#60a5fa" }} /> : <Plus size={8} style={{ color: "#334155" }} />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                 </div>
               )}
 

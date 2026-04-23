@@ -156,12 +156,20 @@ export async function apiFetchDrug(drugbankId: string): Promise<Drug | null> {
 export async function apiFetchDrugsByCategory(
   categoryKey: string,
   perPage = 300,
-): Promise<{ id: string; name: string }[]> {
+  hasNetwork = false,
+): Promise<{ id: string; name: string; targetCount?: number; enzymeCount?: number }[]> {
   try {
-    const res = await fetch(`${BASE}/drugs/categories/${encodeURIComponent(categoryKey)}?page=1&per_page=${perPage}`);
+    const params = new URLSearchParams({ page: '1', per_page: String(perPage) });
+    if (hasNetwork) params.set('has_network', 'true');
+    const res = await fetch(`${BASE}/drugs/categories/${encodeURIComponent(categoryKey)}?${params}`);
     if (!res.ok) return [];
     const data: Paginated<ApiDrug> = await res.json();
-    return data.items.map(d => ({ id: d.drugbank_id, name: d.name }));
+    return data.items.map(d => ({
+      id: d.drugbank_id,
+      name: d.name,
+      targetCount: d.target_count,
+      enzymeCount: d.enzyme_count,
+    }));
   } catch {
     return [];
   }

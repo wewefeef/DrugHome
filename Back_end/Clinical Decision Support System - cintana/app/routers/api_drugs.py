@@ -187,13 +187,16 @@ def list_drugs_by_category(
     category_key: str,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=200, ge=1, le=500),
+    has_network: bool = Query(default=False, description="If true, only return drugs that have protein interaction data"),
     db: Session = Depends(get_db),
 ):
-    """Return drugs belonging to a disease category. Used by the interaction checker panel."""
+    """Return drugs belonging to a disease category. Used by the interaction checker panel.
+    When has_network=true, only drugs with at least 1 protein interaction are returned.
+    """
     if category_key not in CATEGORY_KEYWORDS:
         raise HTTPException(status_code=404, detail=f"Unknown category key: {category_key}")
 
-    cache_key = f"drugs:cat:{category_key}:{page}:{per_page}"
+    cache_key = f"drugs:cat:{category_key}:{page}:{per_page}:net{has_network}"
     cached = cache_get(cache_key)
     if cached is not None:
         return cached
@@ -205,11 +208,42 @@ def list_drugs_by_category(
     ]
     qs = db.query(Drug).filter(or_(*cat_filters))
 
+    if has_network:
+        # Only include drugs that have at least 1 protein interaction record
+        qs = qs.join(
+            DrugProteinInteraction,
+            Drug.drugbank_id == DrugProteinInteraction.drug_drugbank_id,
+        ).distinct()
+
     total = qs.count()
     offset = (page - 1) * per_page
     drugs = qs.order_by(Drug.name).offset(offset).limit(per_page).all()
 
-    items = [DrugOut.model_validate(d) for d in drugs]
+    # Compute protein counts for all returned drugs
+    drugbank_ids = [d.drugbank_id for d in drugs]
+    counts_map: dict[str, dict[str, int]] = {}
+    if drugbank_ids:
+        count_rows = (
+            db.query(
+                DrugProteinInteraction.drug_drugbank_id,
+                DrugProteinInteraction.interaction_type,
+                sqlfunc.count(DrugProteinInteraction.id).label("cnt"),
+            )
+            .filter(DrugProteinInteraction.drug_drugbank_id.in_(drugbank_ids))
+            .group_by(DrugProteinInteraction.drug_drugbank_id, DrugProteinInteraction.interaction_type)
+            .all()
+        )
+        for dbid, itype, cnt in count_rows:
+            counts_map.setdefault(dbid, {})[itype] = cnt
+
+    items = []
+    for d in drugs:
+        out = DrugOut.model_validate(d)
+        c = counts_map.get(d.drugbank_id, {})
+        out.target_count = c.get("target", 0)
+        out.enzyme_count = c.get("enzyme", 0)
+        out.transporter_count = c.get("transporter", 0)
+        items.append(out)
 
     result = PaginatedResponse(
         total=total, page=page, per_page=per_page,
