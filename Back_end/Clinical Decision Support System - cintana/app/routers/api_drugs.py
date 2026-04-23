@@ -210,9 +210,10 @@ def list_drugs_by_category(
 
     if has_network:
         # Only include drugs that have at least 1 protein interaction record
+        # NOTE: drug_protein_interactions uses drug_code (DR:XXXXX), NOT drug_drugbank_id
         qs = qs.join(
             DrugProteinInteraction,
-            Drug.drugbank_id == DrugProteinInteraction.drug_drugbank_id,
+            Drug.drug_code == DrugProteinInteraction.drug_code,
         ).distinct()
 
     total = qs.count()
@@ -220,21 +221,25 @@ def list_drugs_by_category(
     drugs = qs.order_by(Drug.name).offset(offset).limit(per_page).all()
 
     # Compute protein counts for all returned drugs
-    drugbank_ids = [d.drugbank_id for d in drugs]
+    # Map drug_code → drugbank_id for result assembly
+    code_to_dbid = {d.drug_code: d.drugbank_id for d in drugs}
+    drug_codes = list(code_to_dbid.keys())
     counts_map: dict[str, dict[str, int]] = {}
-    if drugbank_ids:
+    if drug_codes:
         count_rows = (
             db.query(
-                DrugProteinInteraction.drug_drugbank_id,
+                DrugProteinInteraction.drug_code,
                 DrugProteinInteraction.interaction_type,
                 sqlfunc.count(DrugProteinInteraction.id).label("cnt"),
             )
-            .filter(DrugProteinInteraction.drug_drugbank_id.in_(drugbank_ids))
-            .group_by(DrugProteinInteraction.drug_drugbank_id, DrugProteinInteraction.interaction_type)
+            .filter(DrugProteinInteraction.drug_code.in_(drug_codes))
+            .group_by(DrugProteinInteraction.drug_code, DrugProteinInteraction.interaction_type)
             .all()
         )
-        for dbid, itype, cnt in count_rows:
-            counts_map.setdefault(dbid, {})[itype] = cnt
+        for code, itype, cnt in count_rows:
+            dbid = code_to_dbid.get(code)
+            if dbid:
+                counts_map.setdefault(dbid, {})[itype] = cnt
 
     items = []
     for d in drugs:
@@ -275,18 +280,21 @@ def get_drug_network(
     if not drug:
         raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
 
+    # NOTE: drug_protein_interactions and drug_interactions use drug_code (DR:XXXXX),
+    # NOT drug_drugbank_id — must use drug.drug_code for the filter.
+
     # Protein interactions with protein details
     protein_rels = (
         db.query(DrugProteinInteraction, Protein)
         .join(Protein, DrugProteinInteraction.protein_id == Protein.id)
-        .filter(DrugProteinInteraction.drug_drugbank_id == drugbank_id.upper())
+        .filter(DrugProteinInteraction.drug_code == drug.drug_code)
         .all()
     )
 
     # Drug-drug interactions
     drug_rels = (
         db.query(DrugInteraction)
-        .filter(DrugInteraction.drug_drugbank_id == drugbank_id.upper())
+        .filter(DrugInteraction.drug_code == drug.drug_code)
         .order_by(DrugInteraction.severity)
         .limit(max_interactions)
         .all()
@@ -351,10 +359,10 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
     if not drug:
         raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
     result = DrugOut.model_validate(drug)
-    # Compute protein interaction counts by type
+    # Compute protein interaction counts by type — filter by drug_code, NOT drug_drugbank_id
     counts = (
         db.query(DrugProteinInteraction.interaction_type, sqlfunc.count(DrugProteinInteraction.id))
-        .filter(DrugProteinInteraction.drug_drugbank_id == drugbank_id.upper())
+        .filter(DrugProteinInteraction.drug_code == drug.drug_code)
         .group_by(DrugProteinInteraction.interaction_type)
         .all()
     )

@@ -39,6 +39,9 @@ Back_end/Database/drugbank.xsd
 # NDJSON files (quá lớn cho GitHub — drug_interactions.ndjson ~540MB)
 Back_end/Database/data/
 
+# Seed data bundled with backend (proteins + DPI only, ~6.8 MB) — NOT ignored
+# Back_end/Clinical Decision Support System - cintana/seed_data/
+
 # SQLite
 *.sqlite3
 *.db

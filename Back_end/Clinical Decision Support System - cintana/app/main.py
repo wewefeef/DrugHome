@@ -7,7 +7,10 @@ Run:
 
 import logging
 import traceback
+import json
+import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +29,96 @@ from app.routers import api_drugs, api_substances, api_interactions, api_analysi
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+# ── Auto-seeder for proteins + drug_protein_interactions ──────────────────────
+
+SEED_DIR = Path(__file__).resolve().parent.parent / "seed_data"
+
+
+def _run_seed_if_empty():
+    """Seed proteins and DPI tables from bundled NDJSON if they are empty.
+    Uses the existing SQLAlchemy engine so Railway DB credentials are respected."""
+    from sqlalchemy import text as _text
+    from app.database import engine
+
+    proteins_file = SEED_DIR / "proteins.ndjson"
+    dpi_file = SEED_DIR / "drug_protein_interactions.ndjson"
+    if not proteins_file.exists() or not dpi_file.exists():
+        logger.warning("Seed data files not found in %s — skipping auto-seed", SEED_DIR)
+        return
+
+    try:
+        with engine.connect() as conn:
+            protein_count = conn.execute(_text("SELECT COUNT(*) FROM proteins")).scalar() or 0
+            dpi_count = conn.execute(_text("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
+    except Exception as exc:
+        logger.warning("Auto-seed: could not query counts (%s) — skipping", exc)
+        return
+
+    # ── Seed proteins ──
+    if protein_count == 0:
+        logger.info("Auto-seeding proteins from %s…", proteins_file)
+        rows = []
+        with open(proteins_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                d = json.loads(line)
+                rows.append({
+                    "id": d.get("id"),
+                    "uniprot_id": (d.get("uniprot_id") or "")[:50],
+                    "entrez_gene_id": d.get("entrez_gene_id") or None,
+                    "organism": (d.get("organism") or "")[:200],
+                    "name": (d.get("name") or "")[:500],
+                    "gene_name": d.get("gene_name") or None,
+                })
+        try:
+            with engine.begin() as conn:
+                conn.execute(_text(
+                    "INSERT INTO proteins (id, uniprot_id, entrez_gene_id, organism, name, gene_name)"
+                    " VALUES (:id,:uniprot_id,:entrez_gene_id,:organism,:name,:gene_name)"
+                    " ON DUPLICATE KEY UPDATE name=VALUES(name)"
+                ), rows)
+            logger.info("Auto-seed proteins: %d rows inserted", len(rows))
+        except Exception as exc:
+            logger.error("Auto-seed proteins failed: %s", exc, exc_info=True)
+    else:
+        logger.info("proteins table has %d rows — skipping seed", protein_count)
+
+    # ── Seed drug_protein_interactions ──
+    if dpi_count == 0:
+        logger.info("Auto-seeding drug_protein_interactions from %s…", dpi_file)
+        rows = []
+        with open(dpi_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                d = json.loads(line)
+                rows.append({
+                    "drug_code": d.get("drug_id", ""),
+                    "protein_id": d.get("protein_id"),
+                    "uniprot_id": (d.get("uniprot_id") or "")[:50],
+                    "interaction_type": (d.get("interaction_type") or "")[:20],
+                    "known_action": (d.get("known_action") or "unknown")[:20],
+                    "actions": json.dumps(d.get("actions") or []),
+                    "pubmed_ids": json.dumps(d.get("pubmed_ids") or []),
+                })
+        try:
+            with engine.begin() as conn:
+                conn.execute(_text(
+                    "INSERT INTO drug_protein_interactions"
+                    " (drug_code, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)"
+                    " VALUES (:drug_code,:protein_id,:uniprot_id,:interaction_type,"
+                    ":known_action,:actions,:pubmed_ids)"
+                    " ON DUPLICATE KEY UPDATE interaction_type=VALUES(interaction_type)"
+                ), rows)
+            logger.info("Auto-seed DPI: %d rows inserted", len(rows))
+        except Exception as exc:
+            logger.error("Auto-seed DPI failed: %s", exc, exc_info=True)
+    else:
+        logger.info("drug_protein_interactions has %d rows — skipping seed", dpi_count)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,6 +129,12 @@ async def lifespan(app: FastAPI):
         logger.info("DB tables verified OK")
     except Exception as exc:
         logger.warning("DB table check failed (non-fatal): %s", exc)
+    # Auto-seed protein data in background so startup isn't blocked
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _run_seed_if_empty)
+    except Exception as exc:
+        logger.warning("Auto-seed executor failed (non-fatal): %s", exc)
     yield
 
 
