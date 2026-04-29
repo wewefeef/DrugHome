@@ -34,6 +34,45 @@ logger = logging.getLogger(__name__)
 SEED_DIR = Path(__file__).resolve().parent.parent / "seed_data"
 
 
+def _repair_schema_if_needed():
+    """Add any columns that are missing from existing Railway MySQL tables.
+
+    SQLAlchemy's create_all() only creates NEW tables; it never ALTERs existing
+    ones. When Railway re-deploys with a model change the live tables stay stale.
+    This function checks each column via information_schema and adds it if absent.
+    """
+    from sqlalchemy import text as _text
+
+    def _col_exists(conn, table: str, col: str) -> bool:
+        return bool(conn.execute(_text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:t AND COLUMN_NAME=:c"
+        ), {"t": table, "c": col}).scalar())
+
+    repairs = [
+        # columns added to `drugs` by migration 0004 / recent model changes
+        ("drugs", "smiles",             "TEXT NULL"),
+        ("drugs", "molecular_formula",  "VARCHAR(200) NULL"),
+        ("drugs", "average_mass",       "DECIMAL(14,6) NULL"),
+        ("drugs", "monoisotopic_mass",  "DECIMAL(14,6) NULL"),
+        ("drugs", "created_at",
+         "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ("drugs", "updated_at",
+         "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+    ]
+
+    try:
+        with engine.begin() as conn:
+            for table, col, defn in repairs:
+                if not _col_exists(conn, table, col):
+                    conn.execute(_text(
+                        f"ALTER TABLE `{table}` ADD COLUMN `{col}` {defn}"
+                    ))
+                    logger.info("Schema repair: added %s.%s", table, col)
+    except Exception as exc:
+        logger.error("Schema repair failed: %s", exc, exc_info=True)
+
+
 def _run_seed_if_empty():
     """Seed proteins and DPI tables from bundled NDJSON if they are empty.
     Uses the existing SQLAlchemy engine so Railway DB credentials are respected."""
@@ -129,6 +168,8 @@ async def lifespan(app: FastAPI):
         logger.info("DB tables verified OK")
     except Exception as exc:
         logger.warning("DB table check failed (non-fatal): %s", exc)
+    # Repair any columns missing from pre-existing Railway MySQL tables
+    _repair_schema_if_needed()
     # Auto-seed protein data in background so startup isn't blocked
     try:
         loop = asyncio.get_event_loop()
