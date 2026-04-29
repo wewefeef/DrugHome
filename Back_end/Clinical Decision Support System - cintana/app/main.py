@@ -204,6 +204,14 @@ def _repair_schema_if_needed():
             # been in old "DR:XXXXX" format. We need it in "DB01234" format.
             # Strategy A: join via drugs.drug_code (if column still exists)
             # Strategy B: if DPI drug_ids don't match ANY drug, truncate + reseed
+            # Also fix any collation mismatch on drug_id column so JOINs work.
+            conn.execute(_text(
+                "ALTER TABLE drug_protein_interactions "
+                "MODIFY COLUMN drug_id VARCHAR(20) "
+                "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL"
+            ))
+            logger.info("Schema repair: normalised drug_protein_interactions.drug_id collation")
+
             dpi_mismatch = conn.execute(_text(
                 "SELECT COUNT(*) FROM drug_protein_interactions "
                 "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
@@ -274,10 +282,10 @@ def _run_seed_if_empty():
         with engine.connect() as conn:
             protein_count = conn.execute(_text("SELECT COUNT(*) FROM proteins")).scalar() or 0
             dpi_count = conn.execute(_text("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
-            # Check how many DPI rows actually match a drug (usable rows)
+            # Check how many DPI rows look like valid DrugBank IDs (avoids collation-mismatch JOIN)
             dpi_matched = conn.execute(_text(
-                "SELECT COUNT(*) FROM drug_protein_interactions dpi "
-                "JOIN drugs d ON d.drugbank_id = dpi.drug_id LIMIT 1"
+                "SELECT COUNT(*) FROM drug_protein_interactions "
+                "WHERE drug_id REGEXP '^DB[0-9]+'"
             )).scalar() or 0
     except Exception as exc:
         logger.warning("Auto-seed: could not query counts (%s) — skipping", exc)
@@ -480,8 +488,8 @@ def db_status():
             dpi_count = conn.execute(_text("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
             drugs_count = conn.execute(_text("SELECT COUNT(*) FROM drugs")).scalar() or 0
             dpi_matched = conn.execute(_text(
-                "SELECT COUNT(*) FROM drug_protein_interactions dpi "
-                "JOIN drugs d ON d.drugbank_id = dpi.drug_id"
+                "SELECT COUNT(*) FROM drug_protein_interactions "
+                "WHERE drug_id REGEXP '^DB[0-9]+'"
             )).scalar() or 0
             sample_dpi = conn.execute(_text(
                 "SELECT drug_id, protein_id FROM drug_protein_interactions LIMIT 5"
