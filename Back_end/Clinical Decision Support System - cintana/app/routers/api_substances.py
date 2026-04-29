@@ -114,7 +114,7 @@ def list_proteins(
         count_rows = (
             db.query(
                 DrugProteinInteraction.protein_id,
-                sqlfunc.count(sqlfunc.distinct(DrugProteinInteraction.drug_code)).label("drug_count"),
+                sqlfunc.count(sqlfunc.distinct(DrugProteinInteraction.drug_id)).label("drug_count"),
             )
             .filter(DrugProteinInteraction.protein_id.in_(protein_ids))
             .group_by(DrugProteinInteraction.protein_id)
@@ -172,9 +172,9 @@ def get_protein(protein_id: int, db: Session = Depends(get_db)):
     if not protein:
         raise HTTPException(status_code=404, detail=f"Protein #{protein_id} not found")
     out = ProteinOut.model_validate(protein)
-    # Correct drug count — count distinct drug_code without grouping by actions
+    # Correct drug count — count distinct drug_id
     total_drugs = (
-        db.query(sqlfunc.count(sqlfunc.distinct(DrugProteinInteraction.drug_code)))
+        db.query(sqlfunc.count(sqlfunc.distinct(DrugProteinInteraction.drug_id)))
         .filter(DrugProteinInteraction.protein_id == protein_id)
         .scalar()
     ) or 0
@@ -287,7 +287,7 @@ def get_drugs_for_protein(
         db.query(Drug)
         .join(
             DrugProteinInteraction,
-            DrugProteinInteraction.drug_code == Drug.drug_code,
+            DrugProteinInteraction.drug_id == Drug.drugbank_id,
         )
         .filter(DrugProteinInteraction.protein_id == protein_id)
     )

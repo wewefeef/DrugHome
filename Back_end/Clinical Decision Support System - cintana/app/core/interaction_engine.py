@@ -4,124 +4,103 @@ Interaction Analysis Engine
 Finds all pairwise drug-drug interactions for a given set of DrugBank IDs.
 
 Algorithm:
-  1. Resolve each DrugBank ID → drug_code (DR:XXXXX) via the `drugs` table.
-  2. Query `drug_interactions` for all rows where drug_code OR interacting_drug_id
-     matches any drug in the input set (bidirectional lookup).
-  3. Filter so both sides of every interaction are in the input set.
+  1. Fetch drug names from `drugs` table for display.
+  2. Query `drug_interactions` where drug_id OR interacting_drug_id is in the input set.
+  3. Filter so BOTH sides of every interaction are in the input set.
   4. Deduplicate pairs (A↔B == B↔A).
-  5. Return structured InteractionFound list.
+  5. Return structured CheckInteractionsResponse.
 """
 
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import Drug, DrugInteraction
 from app.schemas import CheckInteractionsResponse, InteractionFound
 
 
-def _resolve_drugs(
-    db: Session, drug_ids: List[str]
-) -> Dict[str, Tuple[str, str]]:
-    """
-    Return {drugbank_id: (drug_code, name)} for each requested ID.
-    Unknown IDs are silently skipped.
-    """
+def _fetch_drug_names(db: Session, drug_ids: List[str]) -> Dict[str, str]:
+    """Return {drugbank_id: name} for each requested ID."""
     rows = (
-        db.query(Drug.drugbank_id, Drug.drug_code, Drug.name)
+        db.query(Drug.drugbank_id, Drug.name)
         .filter(Drug.drugbank_id.in_(drug_ids))
         .all()
     )
-    return {r.drugbank_id: (r.drug_code, r.name) for r in rows}
+    return {r.drugbank_id: r.name for r in rows}
 
 
 def check_interactions(
     db: Session, drug_ids: List[str]
 ) -> CheckInteractionsResponse:
     """
-    Main entry‑point: analyse multi‑drug interactions.
+    Main entry-point: analyse multi-drug interactions.
 
     Parameters
     ----------
     db       : SQLAlchemy Session
     drug_ids : List of DrugBank IDs (DB00001 …)
-
-    Returns
-    -------
-    CheckInteractionsResponse
     """
-    # ── 1. Resolve IDs ────────────────────────────────────────────────────────
-    resolved = _resolve_drugs(db, drug_ids)
-    resolved_codes = {v[0] for v in resolved.values()}   # set of DR:XXXXX
-    resolved_dbids = set(resolved.keys())                 # set of DB00001
+    id_set: Set[str] = set(drug_ids)
 
-    # ── 2. Fetch candidate rows ───────────────────────────────────────────────
+    # ── 1. Resolve names for display ─────────────────────────────────────────
+    name_map = _fetch_drug_names(db, drug_ids)
+
+    # ── 2. Fetch candidate rows (bidirectional lookup) ────────────────────────
+    # Uses: ix_di_both (drug_id, interacting_drug_id) + ix_di_interacting
     rows: List[DrugInteraction] = (
         db.query(DrugInteraction)
         .filter(
             or_(
-                and_(
-                    DrugInteraction.drug_code.in_(resolved_codes),
-                    DrugInteraction.interacting_drug_id.in_(resolved_dbids),
-                ),
-                and_(
-                    DrugInteraction.drug_drugbank_id.in_(resolved_dbids),
-                    DrugInteraction.interacting_drug_id.in_(resolved_dbids),
-                ),
+                DrugInteraction.drug_id.in_(id_set),
+                DrugInteraction.interacting_drug_id.in_(id_set),
             )
         )
         .all()
     )
 
-    # ── 3. Build reverse lookup drugbank_id → (drug_code, name) ──────────────
-    code_to_dbid: Dict[str, str] = {v[0]: k for k, v in resolved.items()}
-
-    # ── 4. Deduplicate & filter ───────────────────────────────────────────────
-    seen: set[Tuple[str, str]] = set()
+    # ── 3. Filter + deduplicate ───────────────────────────────────────────────
+    seen: Set[Tuple[str, str]] = set()
     found: List[InteractionFound] = []
 
     for row in rows:
-        a_dbid = row.drug_drugbank_id or code_to_dbid.get(row.drug_code, "")
-        b_dbid = row.interacting_drug_id
+        a_id = row.drug_id
+        b_id = row.interacting_drug_id
 
         # Only include if BOTH drugs are in the request set
-        if a_dbid not in resolved_dbids or b_dbid not in resolved_dbids:
+        if a_id not in id_set or b_id not in id_set:
             continue
 
-        pair = (min(a_dbid, b_dbid), max(a_dbid, b_dbid))
+        pair = (min(a_id, b_id), max(a_id, b_id))
         if pair in seen:
             continue
         seen.add(pair)
 
-        a_name = resolved.get(a_dbid, ("", a_dbid))[1] if a_dbid else a_dbid
-        b_name = (
-            row.interacting_drug_name
-            or (resolved.get(b_dbid, ("", b_dbid))[1] if b_dbid else b_dbid)
-        )
+        a_name = name_map.get(a_id, a_id)
+        b_name = row.interacting_drug_name or name_map.get(b_id, b_id)
 
         found.append(
             InteractionFound(
-                drug_a_id=a_dbid,
+                drug_a_id=a_id,
                 drug_a_name=a_name,
-                drug_b_id=b_dbid,
+                drug_b_id=b_id,
                 drug_b_name=b_name,
                 severity=row.severity or "unknown",
                 description=row.description or "",
             )
         )
 
-    total_pairs = len(list(combinations(resolved_dbids, 2)))
+    total_pairs = len(list(combinations(id_set, 2)))
 
     return CheckInteractionsResponse(
-        drugs_checked=list(resolved_dbids),
-        total_drugs=len(resolved_dbids),
+        drugs_checked=list(id_set),
+        total_drugs=len(id_set),
         total_pairs_checked=total_pairs,
         interactions_found=found,
         total_interactions=len(found),
-        has_major=any(i.severity == "major" for i in found),
-        has_moderate=any(i.severity == "moderate" for i in found),
+        has_major=any(f.severity == "major" for f in found),
+        has_moderate=any(f.severity == "moderate" for f in found),
     )

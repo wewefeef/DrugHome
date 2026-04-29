@@ -39,7 +39,7 @@ router = APIRouter(prefix="/api/v1/interactions", tags=["Drug Interactions"])
 @router.get("/", response_model=PaginatedResponse, summary="List/filter interactions")
 def list_interactions(
     severity: str = Query(default="", description="major | moderate | minor | unknown"),
-    drug_code: str = Query(default="", description="Filter by source drug_code (DR:XXXXX)"),
+    drug_id: str = Query(default="", description="Filter by source drug DrugBank ID (e.g. DB00001)"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -49,12 +49,12 @@ def list_interactions(
     if severity.strip():
         qs = qs.filter(DrugInteraction.severity == severity.strip().lower())
 
-    if drug_code.strip():
-        qs = qs.filter(DrugInteraction.drug_code == drug_code.strip())
+    if drug_id.strip():
+        qs = qs.filter(DrugInteraction.drug_id == drug_id.strip().upper())
 
     total = qs.count()
     offset = (page - 1) * per_page
-    # ix_di_code_severity covers (drug_code, severity) — ORDER BY severity uses index
+    # ix_di_drug_severity covers (drug_id, severity)
     rows = qs.order_by(DrugInteraction.severity, DrugInteraction.id).offset(offset).limit(per_page).all()
 
     return PaginatedResponse(
@@ -80,7 +80,6 @@ def get_interactions_for_drug(
     per_page: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    # Resolve drug_code from drugbank_id
     drug = (
         db.query(Drug)
         .filter(Drug.drugbank_id == drugbank_id.upper())
@@ -91,14 +90,11 @@ def get_interactions_for_drug(
 
     dbid = drug.drugbank_id
 
-    # Uses indexes:
-    #   ix_di_code_severity  → (drug_code, severity) covers first condition
-    #   ix_di_dbid_interacting → (drug_drugbank_id, interacting_drug_id)
-    #   ix_di_interacting_dbid → (interacting_drug_id, drug_drugbank_id)
+    # ix_di_drug_severity covers (drug_id, severity)
+    # ix_di_interacting covers interacting_drug_id
     qs = db.query(DrugInteraction).filter(
         or_(
-            DrugInteraction.drug_code == drug.drug_code,
-            DrugInteraction.drug_drugbank_id == dbid,
+            DrugInteraction.drug_id == dbid,
             DrugInteraction.interacting_drug_id == dbid,
         )
     )
@@ -146,19 +142,19 @@ def get_interaction(interaction_id: int, db: Session = Depends(get_db)):
 def create_interaction(payload: InteractionCreate, db: Session = Depends(get_db)):
     # Validate that the source drug exists
     drug = (
-        db.query(Drug).filter(Drug.drug_code == payload.drug_code).first()
+        db.query(Drug).filter(Drug.drugbank_id == payload.drug_id.upper()).first()
     )
     if not drug:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Source drug with code '{payload.drug_code}' not found",
+            detail=f"Source drug '{payload.drug_id}' not found",
         )
 
     # Check for duplicate
     existing = (
         db.query(DrugInteraction)
         .filter(
-            DrugInteraction.drug_code == payload.drug_code,
+            DrugInteraction.drug_id == payload.drug_id.upper(),
             DrugInteraction.interacting_drug_id == payload.interacting_drug_id,
         )
         .first()
@@ -167,14 +163,13 @@ def create_interaction(payload: InteractionCreate, db: Session = Depends(get_db)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Interaction between '{payload.drug_code}' and "
+                f"Interaction between '{payload.drug_id}' and "
                 f"'{payload.interacting_drug_id}' already exists (id={existing.id})"
             ),
         )
 
     row = DrugInteraction(
-        drug_code=payload.drug_code,
-        drug_drugbank_id=drug.drugbank_id,
+        drug_id=payload.drug_id.upper(),
         interacting_drug_id=payload.interacting_drug_id,
         interacting_drug_name=payload.interacting_drug_name,
         severity=payload.severity.value if payload.severity else "unknown",

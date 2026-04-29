@@ -1,14 +1,14 @@
-"""
+﻿"""
 Analysis Sessions API
 ======================
 Persists drug interaction check sessions so users can review history.
 
-  POST   /api/v1/sessions/           → Save a new session
-  GET    /api/v1/sessions/           → List all sessions (paginated, searchable)
-  GET    /api/v1/sessions/{id}       → Get one session with full detail
-  PATCH  /api/v1/sessions/{id}       → Update title / tags / notes
-  DELETE /api/v1/sessions/{id}       → Delete a session
-  GET    /api/v1/sessions/stats      → Aggregate statistics for the Analysis dashboard
+  POST   /api/v1/sessions/           â†’ Save a new session
+  GET    /api/v1/sessions/           â†’ List all sessions (paginated, searchable)
+  GET    /api/v1/sessions/{id}       â†’ Get one session with full detail
+  PATCH  /api/v1/sessions/{id}       â†’ Update title / tags / notes
+  DELETE /api/v1/sessions/{id}       â†’ Delete a session
+  GET    /api/v1/sessions/stats      â†’ Aggregate statistics for the Analysis dashboard
 """
 
 from __future__ import annotations
@@ -29,9 +29,9 @@ from app.routers.api_auth import get_user_from_token
 router = APIRouter(prefix="/api/v1/sessions", tags=["Analysis Sessions"])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Pydantic Schemas (defined here to keep schemas.py clean)
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class DrugSnapshot(BaseModel):
     id: str
@@ -106,19 +106,19 @@ class SessionStats(BaseModel):
     sessions_by_month: List[dict]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Routes
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.post("", response_model=SessionDetail, status_code=status.HTTP_201_CREATED,
              summary="Save a new interaction session")
 def create_session(
     payload: SessionCreate,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập để lưu phiên phân tích")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ lÆ°u phiÃªn phÃ¢n tÃ­ch")
 
     # Auto-generate title if not provided
     title = payload.title
@@ -126,7 +126,7 @@ def create_session(
         drug_names = ", ".join(d.name for d in payload.drugs_snapshot[:3])
         if len(payload.drugs_snapshot) > 3:
             drug_names += f" +{len(payload.drugs_snapshot) - 3}"
-        title = f"Phác đồ: {drug_names}"
+        title = f"PhÃ¡c Ä‘á»“: {drug_names}"
 
     session = AnalysisSession(
         user_id=current_user.id,
@@ -153,10 +153,10 @@ def create_session(
 @router.get("/stats", response_model=SessionStats, summary="Aggregated dashboard statistics")
 def get_stats(
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
 
     cache_key = f"sessions:stats:{current_user.id}"
     cached = cache_get(cache_key)
@@ -217,10 +217,10 @@ def list_sessions(
     search: Optional[str] = Query(None, description="Filter by title"),
     tag: Optional[str] = Query(None, description="Filter by tag"),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
 
     q = db.query(AnalysisSession).filter(AnalysisSession.user_id == current_user.id)
     if search:
@@ -240,10 +240,10 @@ def list_sessions(
 def get_session(
     session_id: int,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,
@@ -258,10 +258,10 @@ def update_session(
     session_id: int,
     payload: SessionUpdate,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,
@@ -285,10 +285,10 @@ def update_session(
 def delete_session(
     session_id: int,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_user_from_token),
+    current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lòng đăng nhập")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,

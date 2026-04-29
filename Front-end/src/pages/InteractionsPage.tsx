@@ -4,6 +4,7 @@ import ForceGraph2D, { type NodeObject, type LinkObject } from "react-force-grap
 import {
   Zap, Search, X, ChevronRight, Plus, Loader2, RefreshCw, Maximize2,
   ExternalLink, AlertTriangle, AlertCircle, CheckCircle2, Info, Network,
+  FlaskConical, ShieldAlert, Activity, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
 import { apiSearchDrugs, apiFetchDrugsByCategory, apiFetchDrugNetwork } from "../lib/api";
@@ -125,6 +126,281 @@ function drawNodeShape(
     ctx.beginPath(); ctx.arc(x, y, r * 2, 0, Math.PI * 2);
     ctx.strokeStyle = color + "55"; ctx.lineWidth = 1.5; ctx.stroke();
   }
+}
+
+/* ─────────── INTERACTION ANALYSIS PANEL ─────────── */
+interface PairAnalysis {
+  drugA: { id: string; name: string };
+  drugB: { id: string; name: string };
+  severity: string | null;
+  description: string | null;
+}
+
+interface DrugReport {
+  drug: { id: string; name: string; description: string; mechanism: string; groups: string[] };
+  pairs: PairAnalysis[];
+}
+
+function InteractionAnalysisPanel({
+  networkDrugs,
+  networkData,
+  onClose,
+}: {
+  networkDrugs: { id: string; name: string }[];
+  networkData: Map<string, DrugNetworkData>;
+  onClose: () => void;
+}) {
+  const [expandedDrug, setExpandedDrug] = useState<string | null>(networkDrugs[0]?.id ?? null);
+
+  // Build a map: drugA+drugB → interaction (from both directions)
+  const interactionMap = useMemo(() => {
+    const map = new Map<string, { severity: string; description: string }>();
+    for (const drug of networkDrugs) {
+      const data = networkData.get(drug.id);
+      if (!data) continue;
+      for (const ix of data.interactions) {
+        const key = [drug.id, ix.drug_id].sort().join(":");
+        if (!map.has(key)) {
+          map.set(key, { severity: ix.severity, description: ix.description });
+        }
+      }
+    }
+    return map;
+  }, [networkDrugs, networkData]);
+
+  const reports: DrugReport[] = useMemo(() => {
+    return networkDrugs.map(drug => {
+      const data = networkData.get(drug.id);
+      const pairs: PairAnalysis[] = networkDrugs
+        .filter(other => other.id !== drug.id)
+        .map(other => {
+          const key = [drug.id, other.id].sort().join(":");
+          const ix = interactionMap.get(key);
+          return {
+            drugA: { id: drug.id, name: drug.name },
+            drugB: { id: other.id, name: other.name },
+            severity: ix?.severity ?? null,
+            description: ix?.description ?? null,
+          };
+        });
+      return {
+        drug: {
+          id: drug.id,
+          name: drug.name,
+          description: data?.drug.description ?? "",
+          mechanism: data?.drug.mechanism ?? "",
+          groups: data?.drug.groups ?? [],
+        },
+        pairs,
+      };
+    });
+  }, [networkDrugs, networkData, interactionMap]);
+
+  const SEV_INFO: Record<string, { bg: string; border: string; text: string; badge: string; label: string; icon: React.ReactNode; route: string; pharmacology: string; warning: string }> = {
+    major: {
+      bg: "#ef444410", border: "#ef444440", text: "#fca5a5", badge: "#ef444430",
+      label: "HIGH RISK", icon: <ShieldAlert size={14} color="#fca5a5" />,
+      route: "Primarily pharmacokinetic (CYP enzyme inhibition/induction) and/or pharmacodynamic (additive/synergistic toxicity).",
+      pharmacology: "Clinically significant interaction. May alter drug concentrations or amplify adverse effects to dangerous levels.",
+      warning: "Contraindicated or requires specialist supervision. Monitor plasma levels, vital signs, and organ function closely.",
+    },
+    moderate: {
+      bg: "#f59e0b10", border: "#f59e0b40", text: "#fcd34d", badge: "#f59e0b30",
+      label: "MODERATE RISK", icon: <AlertTriangle size={14} color="#fcd34d" />,
+      route: "May involve CYP2D6/CYP3A4 modulation or additive pharmacodynamic effects at standard doses.",
+      pharmacology: "Interaction possible but not always clinically significant. Monitor for enhanced side effects or reduced efficacy.",
+      warning: "Use with caution. Dose adjustment may be required. Consider closer follow-up or therapeutic drug monitoring.",
+    },
+    minor: {
+      bg: "#22c55e10", border: "#22c55e40", text: "#86efac", badge: "#22c55e30",
+      label: "LOW RISK", icon: <CheckCircle2 size={14} color="#86efac" />,
+      route: "Weak pharmacokinetic interaction or pharmacodynamic overlap with limited clinical impact.",
+      pharmacology: "Interaction unlikely to cause significant clinical problems at standard therapeutic doses.",
+      warning: "Standard monitoring is generally sufficient. Inform patient and document in medical record.",
+    },
+  };
+
+  const getNorm = (s: string | null): string => {
+    if (s === "major" || s === "moderate" || s === "minor") return s;
+    return "none";
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(4,8,18,0.85)", backdropFilter: "blur(6px)" }}>
+      <div
+        className="relative flex flex-col rounded-3xl overflow-hidden shadow-2xl"
+        style={{
+          width: "min(900px, 96vw)",
+          maxHeight: "88vh",
+          background: "#060d1a",
+          border: "1px solid #1e3a5f",
+        }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: "#1e3a5f", background: "#080e1c" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#1d4ed820", border: "1px solid #1d4ed840" }}>
+              <FlaskConical size={18} className="text-blue-400" />
+            </div>
+            <div>
+              <div className="font-extrabold text-base text-white">Drug Interaction Analysis</div>
+              <div className="text-[11px]" style={{ color: "#475569" }}>
+                {networkDrugs.length} drugs · {networkDrugs.length * (networkDrugs.length - 1) / 2} possible pairs
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/10" style={{ color: "#475569" }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {reports.map(report => {
+            const isExpanded = expandedDrug === report.drug.id;
+            const hasInteractions = report.pairs.some(p => p.severity !== null);
+            return (
+              <div key={report.drug.id} className="rounded-2xl overflow-hidden" style={{ border: "1px solid #1e3a5f" }}>
+                {/* Drug header row */}
+                <button
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:brightness-110"
+                  style={{ background: "#0b1628" }}
+                  onClick={() => setExpandedDrug(isExpanded ? null : report.drug.id)}>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#1d4ed8" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-extrabold text-sm text-white truncate">{report.drug.name}</div>
+                    <div className="text-[10px] font-mono mt-0.5" style={{ color: "#334155" }}>{report.drug.id}</div>
+                  </div>
+                  {/* Groups */}
+                  <div className="flex gap-1 mr-2">
+                    {report.drug.groups.slice(0, 3).map(g => (
+                      <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: "#1e3a5f80", color: "#64748b" }}>{g}</span>
+                    ))}
+                  </div>
+                  {/* Interaction badge */}
+                  {hasInteractions
+                    ? <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: "#ef444420", color: "#fca5a5", border: "1px solid #ef444440" }}>
+                        ⚠ {report.pairs.filter(p => p.severity).length} interaction{report.pairs.filter(p => p.severity).length > 1 ? "s" : ""}
+                      </span>
+                    : <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: "#22c55e15", color: "#86efac", border: "1px solid #22c55e30" }}>✓ No interactions</span>
+                  }
+                  {isExpanded ? <ChevronUp size={14} style={{ color: "#475569" }} /> : <ChevronDown size={14} style={{ color: "#475569" }} />}
+                </button>
+
+                {/* Expanded content */}
+                {isExpanded && (
+                  <div className="px-5 pb-5 pt-1 space-y-4" style={{ background: "#070d1b" }}>
+                    {/* Drug description + mechanism */}
+                    <div className="grid md:grid-cols-2 gap-3 pt-2">
+                      {report.drug.description && (
+                        <div className="rounded-xl p-3.5" style={{ background: "#0b1628", border: "1px solid #1e3a5f" }}>
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Info size={11} style={{ color: "#60a5fa" }} />
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>Description</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed line-clamp-4" style={{ color: "#94a3b8" }}>{report.drug.description}</p>
+                        </div>
+                      )}
+                      {report.drug.mechanism && (
+                        <div className="rounded-xl p-3.5" style={{ background: "#0b1628", border: "1px solid #1e3a5f" }}>
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Activity size={11} style={{ color: "#8b5cf6" }} />
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>Mechanism of Action</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed line-clamp-4" style={{ color: "#94a3b8" }}>{report.drug.mechanism}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pair interactions */}
+                    <div className="space-y-2.5">
+                      <div className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>
+                        Interactions with Other Selected Drugs
+                      </div>
+                      {report.pairs.map(pair => {
+                        const norm = getNorm(pair.severity);
+                        const si = norm !== "none" ? SEV_INFO[norm] : null;
+                        return (
+                          <div key={pair.drugB.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${si ? si.border : "#1e3a5f"}` }}>
+                            {/* Pair header */}
+                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: si ? si.bg : "#0b162888" }}>
+                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#475569" }}>
+                                {report.drug.name}
+                              </span>
+                              <span className="text-[10px]" style={{ color: "#334155" }}>⟷</span>
+                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#475569" }}>
+                                {pair.drugB.name}
+                              </span>
+                              <div className="ml-auto flex items-center gap-1.5">
+                                {si ? (
+                                  <>
+                                    {si.icon}
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: si.badge, color: si.text }}>{si.label}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#22c55e15", color: "#86efac" }}>NO KNOWN INTERACTION</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Detail body */}
+                            {si ? (
+                              <div className="px-4 py-3 space-y-2.5" style={{ background: "#070d1b" }}>
+                                {/* Interaction description */}
+                                {pair.description && (
+                                  <div>
+                                    <span className="text-[9px] font-extrabold uppercase tracking-widest block mb-1" style={{ color: "#334155" }}>Interaction Description</span>
+                                    <p className="text-[11px] leading-relaxed" style={{ color: "#94a3b8" }}>{pair.description}</p>
+                                  </div>
+                                )}
+                                {/* 3-column: route, pharmacology, warning */}
+                                <div className="grid md:grid-cols-3 gap-2">
+                                  <div className="rounded-lg p-2.5" style={{ background: "#0b162888", border: "1px solid #1e3a5f55" }}>
+                                    <div className="text-[9px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: "#334155" }}>Interaction Route</div>
+                                    <p className="text-[10px] leading-relaxed" style={{ color: "#64748b" }}>{si.route}</p>
+                                  </div>
+                                  <div className="rounded-lg p-2.5" style={{ background: "#0b162888", border: "1px solid #1e3a5f55" }}>
+                                    <div className="text-[9px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: "#334155" }}>Pharmacological Analysis</div>
+                                    <p className="text-[10px] leading-relaxed" style={{ color: "#64748b" }}>{si.pharmacology}</p>
+                                  </div>
+                                  <div className="rounded-lg p-2.5" style={{ background: si.bg, border: `1px solid ${si.border}` }}>
+                                    <div className="flex items-center gap-1 mb-1.5">
+                                      <ShieldAlert size={10} style={{ color: si.text }} />
+                                      <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: si.text }}>Clinical Warning</span>
+                                    </div>
+                                    <p className="text-[10px] leading-relaxed" style={{ color: si.text + "cc" }}>{si.warning}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="px-4 py-3" style={{ background: "#070d1b" }}>
+                                <p className="text-[11px] leading-relaxed" style={{ color: "#334155" }}>
+                                  No known clinically significant drug-drug interaction recorded in the DrugBank database for this pair. Standard prescribing monitoring is sufficient.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* View full profile link */}
+                    <Link
+                      to={`/drugs/${report.drug.id}`}
+                      className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all hover:brightness-125"
+                      style={{ background: "#1e3a5f", color: "#60a5fa", border: "1px solid #1e4a70" }}>
+                      <ExternalLink size={11} /> View Full Profile — {report.drug.name}
+                    </Link>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─────────── NODE DETAIL PANEL ─────────── */
@@ -384,6 +660,7 @@ export default function InteractionsPage() {
   const [maxNodes, setMaxNodes] = useState(80);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
   const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -835,6 +1112,22 @@ export default function InteractionsPage() {
                       ))}
                     </div>
                   )}
+
+                {/* Analyze button */}
+                {networkDrugs.length >= 2 && !isLoading && (
+                  <button
+                    onClick={() => setShowAnalysis(true)}
+                    className="mt-2.5 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-extrabold transition-all hover:brightness-125"
+                    style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)", color: "#fff", boxShadow: "0 2px 12px #1d4ed840" }}>
+                    <FlaskConical size={12} />
+                    Analyze Interactions
+                  </button>
+                )}
+                {networkDrugs.length >= 2 && isLoading && (
+                  <div className="mt-2.5 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs" style={{ background: "#1e3a5f", color: "#475569" }}>
+                    <Loader2 size={11} className="animate-spin" /> Loading data…
+                  </div>
+                )}
               </div>
 
               {/* Disease categories */}
@@ -1074,6 +1367,15 @@ export default function InteractionsPage() {
 
         </div>
       </div>
+
+      {/* Interaction Analysis Modal */}
+      {showAnalysis && networkDrugs.length >= 2 && (
+        <InteractionAnalysisPanel
+          networkDrugs={networkDrugs}
+          networkData={networkData}
+          onClose={() => setShowAnalysis(false)}
+        />
+      )}
     </div>
   );
 }

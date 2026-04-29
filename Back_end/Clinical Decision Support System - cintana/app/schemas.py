@@ -107,16 +107,19 @@ class DrugDetail(BaseModel):
 
 class DrugCreate(BaseModel):
     """Schema for creating a new drug via API (POST /api/v1/drugs/)."""
-    drug_code: str = Field(..., max_length=10, description="Internal drug code e.g. DR:00001")
     drugbank_id: str = Field(..., max_length=20, description="DrugBank ID e.g. DB00001")
     name: str = Field(..., max_length=500)
     drug_type: Optional[str] = Field(None, max_length=30, description="small molecule | biotech")
-    drug_groups: Optional[str] = Field(None, max_length=500, description="Pipe-separated groups e.g. approved|withdrawn")
+    groups: Optional[List[str]] = Field(None, description="List of groups e.g. ['approved', 'withdrawn']")
     atc_codes: Optional[str] = Field(None, max_length=500)
     inchikey: Optional[str] = Field(None, max_length=200)
     cas_number: Optional[str] = Field(None, max_length=50)
     unii: Optional[str] = Field(None, max_length=50)
     state: Optional[str] = Field(None, max_length=20)
+    smiles: Optional[str] = None
+    molecular_formula: Optional[str] = Field(None, max_length=200)
+    average_mass: Optional[float] = None
+    monoisotopic_mass: Optional[float] = None
     description: Optional[str] = None
     indication: Optional[str] = None
     pharmacodynamics: Optional[str] = None
@@ -127,22 +130,23 @@ class DrugCreate(BaseModel):
     half_life: Optional[str] = None
     protein_binding: Optional[str] = None
     route_of_elimination: Optional[str] = None
-    categories: Optional[List[Any]] = None
-    aliases: Optional[List[str]] = None
-    chemical_properties: Optional[Dict[str, Any]] = None
-    external_mappings: Optional[Dict[str, Any]] = None
+    categories: Optional[List[str]] = None
+    synonyms: Optional[List[str]] = None
 
 
 class DrugUpdate(BaseModel):
     """Schema for partial update of a drug (PATCH /api/v1/drugs/{drugbank_id})."""
     name: Optional[str] = Field(None, max_length=500)
     drug_type: Optional[str] = Field(None, max_length=30)
-    drug_groups: Optional[str] = Field(None, max_length=500)
     atc_codes: Optional[str] = Field(None, max_length=500)
     inchikey: Optional[str] = Field(None, max_length=200)
     cas_number: Optional[str] = Field(None, max_length=50)
     unii: Optional[str] = Field(None, max_length=50)
     state: Optional[str] = Field(None, max_length=20)
+    smiles: Optional[str] = None
+    molecular_formula: Optional[str] = Field(None, max_length=200)
+    average_mass: Optional[float] = None
+    monoisotopic_mass: Optional[float] = None
     description: Optional[str] = None
     indication: Optional[str] = None
     pharmacodynamics: Optional[str] = None
@@ -153,17 +157,12 @@ class DrugUpdate(BaseModel):
     half_life: Optional[str] = None
     protein_binding: Optional[str] = None
     route_of_elimination: Optional[str] = None
-    categories: Optional[List[Any]] = None
-    aliases: Optional[List[str]] = None
-    chemical_properties: Optional[Dict[str, Any]] = None
-    external_mappings: Optional[Dict[str, Any]] = None
 
 
 class DrugOut(BaseModel):
     """Flat response schema for Drug CRUD API."""
     model_config = ConfigDict(from_attributes=True)
 
-    drug_code: str
     drugbank_id: str
     name: str
     drug_type: Optional[str] = None
@@ -188,6 +187,7 @@ class DrugOut(BaseModel):
     smiles: Optional[str] = None
     molecular_formula: Optional[str] = None
     average_mass: Optional[float] = None
+    monoisotopic_mass: Optional[float] = None
     target_count: int = 0
     enzyme_count: int = 0
     transporter_count: int = 0
@@ -252,7 +252,7 @@ class SeverityEnum(str, Enum):
 
 class InteractionCreate(BaseModel):
     """Schema for POST /api/v1/interactions/"""
-    drug_code: str = Field(..., max_length=20, description="Source drug code (DR:XXXXX)")
+    drug_id: str = Field(..., max_length=20, description="Source drug DrugBank ID (DB00001)")
     interacting_drug_id: str = Field(..., max_length=20, description="DrugBank ID of the other drug")
     interacting_drug_name: Optional[str] = Field(None, max_length=500)
     severity: Optional[SeverityEnum] = SeverityEnum.unknown
@@ -271,8 +271,7 @@ class InteractionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    drug_code: str
-    drug_drugbank_id: Optional[str] = None
+    drug_id: str
     interacting_drug_id: str
     interacting_drug_name: Optional[str] = None
     severity: Optional[str] = None

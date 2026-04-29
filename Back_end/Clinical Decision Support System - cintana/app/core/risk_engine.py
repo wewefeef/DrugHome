@@ -67,26 +67,26 @@ def _classify_risk(score: float) -> str:
 
 
 def _get_enzyme_and_target_names(
-    db: Session, drug_codes: List[str]
+    db: Session, drug_ids: List[str]
 ) -> Dict[str, List[str]]:
     """
-    Return {drug_code: [uniprot_id or protein_name, ...]} for enzymes and targets.
+    Return {drugbank_id: [uniprot_id, ...]} for enzymes and targets.
     Used to detect shared pharmacokinetic proteins between drugs in the list.
     """
     rows = (
         db.query(
-            DrugProteinInteraction.drug_code,
+            DrugProteinInteraction.drug_id,
             DrugProteinInteraction.uniprot_id,
             DrugProteinInteraction.interaction_type,
         )
-        .filter(DrugProteinInteraction.drug_code.in_(drug_codes))
+        .filter(DrugProteinInteraction.drug_id.in_(drug_ids))
         .all()
     )
     mapping: Dict[str, List[str]] = {}
     for r in rows:
         uid = (r.uniprot_id or "").lower()
         if uid:
-            mapping.setdefault(r.drug_code, []).append(uid)
+            mapping.setdefault(r.drug_id, []).append(uid)
     return mapping
 
 
@@ -126,17 +126,7 @@ def compute_risk_score(db: Session, drug_ids: List[str]) -> RiskScoreResult:
     interaction_score = min(interaction_score, 8.0)
 
     # ── 3. Shared enzyme / target bonus ──────────────────────────────────────
-    # Resolve drug_codes from drugbank_ids
-    from app.models import Drug as DrugModel
-    drug_rows = (
-        db.query(DrugModel.drugbank_id, DrugModel.drug_code)
-        .filter(DrugModel.drugbank_id.in_(drug_ids))
-        .all()
-    )
-    dbid_to_code = {r.drugbank_id: r.drug_code for r in drug_rows}
-    drug_codes = list(dbid_to_code.values())
-
-    protein_map = _get_enzyme_and_target_names(db, drug_codes)
+    protein_map = _get_enzyme_and_target_names(db, drug_ids)
 
     # Collect protein sets per drug
     protein_sets = list(protein_map.values())

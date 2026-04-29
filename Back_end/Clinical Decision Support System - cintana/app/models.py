@@ -1,19 +1,33 @@
 """
-SQLAlchemy ORM models — mapped to MySQL tables.
-- Drug          → drugs table (from json_to_mysql.py / load_drugbank)
-- Protein       → proteins table (active substances / targets)
-- DrugInteraction      → drug_interactions table
-- DrugProteinInteraction  → drug_protein_interactions table
+SQLAlchemy ORM models — 14 normalized tables.
+
+DrugBank core (12 tables):
+  1.  drugs                      ← PK: drugbank_id
+  2.  groups                     ← approved / experimental / withdrawn ...
+  3.  categories                 ← pharmacological categories + mesh_id
+  4.  proteins                   ← targets / enzymes / transporters / carriers
+  5.  drug_synonyms              ← alternative names  (1-N from drugs)
+  6.  drug_products              ← commercial brand names (1-N from drugs)
+  7.  drug_external_identifiers  ← PubChem / ChEMBL cross-refs (1-N from drugs)
+  8.  drug_calculated_properties ← logP / Water Solubility / pKa ... (1-N)
+  9.  drug_group_map             ← N-N: drugs ↔ groups
+  10. drug_category_map          ← N-N: drugs ↔ categories
+  11. drug_interactions          ← drug-drug interactions
+  12. drug_protein_interactions  ← drug-protein interactions
+
+App-specific (2 tables):
+  13. users
+  14. analysis_sessions
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy import (
     String, Text, Integer, Float, DateTime, ForeignKey,
-    UniqueConstraint, Index, func,
+    UniqueConstraint, Index, func, Numeric,
 )
 from sqlalchemy.dialects.mysql import JSON, LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,32 +35,36 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Drug (central hub — all other DrugBank tables FK back to this)
+# ─────────────────────────────────────────────────────────────────────────────
+
 class Drug(Base):
-    """Maps to the `drugs` table in MySQL (created by json_to_mysql.py)."""
+    """Maps to the `drugs` table.  PK = drugbank_id (DB00001 …)."""
 
     __tablename__ = "drugs"
 
-    # ── Primary Key & Identity ────────────────────────────────────────────────
-    drug_code: Mapped[str] = mapped_column(String(10), primary_key=True)
-    drugbank_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(500), index=True)
+    # ── Identity ──────────────────────────────────────────────────────────────
+    drugbank_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
 
-    # MySQL column is called "type" — map to drug_type attribute
+    # MySQL column is called "type"
     drug_type: Mapped[Optional[str]] = mapped_column(
         "type", String(30), nullable=True, index=True
     )
 
-    # Pipe-separated string in MySQL, e.g. "approved|withdrawn"
-    _drug_groups_raw: Mapped[Optional[str]] = mapped_column(
-        "drug_groups", String(500), nullable=True
-    )
-
-    atc_codes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    inchikey: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    inchi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     cas_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     unii: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    atc_codes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     state: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+
+    # ── Chemical identity ─────────────────────────────────────────────────────
+    inchikey: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, index=True)
+    inchi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    smiles: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    molecular_formula: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    average_mass: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
+    monoisotopic_mass: Mapped[Optional[float]] = mapped_column(Numeric(12, 4), nullable=True)
 
     # ── Pharmacology ──────────────────────────────────────────────────────────
     description: Mapped[Optional[str]] = mapped_column(LONGTEXT, nullable=True)
@@ -60,168 +78,83 @@ class Drug(Base):
     protein_binding: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     route_of_elimination: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # ── JSON Columns ──────────────────────────────────────────────────────────
-    _categories_json: Mapped[Optional[Any]] = mapped_column("categories", JSON, nullable=True)
-    _aliases_json: Mapped[Optional[Any]] = mapped_column("aliases", JSON, nullable=True)
-    _chemical_properties_json: Mapped[Optional[Any]] = mapped_column(
-        "chemical_properties", JSON, nullable=True
+    # ── Timestamps ────────────────────────────────────────────────────────────
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
     )
-    _external_mappings_json: Mapped[Optional[Any]] = mapped_column(
-        "external_mappings", JSON, nullable=True
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    # ── Python Properties (compat shims for views/templates) ─────────────────
-
-    @property
-    def groups(self) -> List[str]:
-        """Returns groups as a list (split from pipe-delimited string)."""
-        raw = self._drug_groups_raw or ""
-        return [g.strip() for g in raw.split("|") if g.strip()]
-
-    @property
-    def synonyms(self) -> List[Any]:
-        return list(self._aliases_json or [])
-
-    @property
-    def aliases(self) -> List[Any]:
-        """Alias for synonyms — exposes _aliases_json via the 'aliases' attribute name."""
-        return list(self._aliases_json or [])
-
-    @property
-    def categories(self) -> List[str]:
-        cats = list(self._categories_json or [])
-        return [c["name"] if isinstance(c, dict) else str(c) for c in cats]
-
-    @property
-    def smiles(self) -> Optional[str]:
-        cp = self._chemical_properties_json or {}
-        return cp.get("smiles")
-
-    @property
-    def average_mass(self) -> Optional[float]:
-        cp = self._chemical_properties_json or {}
-        try:
-            v = cp.get("average_mass")
-            return float(v) if v else None
-        except (TypeError, ValueError):
-            return None
-
-    @property
-    def molecular_formula(self) -> Optional[str]:
-        cp = self._chemical_properties_json or {}
-        return cp.get("molecular_formula")
-
-    @property
-    def monoisotopic_mass(self) -> Optional[float]:
-        return None
-
-    @property
-    def volume_of_distribution(self) -> Optional[str]:
-        return None
-
-    @property
-    def clearance(self) -> Optional[str]:
-        return None
-
-    # Counts populated by the API endpoint (not stored in this table)
-    target_count: int = 0
-    enzyme_count: int = 0
-    transporter_count: int = 0
-
-    # Fields stored in separate tables — return empty for now
-    @property
-    def targets(self) -> List[Any]:
-        return []
-
-    @property
-    def enzymes(self) -> List[Any]:
-        return []
-
-    @property
-    def transporters(self) -> List[Any]:
-        return []
-
-    @property
-    def carriers(self) -> List[Any]:
-        return []
-
-    @property
-    def interactions(self) -> List[Any]:
-        return []
-
-    @property
-    def food_interactions(self) -> List[Any]:
-        return []
-
-    @property
-    def genomics(self) -> List[Any]:
-        return []
-
-    @property
-    def general_references(self) -> Dict[str, Any]:
-        return self._external_mappings_json or {}
-
-    @property
-    def synthesis_reference(self) -> Optional[str]:
-        return None
-
-    @property
-    def external_identifiers(self) -> List[Any]:
-        ext = self._external_mappings_json or {}
-        return [{"resource": k, "identifier": v} for k, v in ext.items()
-                if not isinstance(v, (dict, list))]
-
-    @property
-    def external_links(self) -> List[Any]:
-        return []
-
-    @property
-    def products(self) -> List[Any]:
-        return []
-
-    @property
-    def international_brands(self) -> List[Any]:
-        return []
-
-    @property
-    def sequences(self) -> List[Any]:
-        return []
-
-    @property
-    def raw_xml(self) -> Optional[str]:
-        return None
-
-    @property
-    def created_at(self):
-        return None
-
-    @property
-    def updated_at(self):
-        return None
-
-    # ── Relationships to separate tables ─────────────────────────────────────
+    # ── Relationships ─────────────────────────────────────────────────────────
+    synonyms_rel: Mapped[List["DrugSynonym"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    products_rel: Mapped[List["DrugProduct"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    external_ids_rel: Mapped[List["DrugExternalIdentifier"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    calc_props_rel: Mapped[List["DrugCalculatedProperty"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    group_maps: Mapped[List["DrugGroupMap"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    category_maps: Mapped[List["DrugCategoryMap"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
     drug_interactions_rel: Mapped[List["DrugInteraction"]] = relationship(
         "DrugInteraction",
-        foreign_keys="DrugInteraction.drug_code",
+        foreign_keys="DrugInteraction.drug_id",
         back_populates="drug",
         cascade="all, delete-orphan",
     )
     drug_protein_interactions_rel: Mapped[List["DrugProteinInteraction"]] = relationship(
         "DrugProteinInteraction",
-        foreign_keys="DrugProteinInteraction.drug_code",
+        foreign_keys="DrugProteinInteraction.drug_id",
         back_populates="drug",
         cascade="all, delete-orphan",
     )
 
+    # ── Convenience properties (schema compatibility) ─────────────────────────
+    @property
+    def groups(self) -> List[str]:
+        return [m.group.name for m in self.group_maps if m.group]
+
+    @property
+    def categories(self) -> List[str]:
+        return [m.category.category for m in self.category_maps if m.category]
+
+    @property
+    def synonyms(self) -> List[str]:
+        return [s.synonym for s in self.synonyms_rel]
+
+    @property
+    def aliases(self) -> List[str]:
+        return self.synonyms
+
+    @property
+    def external_identifiers(self) -> List[Any]:
+        return [
+            {"resource": e.resource, "identifier": e.identifier}
+            for e in self.external_ids_rel
+        ]
+
+    @property
+    def products(self) -> List[Any]:
+        return list(self.products_rel)
+
+    # Counts populated by API (not stored in DB)
+    target_count: int = 0
+    enzyme_count: int = 0
+    transporter_count: int = 0
+
     # ── Table-level indexes ───────────────────────────────────────────────────
     __table_args__ = (
-        # FULLTEXT on name — allows MATCH..AGAINST for fast drug name search
         Index("ix_drugs_name_ft", "name", mysql_prefix="FULLTEXT"),
-        # Composite: filtering by type (actual DB column = "type") then sorting by name
         Index("ix_drugs_type_name", "type", "name"),
-        # Prefix index on drug_groups for group filter (pipe-separated string)
-        Index("ix_drugs_groups", "drug_groups", mysql_length={"drug_groups": 100}),
-        # Prefix index on atc_codes
         Index("ix_drugs_atc", "atc_codes", mysql_length={"atc_codes": 50}),
     )
 
@@ -230,21 +163,61 @@ class Drug(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Protein / Active Substance
+# 2. DrugGroup  (groups table)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugGroup(Base):
+    """Maps to the `groups` table.  E.g. approved, experimental, withdrawn."""
+
+    __tablename__ = "groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+
+    drug_maps: Mapped[List["DrugGroupMap"]] = relationship(back_populates="group")
+
+    def __repr__(self) -> str:
+        return f"<DrugGroup {self.name}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. DrugCategory  (categories table)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugCategory(Base):
+    """Maps to the `categories` table.  E.g. Analgesics, Antibiotics."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    mesh_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
+    drug_maps: Mapped[List["DrugCategoryMap"]] = relationship(back_populates="category")
+
+    __table_args__ = (
+        Index("ix_categories_name", "category", mysql_length=100),
+        Index("ix_categories_mesh", "mesh_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DrugCategory {self.category}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Protein  (proteins table — targets / enzymes / transporters / carriers)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class Protein(Base):
-    """
-    Maps to the `proteins` table.
-    Represents a target, enzyme, transporter, or carrier (active substance).
-    """
+    """Maps to the `proteins` table."""
+
     __tablename__ = "proteins"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     uniprot_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True, index=True)
     entrez_gene_id: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     organism: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    name: Mapped[str] = mapped_column(String(500), index=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     gene_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     protein_type: Mapped[Optional[str]] = mapped_column(
         String(30), nullable=True, index=True
@@ -258,16 +231,12 @@ class Protein(Base):
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationships
     drug_protein_interactions: Mapped[List["DrugProteinInteraction"]] = relationship(
         back_populates="protein", cascade="all, delete-orphan"
     )
 
-    # ── Table-level indexes ───────────────────────────────────────────────────
     __table_args__ = (
-        # Composite FULLTEXT on name + gene_name — single index covers both fields
         Index("ix_proteins_name_gene_ft", "name", "gene_name", mysql_prefix="FULLTEXT"),
-        # Prefix index on organism for "Humans" / organism filter
         Index("ix_proteins_organism", "organism", mysql_length=80),
     )
 
@@ -276,27 +245,185 @@ class Protein(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Drug ↔ Drug Interaction
+# 5. DrugSynonym  (drug_synonyms table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugSynonym(Base):
+    """Maps to the `drug_synonyms` table."""
+
+    __tablename__ = "drug_synonyms"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    synonym: Mapped[str] = mapped_column(String(255), nullable=False)
+    language: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    coder: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    drug: Mapped["Drug"] = relationship(back_populates="synonyms_rel")
+
+    __table_args__ = (
+        Index("ix_drug_synonyms_synonym", "synonym", mysql_length=100),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DrugSynonym {self.drug_id}: {self.synonym}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. DrugProduct  (drug_products table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugProduct(Base):
+    """Maps to the `drug_products` table.  Commercial brand names."""
+
+    __tablename__ = "drug_products"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    labeller: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    ndc_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    dosage_form: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    strength: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    route: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # FDA | DPD | EMA
+
+    drug: Mapped["Drug"] = relationship(back_populates="products_rel")
+
+    def __repr__(self) -> str:
+        return f"<DrugProduct {self.drug_id}: {self.name}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. DrugExternalIdentifier  (drug_external_identifiers table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugExternalIdentifier(Base):
+    """Maps to the `drug_external_identifiers` table.  Cross-refs to PubChem, ChEMBL …"""
+
+    __tablename__ = "drug_external_identifiers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    resource: Mapped[str] = mapped_column(String(100), nullable=False)   # PubChem Compound, ChEMBL …
+    identifier: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    drug: Mapped["Drug"] = relationship(back_populates="external_ids_rel")
+
+    __table_args__ = (
+        UniqueConstraint("drug_id", "resource", name="uq_drug_ext_id"),
+        Index("ix_drug_ext_ids_resource_id", "resource", "identifier"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DrugExternalIdentifier {self.drug_id}: {self.resource}={self.identifier}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. DrugCalculatedProperty  (drug_calculated_properties table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugCalculatedProperty(Base):
+    """Maps to the `drug_calculated_properties` table.
+    Stores one row per property kind (logP, Water Solubility, pKa …)."""
+
+    __tablename__ = "drug_calculated_properties"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(100), nullable=False)    # logP | Water Solubility | pKa …
+    value: Mapped[str] = mapped_column(String(200), nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # ChemAxon | ALOGPS …
+
+    drug: Mapped["Drug"] = relationship(back_populates="calc_props_rel")
+
+    __table_args__ = (
+        UniqueConstraint("drug_id", "kind", "source", name="uq_drug_calc_prop"),
+        Index("ix_drug_calc_props_drug_kind", "drug_id", "kind"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DrugCalculatedProperty {self.drug_id}: {self.kind}={self.value}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. DrugGroupMap  (drug_group_map — N-N: drugs ↔ groups)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugGroupMap(Base):
+    """Maps to the `drug_group_map` junction table."""
+
+    __tablename__ = "drug_group_map"
+
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"), primary_key=True
+    )
+    group_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    drug: Mapped["Drug"] = relationship(back_populates="group_maps")
+    group: Mapped["DrugGroup"] = relationship(back_populates="drug_maps")
+
+    def __repr__(self) -> str:
+        return f"<DrugGroupMap {self.drug_id} → group {self.group_id}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. DrugCategoryMap  (drug_category_map — N-N: drugs ↔ categories)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugCategoryMap(Base):
+    """Maps to the `drug_category_map` junction table."""
+
+    __tablename__ = "drug_category_map"
+
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"), primary_key=True
+    )
+    category_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    drug: Mapped["Drug"] = relationship(back_populates="category_maps")
+    category: Mapped["DrugCategory"] = relationship(back_populates="drug_maps")
+
+    def __repr__(self) -> str:
+        return f"<DrugCategoryMap {self.drug_id} → category {self.category_id}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. DrugInteraction  (drug_interactions table)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DrugInteraction(Base):
+    """Maps to the `drug_interactions` table.
+    One row = one directed drug-drug interaction.
+    drug_id       → the source drug (FK to drugs.drugbank_id)
+    interacting_drug_id → DrugBank ID of the other drug (may not be in our DB)
     """
-    Maps to the `drug_interactions` table.
-    One row = one directed drug-drug interaction from DrugBank.
-    """
+
     __tablename__ = "drug_interactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    # Source drug — stored as drug_code (DR:XXXXX) to match ndjson/load scripts
-    drug_code: Mapped[str] = mapped_column(
-        String(20), ForeignKey("drugs.drug_code", ondelete="CASCADE"),
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    # Allow drugbank_id references as well (populated during ingestion)
-    drug_drugbank_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
-
-    # The other drug in the interaction
     interacting_drug_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     interacting_drug_name: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
@@ -312,42 +439,38 @@ class DrugInteraction(Base):
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationship
-    drug: Mapped["Drug"] = relationship(back_populates="drug_interactions_rel", foreign_keys=[drug_code])
+    drug: Mapped["Drug"] = relationship(
+        back_populates="drug_interactions_rel", foreign_keys=[drug_id]
+    )
 
     __table_args__ = (
-        UniqueConstraint("drug_code", "interacting_drug_id", name="uq_drug_interaction"),
-        # Composite: reverse lookup (interacting side → source) used by interaction engine
-        Index("ix_di_interacting_dbid", "interacting_drug_id", "drug_drugbank_id"),
-        # Composite: drug_code + severity for filtered per-drug queries
-        Index("ix_di_code_severity", "drug_code", "severity"),
-        # Composite: drug_drugbank_id + interacting_drug_id (forward bidirectional)
-        Index("ix_di_dbid_interacting", "drug_drugbank_id", "interacting_drug_id"),
+        UniqueConstraint("drug_id", "interacting_drug_id", name="uq_drug_interaction"),
+        Index("ix_di_drug_severity", "drug_id", "severity"),
+        Index("ix_di_interacting", "interacting_drug_id"),
+        Index("ix_di_both", "drug_id", "interacting_drug_id"),
     )
 
     def __repr__(self) -> str:
-        return f"<DrugInteraction {self.drug_code} ↔ {self.interacting_drug_id} [{self.severity}]>"
+        return f"<DrugInteraction {self.drug_id} ↔ {self.interacting_drug_id} [{self.severity}]>"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Drug ↔ Protein Interaction
+# 12. DrugProteinInteraction  (drug_protein_interactions table)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DrugProteinInteraction(Base):
+    """Maps to the `drug_protein_interactions` table.
+    Records how a drug interacts with a protein (target, enzyme, transporter, carrier).
     """
-    Maps to the `drug_protein_interactions` table.
-    Records how a drug interacts with a protein (target, enzyme, etc.).
-    """
+
     __tablename__ = "drug_protein_interactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    drug_code: Mapped[str] = mapped_column(
-        String(20), ForeignKey("drugs.drug_code", ondelete="CASCADE"),
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    drug_drugbank_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
-
     protein_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("proteins.id", ondelete="CASCADE"),
         nullable=False, index=True,
@@ -358,31 +481,63 @@ class DrugProteinInteraction(Base):
         String(30), nullable=True, index=True
     )  # target | enzyme | transporter | carrier
     known_action: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    actions: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)  # ["inhibitor", ...]
+    actions: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)    # ["inhibitor", "agonist" …]
     pubmed_ids: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
 
-    # Relationships
-    drug: Mapped["Drug"] = relationship(back_populates="drug_protein_interactions_rel", foreign_keys=[drug_code])
+    drug: Mapped["Drug"] = relationship(
+        back_populates="drug_protein_interactions_rel", foreign_keys=[drug_id]
+    )
     protein: Mapped["Protein"] = relationship(back_populates="drug_protein_interactions")
 
     __table_args__ = (
-        UniqueConstraint("drug_code", "protein_id", "interaction_type", name="uq_drug_protein_interaction"),
-        # Composite: drug detail page — all proteins for a drug filtered by type
-        Index("ix_dpi_code_type", "drug_code", "interaction_type"),
-        # Composite: protein detail page — all drugs for a protein
+        UniqueConstraint(
+            "drug_id", "protein_id", "interaction_type",
+            name="uq_drug_protein_interaction",
+        ),
+        Index("ix_dpi_drug_type", "drug_id", "interaction_type"),
         Index("ix_dpi_protein_type", "protein_id", "interaction_type"),
     )
 
     def __repr__(self) -> str:
-        return f"<DrugProteinInteraction {self.drug_code} ↔ protein:{self.protein_id} [{self.interaction_type}]>"
+        return f"<DrugProteinInteraction {self.drug_id} ↔ protein:{self.protein_id} [{self.interaction_type}]>"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Analysis Session — persisted interaction check history
+# 13. User Account
+# ─────────────────────────────────────────────────────────────────────────────
+
+class User(Base):
+    """
+    Maps to the `users` table.
+    Stores registered user accounts with hashed passwords for authentication.
+    """
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    avatar_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<User id={self.id} username={self.username}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. AnalysisSession
 # ─────────────────────────────────────────────────────────────────────────────
 
 class AnalysisSession(Base):
@@ -442,35 +597,4 @@ class AnalysisSession(Base):
 
     def __repr__(self) -> str:
         return f"<AnalysisSession id={self.id} drugs={self.total_drugs} interactions={self.total_interactions}>"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# User Account
-# ─────────────────────────────────────────────────────────────────────────────
-
-class User(Base):
-    """
-    Maps to the `users` table.
-    Stores registered user accounts with hashed passwords for authentication.
-    """
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    # Hex color for generated avatar (e.g. "#4F46E5")
-    avatar_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-    def __repr__(self) -> str:
-        return f"<User id={self.id} username={self.username}>"
 

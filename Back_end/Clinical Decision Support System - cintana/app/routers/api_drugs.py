@@ -25,9 +25,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
 
 from app.database import get_db
-from app.models import Drug, DrugProteinInteraction, Protein, DrugInteraction
+from app.models import (
+    Drug, DrugProteinInteraction, Protein, DrugInteraction,
+    DrugGroup, DrugGroupMap, DrugCategory, DrugCategoryMap,
+)
 from app.schemas import DrugCreate, DrugOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
+from sqlalchemy.orm import selectinload
 
 
 def _build_fulltext_query(raw: str) -> str:
@@ -118,41 +122,46 @@ def list_drugs(
         qs = qs.filter(Drug.state == state.strip())
 
     if group.strip():
-        g = group.strip()
-        qs = qs.filter(
-            or_(
-                Drug._drug_groups_raw.like(f"{g}|%"),
-                Drug._drug_groups_raw.like(f"%|{g}|%"),
-                Drug._drug_groups_raw.like(f"%|{g}"),
-                Drug._drug_groups_raw == g,
-            )
+        # JOIN through drug_group_map + groups — exact lookup, uses PK index
+        qs = (
+            qs.join(DrugGroupMap, Drug.drugbank_id == DrugGroupMap.drug_id)
+            .join(DrugGroup, DrugGroupMap.group_id == DrugGroup.id)
+            .filter(DrugGroup.name == group.strip())
+            .distinct()
         )
 
     if category_key.strip() and category_key.strip() in CATEGORY_KEYWORDS:
         keywords = CATEGORY_KEYWORDS[category_key.strip()]
+        # JOIN through drug_category_map + categories — uses ix_categories_name index
         cat_filters = [
-            text("CAST(categories AS CHAR) LIKE :ck_" + str(i)).bindparams(**{"ck_" + str(i): f"%{kw}%"})
-            for i, kw in enumerate(keywords)
+            DrugCategory.category.like(f"%{kw}%")
+            for kw in keywords
         ]
-        qs = qs.filter(or_(*cat_filters))
+        qs = (
+            qs.join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+            .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
+            .filter(or_(*cat_filters))
+            .distinct()
+        )
 
     total = qs.count()
     offset = (page - 1) * per_page
     drugs = qs.order_by(Drug.name).offset(offset).limit(per_page).all()
 
     # Batch-compute protein interaction counts for all drugs on this page
+    # Uses ix_dpi_drug_type (drug_id, interaction_type)
     drugbank_ids = [d.drugbank_id for d in drugs]
     counts_map: dict[str, dict[str, int]] = {}
     if drugbank_ids:
         count_rows = (
             db.query(
-                DrugProteinInteraction.drug_drugbank_id,
+                DrugProteinInteraction.drug_id,
                 DrugProteinInteraction.interaction_type,
                 sqlfunc.count(DrugProteinInteraction.id).label("cnt"),
             )
-            .filter(DrugProteinInteraction.drug_drugbank_id.in_(drugbank_ids))
+            .filter(DrugProteinInteraction.drug_id.in_(drugbank_ids))
             .group_by(
-                DrugProteinInteraction.drug_drugbank_id,
+                DrugProteinInteraction.drug_id,
                 DrugProteinInteraction.interaction_type,
             )
             .all()
@@ -203,48 +212,49 @@ def list_drugs_by_category(
 
     keywords = CATEGORY_KEYWORDS[category_key]
     cat_filters = [
-        text("CAST(categories AS CHAR) LIKE :ck_" + str(i)).bindparams(**{"ck_" + str(i): f"%{kw}%"})
-        for i, kw in enumerate(keywords)
+        DrugCategory.category.like(f"%{kw}%")
+        for kw in keywords
     ]
-    qs = db.query(Drug).filter(or_(*cat_filters))
+    qs = (
+        db.query(Drug)
+        .join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+        .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
+        .filter(or_(*cat_filters))
+        .distinct()
+    )
 
     if has_network:
         # Only include drugs that have at least 1 protein interaction record
-        # NOTE: drug_protein_interactions uses drug_code (DR:XXXXX), NOT drug_drugbank_id
         qs = qs.join(
             DrugProteinInteraction,
-            Drug.drug_code == DrugProteinInteraction.drug_code,
+            Drug.drugbank_id == DrugProteinInteraction.drug_id,
         ).distinct()
 
     total = qs.count()
     offset = (page - 1) * per_page
     drugs = qs.order_by(Drug.name).offset(offset).limit(per_page).all()
 
-    # Compute protein counts for all returned drugs
-    # Map drug_code → drugbank_id for result assembly
-    code_to_dbid = {d.drug_code: d.drugbank_id for d in drugs}
-    drug_codes = list(code_to_dbid.keys())
-    counts_map: dict[str, dict[str, int]] = {}
-    if drug_codes:
+    # Compute protein counts using drug_id
+    drug_ids_page = [d.drugbank_id for d in drugs]
+    counts_map_cat: dict[str, dict[str, int]] = {}
+    if drug_ids_page:
         count_rows = (
             db.query(
-                DrugProteinInteraction.drug_code,
+                DrugProteinInteraction.drug_id,
                 DrugProteinInteraction.interaction_type,
                 sqlfunc.count(DrugProteinInteraction.id).label("cnt"),
             )
-            .filter(DrugProteinInteraction.drug_code.in_(drug_codes))
-            .group_by(DrugProteinInteraction.drug_code, DrugProteinInteraction.interaction_type)
+            .filter(DrugProteinInteraction.drug_id.in_(drug_ids_page))
+            .group_by(DrugProteinInteraction.drug_id, DrugProteinInteraction.interaction_type)
             .all()
         )
-        for code, itype, cnt in count_rows:
-            dbid = code_to_dbid.get(code)
-            if dbid:
-                counts_map.setdefault(dbid, {})[itype] = cnt
+        for dbid, itype, cnt in count_rows:
+            counts_map_cat.setdefault(dbid, {})[itype] = cnt
 
     items = []
     for d in drugs:
         out = DrugOut.model_validate(d)
-        c = counts_map.get(d.drugbank_id, {})
+        c = counts_map_cat.get(d.drugbank_id, {})
         out.target_count = c.get("target", 0)
         out.enzyme_count = c.get("enzyme", 0)
         out.transporter_count = c.get("transporter", 0)
@@ -280,21 +290,18 @@ def get_drug_network(
     if not drug:
         raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
 
-    # NOTE: drug_protein_interactions and drug_interactions use drug_code (DR:XXXXX),
-    # NOT drug_drugbank_id — must use drug.drug_code for the filter.
-
     # Protein interactions with protein details
     protein_rels = (
         db.query(DrugProteinInteraction, Protein)
         .join(Protein, DrugProteinInteraction.protein_id == Protein.id)
-        .filter(DrugProteinInteraction.drug_code == drug.drug_code)
+        .filter(DrugProteinInteraction.drug_id == drug.drugbank_id)
         .all()
     )
 
     # Drug-drug interactions
     drug_rels = (
         db.query(DrugInteraction)
-        .filter(DrugInteraction.drug_code == drug.drug_code)
+        .filter(DrugInteraction.drug_id == drug.drugbank_id)
         .order_by(DrugInteraction.severity)
         .limit(max_interactions)
         .all()
@@ -358,14 +365,14 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
     )
     if not drug:
         raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
-    result = DrugOut.model_validate(drug)
-    # Compute protein interaction counts by type — filter by drug_code, NOT drug_drugbank_id
+    # Compute protein interaction counts by type — uses ix_dpi_drug_type index
     counts = (
         db.query(DrugProteinInteraction.interaction_type, sqlfunc.count(DrugProteinInteraction.id))
-        .filter(DrugProteinInteraction.drug_code == drug.drug_code)
+        .filter(DrugProteinInteraction.drug_id == drug.drugbank_id)
         .group_by(DrugProteinInteraction.interaction_type)
         .all()
     )
+    result = DrugOut.model_validate(drug)
     for itype, cnt in counts:
         if itype == "target":
             result.target_count = cnt
@@ -386,29 +393,26 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
     summary="Create a new drug",
 )
 def create_drug(payload: DrugCreate, db: Session = Depends(get_db)):
-    # Uniqueness checks
+    # Uniqueness check
     if db.query(Drug).filter(Drug.drugbank_id == payload.drugbank_id.upper()).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"DrugBank ID '{payload.drugbank_id}' already exists",
         )
-    if db.query(Drug).filter(Drug.drug_code == payload.drug_code).first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Drug code '{payload.drug_code}' already exists",
-        )
 
     drug = Drug(
-        drug_code=payload.drug_code,
         drugbank_id=payload.drugbank_id.upper(),
         name=payload.name,
         drug_type=payload.drug_type,
-        _drug_groups_raw=payload.drug_groups,
         atc_codes=payload.atc_codes,
         inchikey=payload.inchikey,
         cas_number=payload.cas_number,
         unii=payload.unii,
         state=payload.state,
+        smiles=payload.smiles,
+        molecular_formula=payload.molecular_formula,
+        average_mass=payload.average_mass,
+        monoisotopic_mass=payload.monoisotopic_mass,
         description=payload.description,
         indication=payload.indication,
         pharmacodynamics=payload.pharmacodynamics,
@@ -419,12 +423,38 @@ def create_drug(payload: DrugCreate, db: Session = Depends(get_db)):
         half_life=payload.half_life,
         protein_binding=payload.protein_binding,
         route_of_elimination=payload.route_of_elimination,
-        _categories_json=payload.categories,
-        _aliases_json=payload.aliases,
-        _chemical_properties_json=payload.chemical_properties,
-        _external_mappings_json=payload.external_mappings,
     )
     db.add(drug)
+    db.flush()  # get drugbank_id into session before adding mappings
+
+    # Handle groups
+    if payload.groups:
+        from app.models import DrugGroup, DrugGroupMap
+        for gname in payload.groups:
+            grp = db.query(DrugGroup).filter(DrugGroup.name == gname).first()
+            if not grp:
+                grp = DrugGroup(name=gname)
+                db.add(grp)
+                db.flush()
+            db.add(DrugGroupMap(drug_id=drug.drugbank_id, group_id=grp.id))
+
+    # Handle categories
+    if payload.categories:
+        from app.models import DrugCategory, DrugCategoryMap
+        for cname in payload.categories:
+            cat = db.query(DrugCategory).filter(DrugCategory.category == cname).first()
+            if not cat:
+                cat = DrugCategory(category=cname)
+                db.add(cat)
+                db.flush()
+            db.add(DrugCategoryMap(drug_id=drug.drugbank_id, category_id=cat.id))
+
+    # Handle synonyms
+    if payload.synonyms:
+        from app.models import DrugSynonym
+        for syn in payload.synonyms:
+            db.add(DrugSynonym(drug_id=drug.drugbank_id, synonym=syn))
+
     db.commit()
     db.refresh(drug)
     cache_delete_prefix("drugs:list:")
@@ -444,16 +474,8 @@ def update_drug(
         raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
 
     update_data = payload.model_dump(exclude_unset=True)
-    field_map = {
-        "drug_groups": "_drug_groups_raw",
-        "categories": "_categories_json",
-        "aliases": "_aliases_json",
-        "chemical_properties": "_chemical_properties_json",
-        "external_mappings": "_external_mappings_json",
-    }
     for key, value in update_data.items():
-        mapped = field_map.get(key, key)
-        setattr(drug, mapped, value)
+        setattr(drug, key, value)
 
     db.commit()
     db.refresh(drug)
