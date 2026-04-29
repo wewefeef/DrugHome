@@ -325,7 +325,9 @@ def _run_seed_if_empty():
             logger.info("DPI has %d rows but none match any drug — truncating stale data", dpi_count)
             try:
                 with engine.begin() as conn:
+                    conn.execute(_text("SET FOREIGN_KEY_CHECKS=0"))
                     conn.execute(_text("DELETE FROM drug_protein_interactions"))
+                    conn.execute(_text("SET FOREIGN_KEY_CHECKS=1"))
             except Exception as exc:
                 logger.error("Truncate DPI failed: %s", exc)
         rows = []
@@ -344,18 +346,25 @@ def _run_seed_if_empty():
                     "actions": json.dumps(d.get("actions") or []),
                     "pubmed_ids": json.dumps(d.get("pubmed_ids") or []),
                 })
+        total_inserted = 0
+        BATCH = 500
         try:
             with engine.begin() as conn:
-                conn.execute(_text(
-                    "INSERT INTO drug_protein_interactions"
-                    " (drug_id, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)"
-                    " VALUES (:drug_id,:protein_id,:uniprot_id,:interaction_type,"
-                    ":known_action,:actions,:pubmed_ids)"
-                    " ON DUPLICATE KEY UPDATE interaction_type=VALUES(interaction_type)"
-                ), rows)
-            logger.info("Auto-seed DPI: %d rows inserted", len(rows))
+                conn.execute(_text("SET FOREIGN_KEY_CHECKS=0"))
+                for i in range(0, len(rows), BATCH):
+                    batch = rows[i:i + BATCH]
+                    conn.execute(_text(
+                        "INSERT IGNORE INTO drug_protein_interactions"
+                        " (drug_id, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)"
+                        " VALUES (:drug_id,:protein_id,:uniprot_id,:interaction_type,"
+                        ":known_action,:actions,:pubmed_ids)"
+                    ), batch)
+                    total_inserted += len(batch)
+                    logger.info("Auto-seed DPI batch %d/%d inserted", total_inserted, len(rows))
+                conn.execute(_text("SET FOREIGN_KEY_CHECKS=1"))
+            logger.info("Auto-seed DPI complete: %d rows total", total_inserted)
         except Exception as exc:
-            logger.error("Auto-seed DPI failed: %s", exc, exc_info=True)
+            logger.error("Auto-seed DPI failed at row %d: %s", total_inserted, exc, exc_info=True)
     else:
         logger.info("drug_protein_interactions has %d rows (%d matched) — skipping seed", dpi_count, dpi_matched)
 
@@ -457,3 +466,49 @@ app.include_router(api_interactions.router)
 app.include_router(api_analysis.router)
 app.include_router(api_sessions.router)
 app.include_router(api_auth.router)
+
+
+# ── Debug endpoint ────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/debug/db-status", tags=["debug"])
+def db_status():
+    """Return table counts and sample DPI data for diagnosing Railway DB state."""
+    from sqlalchemy import text as _text
+    try:
+        with engine.connect() as conn:
+            proteins_count = conn.execute(_text("SELECT COUNT(*) FROM proteins")).scalar() or 0
+            dpi_count = conn.execute(_text("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
+            drugs_count = conn.execute(_text("SELECT COUNT(*) FROM drugs")).scalar() or 0
+            dpi_matched = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_protein_interactions dpi "
+                "JOIN drugs d ON d.drugbank_id = dpi.drug_id"
+            )).scalar() or 0
+            sample_dpi = conn.execute(_text(
+                "SELECT drug_id, protein_id FROM drug_protein_interactions LIMIT 5"
+            )).fetchall()
+            dpi_sample = [{"drug_id": r[0], "protein_id": r[1]} for r in sample_dpi]
+            # Check DPI for specific drugs
+            db01234_count = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_protein_interactions WHERE drug_id='DB01234'"
+            )).scalar() or 0
+            db00641_count = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_protein_interactions WHERE drug_id='DB00641'"
+            )).scalar() or 0
+            # Check FK constraints on DPI table
+            fk_info = conn.execute(_text(
+                "SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS "
+                "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='drug_protein_interactions'"
+            )).fetchall()
+            fks = [{"name": r[0], "type": r[1]} for r in fk_info]
+    except Exception as exc:
+        return {"error": str(exc)}
+    return {
+        "drugs": drugs_count,
+        "proteins": proteins_count,
+        "dpi_total": dpi_count,
+        "dpi_matched_to_drugs": dpi_matched,
+        "dpi_DB01234": db01234_count,
+        "dpi_DB00641": db00641_count,
+        "dpi_sample": dpi_sample,
+        "dpi_constraints": fks,
+    }
