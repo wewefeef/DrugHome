@@ -425,12 +425,11 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
             data.items
               // Keep only interactions where the other drug is also in this session
               .filter(ix =>
-                (ix.interacting_drug_id !== drug.id && drugIds.has(ix.interacting_drug_id)) ||
-                (ix.drug_drugbank_id !== null && ix.drug_drugbank_id !== drug.id && drugIds.has(ix.drug_drugbank_id))
+                ix.interacting_drug_id !== drug.id && drugIds.has(ix.interacting_drug_id)
               )
               .map(ix => ({
-                drug_a_id: ix.drug_drugbank_id ?? drug.id,
-                drug_a_name: drugById[ix.drug_drugbank_id ?? ''] ?? drug.name,
+                drug_a_id: ix.drug_id ?? drug.id,
+                drug_a_name: drugById[ix.drug_id ?? ''] ?? drug.name,
                 drug_b_id: ix.interacting_drug_id,
                 drug_b_name: ix.interacting_drug_name ?? ix.interacting_drug_id,
                 severity: ix.severity ?? 'unknown',

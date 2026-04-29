@@ -11,7 +11,6 @@ const BASE = '/api/v1';
 // ── Raw API response types (as returned by backend) ───────────────────────────
 
 export interface ApiDrug {
-  drug_code: string;
   drugbank_id: string;
   name: string;
   drug_type: string | null;
@@ -71,7 +70,7 @@ export interface Paginated<T> {
 export function normalizeDrug(d: ApiDrug): Drug {
   return {
     id: d.drugbank_id,
-    drug_code: d.drug_code,
+    drug_code: d.drugbank_id,
     name: d.name,
     generic_name: d.name,
     type: d.drug_type ?? '',
@@ -250,8 +249,7 @@ export async function apiFetchSiteStats(): Promise<SiteStats> {
 
 export interface DrugInteraction {
   id: number;
-  drug_code: string;
-  drug_drugbank_id: string | null;
+  drug_id: string;
   interacting_drug_id: string;
   interacting_drug_name: string | null;
   severity: string | null;

@@ -96,7 +96,7 @@ def _run_seed_if_empty():
                     continue
                 d = json.loads(line)
                 rows.append({
-                    "drug_code": d.get("drug_id", ""),
+                    "drug_id": d.get("drug_id", ""),
                     "protein_id": d.get("protein_id"),
                     "uniprot_id": (d.get("uniprot_id") or "")[:50],
                     "interaction_type": (d.get("interaction_type") or "")[:20],
@@ -108,8 +108,8 @@ def _run_seed_if_empty():
             with engine.begin() as conn:
                 conn.execute(_text(
                     "INSERT INTO drug_protein_interactions"
-                    " (drug_code, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)"
-                    " VALUES (:drug_code,:protein_id,:uniprot_id,:interaction_type,"
+                    " (drug_id, protein_id, uniprot_id, interaction_type, known_action, actions, pubmed_ids)"
+                    " VALUES (:drug_id,:protein_id,:uniprot_id,:interaction_type,"
                     ":known_action,:actions,:pubmed_ids)"
                     " ON DUPLICATE KEY UPDATE interaction_type=VALUES(interaction_type)"
                 ), rows)
