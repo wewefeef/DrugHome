@@ -199,6 +199,61 @@ def _repair_schema_if_needed():
                     ))
                 logger.info("Schema repair: drug_interactions ✓")
 
+            # ── 4. Fix drug_id values that are in old non-DB format ───────────
+            # Previous repair set dpi.drug_id = dpi.drug_code which may have
+            # been in old "DR:XXXXX" format. We need it in "DB01234" format.
+            # Strategy A: join via drugs.drug_code (if column still exists)
+            # Strategy B: if DPI drug_ids don't match ANY drug, truncate + reseed
+            dpi_mismatch = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_protein_interactions "
+                "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+            )).scalar() or 0
+            if dpi_mismatch > 0:
+                logger.info("Schema repair: %d DPI rows have non-DB drug_id format, fixing…", dpi_mismatch)
+                if _col_exists(conn, "drugs", "drug_code"):
+                    conn.execute(_text(
+                        "UPDATE drug_protein_interactions dpi "
+                        "JOIN drugs d ON d.drug_code = dpi.drug_id "
+                        "SET dpi.drug_id = d.drugbank_id "
+                        "WHERE d.drugbank_id IS NOT NULL AND d.drugbank_id != ''"
+                    ))
+                # Delete any that still couldn't be mapped
+                still_bad = conn.execute(_text(
+                    "SELECT COUNT(*) FROM drug_protein_interactions "
+                    "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+                )).scalar() or 0
+                if still_bad > 0:
+                    conn.execute(_text(
+                        "DELETE FROM drug_protein_interactions "
+                        "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+                    ))
+                    logger.info("Schema repair: deleted %d unmappable DPI rows", still_bad)
+                logger.info("Schema repair: DPI drug_id format ✓")
+
+            di_mismatch = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_interactions "
+                "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+            )).scalar() or 0
+            if di_mismatch > 0:
+                logger.info("Schema repair: %d DI rows have non-DB drug_id format, fixing…", di_mismatch)
+                if _col_exists(conn, "drugs", "drug_code"):
+                    conn.execute(_text(
+                        "UPDATE drug_interactions di "
+                        "JOIN drugs d ON d.drug_code = di.drug_id "
+                        "SET di.drug_id = d.drugbank_id "
+                        "WHERE d.drugbank_id IS NOT NULL AND d.drugbank_id != ''"
+                    ))
+                still_bad_di = conn.execute(_text(
+                    "SELECT COUNT(*) FROM drug_interactions "
+                    "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+                )).scalar() or 0
+                if still_bad_di > 0:
+                    conn.execute(_text(
+                        "DELETE FROM drug_interactions "
+                        "WHERE drug_id NOT REGEXP '^DB[0-9]+'"
+                    ))
+                logger.info("Schema repair: DI drug_id format ✓")
+
     except Exception as exc:
         logger.error("Schema repair failed: %s", exc, exc_info=True)
 
@@ -219,9 +274,17 @@ def _run_seed_if_empty():
         with engine.connect() as conn:
             protein_count = conn.execute(_text("SELECT COUNT(*) FROM proteins")).scalar() or 0
             dpi_count = conn.execute(_text("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
+            # Check how many DPI rows actually match a drug (usable rows)
+            dpi_matched = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_protein_interactions dpi "
+                "JOIN drugs d ON d.drugbank_id = dpi.drug_id LIMIT 1"
+            )).scalar() or 0
     except Exception as exc:
         logger.warning("Auto-seed: could not query counts (%s) — skipping", exc)
         return
+
+    # Treat as empty if no DPI rows match any drug (broken data from bad repair)
+    dpi_needs_seed = (dpi_count == 0) or (dpi_matched == 0)
 
     # ── Seed proteins ──
     if protein_count == 0:
@@ -255,8 +318,16 @@ def _run_seed_if_empty():
         logger.info("proteins table has %d rows — skipping seed", protein_count)
 
     # ── Seed drug_protein_interactions ──
-    if dpi_count == 0:
+    if dpi_needs_seed:
         logger.info("Auto-seeding drug_protein_interactions from %s…", dpi_file)
+        # If stale rows exist (wrong format drug_ids), clear them first
+        if dpi_count > 0 and dpi_matched == 0:
+            logger.info("DPI has %d rows but none match any drug — truncating stale data", dpi_count)
+            try:
+                with engine.begin() as conn:
+                    conn.execute(_text("DELETE FROM drug_protein_interactions"))
+            except Exception as exc:
+                logger.error("Truncate DPI failed: %s", exc)
         rows = []
         with open(dpi_file, encoding="utf-8") as f:
             for line in f:
@@ -286,7 +357,7 @@ def _run_seed_if_empty():
         except Exception as exc:
             logger.error("Auto-seed DPI failed: %s", exc, exc_info=True)
     else:
-        logger.info("drug_protein_interactions has %d rows — skipping seed", dpi_count)
+        logger.info("drug_protein_interactions has %d rows (%d matched) — skipping seed", dpi_count, dpi_matched)
 
 
 @asynccontextmanager
