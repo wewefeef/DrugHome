@@ -26,12 +26,8 @@ class DrugAdmin(ModelView, model=Drug):
 
     # Columns excluded from create/edit forms (read-only data integrity)
     form_excluded_columns = [
-        Drug.drug_code,
-        Drug._drug_groups_raw,
-        Drug._categories_json,
-        Drug._aliases_json,
-        Drug._chemical_properties_json,
-        Drug._external_mappings_json,
+        Drug.created_at,
+        Drug.updated_at,
     ]
 
     # ── Search & Filter ───────────────────────────────────────────────────────
