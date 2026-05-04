@@ -1075,20 +1075,6 @@ export default function InteractionsPage() {
                 </div>
               </div>
 
-              {/* Demo quick-add */}
-              <div className="px-3 pb-2">
-                <div className="text-[9px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: "#334155" }}>Quick Demo Drugs</div>
-                <div className="flex flex-wrap gap-1">
-                  {DEMO_DRUGS.filter(d => !networkDrugs.find(s => s.id === d.id)).slice(0, 6 - networkDrugs.length).map(d => (
-                    <button key={d.id} onClick={() => addNetworkDrug(d)}
-                      className="text-[10px] flex items-center gap-1 px-2 py-1 rounded-full transition-all hover:brightness-125"
-                      style={{ background: "#1e3a5f80", color: "#60a5fa", border: "1px solid #1e3a5f" }}>
-                      <Plus size={8} /> {d.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Selected drugs */}
               <div className="px-3 pb-2 border-b" style={{ borderColor: "#1e3a5f" }}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -1252,17 +1238,8 @@ export default function InteractionsPage() {
                     <div>
                       <p className="font-extrabold text-xl mb-1" style={{ color: "#1e3a5f" }}>No Drug Selected</p>
                       <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "#1e2d47" }}>
-                        Use Quick Demo Drugs or search for a drug on the left. The network will build automatically.
+                        Search for a drug on the left or select from Disease Categories. The network will build automatically.
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {DEMO_DRUGS.slice(0, 4).map(d => (
-                        <button key={d.id} onClick={() => addNetworkDrug(d)}
-                          className="text-xs font-bold px-4 py-2 rounded-full transition-all hover:brightness-125"
-                          style={{ background: "#1d4ed822", color: "#60a5fa", border: "1px solid #1d4ed855" }}>
-                          + {d.name}
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </div>

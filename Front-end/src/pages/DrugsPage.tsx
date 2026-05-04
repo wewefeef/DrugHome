@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  Search, ChevronRight, ChevronLeft, SlidersHorizontal, X, LayoutGrid, List,
+  Search, ChevronRight, ChevronLeft, X, LayoutGrid, List,
   Pill, Loader2,
 } from "lucide-react";
 import type { Drug } from "../types/drug";
@@ -185,7 +185,6 @@ export default function DrugsPage() {
   const [drugType, setDrugType] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [diseaseCategory, setDiseaseCategory] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
   // Disease categories (same as interaction page)
   const DISEASE_CATEGORIES = [
@@ -305,45 +304,34 @@ export default function DrugsPage() {
             <button type="submit" className="bg-blue-400 hover:bg-blue-300 text-primary-900 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors shadow-lg">
               <Search size={15} /> Search
             </button>
-            <button type="button" onClick={() => setShowFilters(!showFilters)}
-              className={"relative border-2 text-white px-4 py-3 rounded-xl transition-colors flex items-center gap-1.5 text-sm " + (showFilters || activeFiltersCount > 0 ? "border-blue-300 bg-blue-300/15" : "border-white/30 hover:border-blue-300")}>
-              <SlidersHorizontal size={15} />
-              <span className="hidden sm:inline">Filter</span>
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-400 text-primary-900 text-[9px] font-black flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
+
           </form>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 -mt-4">
         {/* ── Filter panel (disease categories) ─── */}
-        {showFilters && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Disease Category</label>
-              {diseaseCategory && (
-                <button onClick={resetFilters} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
-                  <X size={11} /> Clear
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {DISEASE_CATEGORIES.map(cat => (
-                <button
-                  key={cat.key}
-                  onClick={() => { setDiseaseCategory(diseaseCategory === cat.key ? "" : cat.key); setPage(1); }}
-                  className={"text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1 " + (diseaseCategory === cat.key ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}
-                >
-                  <span>{cat.icon}</span> {cat.label}
-                </button>
-              ))}
-            </div>
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Disease Category</label>
+            {diseaseCategory && (
+              <button onClick={resetFilters} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
+                <X size={11} /> Clear
+              </button>
+            )}
           </div>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {DISEASE_CATEGORIES.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => { setDiseaseCategory(diseaseCategory === cat.key ? "" : cat.key); setPage(1); }}
+                className={"text-xs px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1 " + (diseaseCategory === cat.key ? "bg-primary-800 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-700")}
+              >
+                <span>{cat.icon}</span> {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* ── Toolbar ──────────────────────────── */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5 bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100">

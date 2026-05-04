@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 from functools import lru_cache
+from urllib.parse import quote_plus
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -77,9 +78,10 @@ class Settings(BaseSettings):
         if val:
             return _to_pymysql(val)
 
-        # 3. Local / VPS individual vars
+        # 3. Local / VPS individual vars — URL-encode password to handle special chars (@, !, etc.)
+        encoded_password = quote_plus(self.db_password)
         return (
-            f"mysql+pymysql://{self.db_user}:{self.db_password}"
+            f"mysql+pymysql://{self.db_user}:{encoded_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
             f"?charset={self.db_charset}"
         )
