@@ -35,10 +35,10 @@ SEED_DIR = Path(__file__).resolve().parent.parent / "seed_data"
 
 
 def _repair_schema_if_needed():
-    """Idempotent startup migration for Railway MySQL.
+    """Idempotent startup migration for MySQL.
 
-    SQLAlchemy create_all() never ALTERs existing tables. Railway was first
-    deployed with an older schema (drug_code PKs, no smiles, etc.). This
+    SQLAlchemy create_all() never ALTERs existing tables. If the database
+    was created with an older schema (drug_code PKs, no smiles, etc.), this
     function detects and repairs every known structural difference so the
     app works regardless of which deployment created the live tables.
 
@@ -267,8 +267,7 @@ def _repair_schema_if_needed():
 
 
 def _run_seed_if_empty():
-    """Seed proteins and DPI tables from bundled NDJSON if they are empty.
-    Uses the existing SQLAlchemy engine so Railway DB credentials are respected."""
+    """Seed proteins and DPI tables from bundled NDJSON if they are empty."""
     from sqlalchemy import text as _text
     from app.database import engine
 
@@ -386,7 +385,7 @@ async def lifespan(app: FastAPI):
         logger.info("DB tables verified OK")
     except Exception as exc:
         logger.warning("DB table check failed (non-fatal): %s", exc)
-    # Repair any columns missing from pre-existing Railway MySQL tables
+    # Repair any columns missing from pre-existing MySQL tables (idempotent)
     _repair_schema_if_needed()
     # Auto-seed protein data in background so startup isn't blocked
     try:
@@ -480,7 +479,7 @@ app.include_router(api_auth.router)
 
 @app.get("/api/v1/debug/db-status", tags=["debug"])
 def db_status():
-    """Return table counts and sample DPI data for diagnosing Railway DB state."""
+    """Return table counts and sample DPI data for diagnosing DB state."""
     from sqlalchemy import text as _text
     try:
         with engine.connect() as conn:
