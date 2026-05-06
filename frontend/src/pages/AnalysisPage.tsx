@@ -1115,6 +1115,24 @@ export default function AnalysisPage() {
         )}
 
         {/* ═══════════════════ TAB: STATS ═══════════════════ */}
+        {activeTab === 'stats' && !stats && (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <TrendingUp size={28} className="text-violet-300" />
+            </div>
+            <h3 className="font-semibold text-gray-700 mb-1">{user ? 'No statistics yet' : 'Sign in to view statistics'}</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              {user
+                ? 'Save drug interaction sessions to generate statistics.'
+                : 'Statistics are available for logged-in users only.'}
+            </p>
+            {!user && (
+              <Link to="/auth" className="inline-flex items-center gap-2 bg-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors">
+                Sign In / Sign Up
+              </Link>
+            )}
+          </div>
+        )}
         {activeTab === 'stats' && stats && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Severity breakdown */}

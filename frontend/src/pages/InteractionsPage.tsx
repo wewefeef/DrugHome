@@ -4,11 +4,12 @@ import ForceGraph2D, { type NodeObject, type LinkObject } from "react-force-grap
 import {
   Zap, Search, X, ChevronRight, Plus, Loader2, RefreshCw, Maximize2,
   ExternalLink, AlertTriangle, AlertCircle, CheckCircle2, Info, Network,
-  FlaskConical, ShieldAlert, Activity, ChevronDown, ChevronUp,
+  FlaskConical, ShieldAlert, Activity, ChevronDown, ChevronUp, BookmarkPlus,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
 import { apiSearchDrugs, apiFetchDrugsByCategory, apiFetchDrugNetwork } from "../lib/api";
 import type { DrugNetworkData } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 /* ─────────── TYPES ─────────── */
 interface DrugEntry { id: string; name: string; targetCount?: number; enzymeCount?: number; }
@@ -150,7 +151,11 @@ function InteractionAnalysisPanel({
   networkData: Map<string, DrugNetworkData>;
   onClose: () => void;
 }) {
+  const { token, user } = useAuth();
   const [expandedDrug, setExpandedDrug] = useState<string | null>(networkDrugs[0]?.id ?? null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Build a map: drugA+drugB → interaction (from both directions)
   const interactionMap = useMemo(() => {
@@ -225,6 +230,73 @@ function InteractionAnalysisPanel({
     return "none";
   };
 
+  const handleSaveSession = async () => {
+    setSaving(true); setSaveError(null); setSaved(false);
+    try {
+      // Build interactions list from all unique pairs
+      const pairs: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string | null }[] = [];
+      const seen = new Set<string>();
+      for (const drug of networkDrugs) {
+        const data = networkData.get(drug.id);
+        if (!data) continue;
+        for (const ix of data.interactions) {
+          const partner = networkDrugs.find(d => d.id === ix.drug_id);
+          if (!partner) continue;
+          const key = [drug.id, ix.drug_id].sort().join(":");
+          if (seen.has(key)) continue;
+          seen.add(key);
+          pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? "" });
+        }
+      }
+      const majorCount = pairs.filter(p => p.severity === "major").length;
+      const moderateCount = pairs.filter(p => p.severity === "moderate").length;
+      const minorCount = pairs.filter(p => p.severity === "minor").length;
+      const riskLevel = majorCount > 0 ? "high" : moderateCount > 0 ? "moderate" : "low";
+
+      const payload = {
+        drugs_snapshot: networkDrugs.map(d => ({ id: d.id, name: d.name })),
+        interactions_found: pairs,
+        total_drugs: networkDrugs.length,
+        total_interactions: pairs.length,
+        major_count: majorCount,
+        moderate_count: moderateCount,
+        minor_count: minorCount,
+        risk_level: riskLevel,
+        risk_score: majorCount > 0 ? 3 : moderateCount > 0 ? 2 : 1,
+      };
+
+      if (!user || !token) {
+        // Guest mode — save to sessionStorage
+        sessionStorage.setItem('medidb_guest_session', JSON.stringify({
+          id: -1,
+          title: `Phác đồ: ${networkDrugs.map(d => d.name).join(', ')}`,
+          created_at: new Date().toISOString(),
+          tags: null,
+          notes: null,
+          ...payload,
+        }));
+        setSaved(true);
+        return;
+      }
+
+      const res = await fetch('/api/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSaveError((err as { detail?: string }).detail ?? `Error ${res.status}`);
+      } else {
+        setSaved(true);
+      }
+    } catch (e) {
+      setSaveError('Could not connect to server.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -250,9 +322,27 @@ function InteractionAnalysisPanel({
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/10" style={{ color: "#475569" }}>
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {saveError && (
+              <span className="text-[11px] text-red-400 max-w-xs truncate">{saveError}</span>
+            )}
+            <button
+              onClick={handleSaveSession}
+              disabled={saving || saved}
+              className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all disabled:opacity-60"
+              style={{
+                background: saved ? "#22c55e25" : "#1d4ed825",
+                color: saved ? "#86efac" : "#93c5fd",
+                border: saved ? "1px solid #22c55e50" : "1px solid #1d4ed850",
+              }}
+            >
+              {saving ? <Loader2 size={11} className="animate-spin" /> : saved ? <CheckCircle2 size={11} /> : <Activity size={11} />}
+              {saving ? "Saving…" : saved ? "Saved!" : "Save Session"}
+            </button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/10" style={{ color: "#475569" }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -661,6 +751,10 @@ export default function InteractionsPage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [physicsEnabled, setPhysicsEnabled] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const { token, user } = useAuth();
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickSaved, setQuickSaved] = useState(false);
+  const [quickSaveError, setQuickSaveError] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null);
   const graphContainerRef = useRef<HTMLDivElement>(null);
@@ -910,6 +1004,63 @@ export default function InteractionsPage() {
 
   const isLoading = loadingDrugs.size > 0;
   const hasData = networkData.size > 0;
+
+  const handleQuickSave = async () => {
+    setQuickSaving(true); setQuickSaveError(null); setQuickSaved(false);
+    try {
+      const pairs: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string }[] = [];
+      const seen = new Set<string>();
+      for (const drug of networkDrugs) {
+        const data = networkData.get(drug.id);
+        if (!data) continue;
+        for (const ix of data.interactions) {
+          const partner = networkDrugs.find(d => d.id === ix.drug_id);
+          if (!partner) continue;
+          const key = [drug.id, ix.drug_id].sort().join(':');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? '' });
+        }
+      }
+      const majorCount = pairs.filter(p => p.severity === 'major').length;
+      const moderateCount = pairs.filter(p => p.severity === 'moderate').length;
+      const minorCount = pairs.filter(p => p.severity === 'minor').length;
+      const riskLevel = majorCount > 0 ? 'high' : moderateCount > 0 ? 'moderate' : 'low';
+      const payload = {
+        drugs_snapshot: networkDrugs.map(d => ({ id: d.id, name: d.name })),
+        interactions_found: pairs,
+        total_drugs: networkDrugs.length,
+        total_interactions: pairs.length,
+        major_count: majorCount,
+        moderate_count: moderateCount,
+        minor_count: minorCount,
+        risk_level: riskLevel,
+        risk_score: majorCount > 0 ? 3 : moderateCount > 0 ? 2 : 1,
+      };
+      if (!user || !token) {
+        sessionStorage.setItem('medidb_guest_session', JSON.stringify({ id: -1, title: `Phác đồ: ${networkDrugs.map(d => d.name).join(', ')}`, created_at: new Date().toISOString(), tags: null, notes: null, ...payload }));
+        setQuickSaved(true);
+        setTimeout(() => setQuickSaved(false), 3000);
+        return;
+      }
+      const res = await fetch('/api/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setQuickSaveError((err as { detail?: string }).detail ?? `Error ${res.status}`);
+      } else {
+        setQuickSaved(true);
+        setTimeout(() => setQuickSaved(false), 3000);
+      }
+    } catch {
+      setQuickSaveError('Cannot connect to server.');
+    } finally {
+      setQuickSaving(false);
+    }
+  };
   const cc = (col: string) => CAT_COLORS[col] ?? CAT_COLORS.blue;
   const activeCat = categories.find(c => c.key === activeCategory);
   const catDrugsFiltered = catDrugsFromApi.length > 0 ? catDrugsFromApi : (activeCat?.drugs ?? []);
@@ -1108,6 +1259,20 @@ export default function InteractionsPage() {
                     <FlaskConical size={12} />
                     Analyze Interactions
                   </button>
+                )}
+                {/* Quick Save button */}
+                {networkDrugs.length >= 2 && !isLoading && (
+                  <button
+                    onClick={handleQuickSave}
+                    disabled={quickSaving || quickSaved}
+                    className="mt-1.5 w-full flex items-center justify-center gap-2 py-1.5 rounded-xl text-xs font-bold transition-all hover:brightness-125 disabled:opacity-60"
+                    style={quickSaved ? { background: "#15803d", color: "#bbf7d0" } : { background: "#0f172a", color: "#60a5fa", border: "1px solid #1d4ed840" }}>
+                    {quickSaving ? <Loader2 size={11} className="animate-spin" /> : <BookmarkPlus size={11} />}
+                    {quickSaving ? 'Saving…' : quickSaved ? 'Saved!' : 'Save Session'}
+                  </button>
+                )}
+                {quickSaveError && (
+                  <div className="mt-1 text-[10px] text-center" style={{ color: "#f87171" }}>{quickSaveError}</div>
                 )}
                 {networkDrugs.length >= 2 && isLoading && (
                   <div className="mt-2.5 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs" style={{ background: "#1e3a5f", color: "#475569" }}>
