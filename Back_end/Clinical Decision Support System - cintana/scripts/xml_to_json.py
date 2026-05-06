@@ -148,6 +148,7 @@ def extract_protein_entries(elem, ns: str, tag_wrapper: str, tag_item: str,
                     "organism": organism or "Unknown",
                     "name": protein_name,
                     "gene_name": gene_name,
+                    "protein_type": tag_item,  # "target"|"enzyme"|"transporter"|"carrier"
                 }
             protein_id = protein_map[uniprot_id]["id"]
 

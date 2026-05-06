@@ -190,6 +190,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
     if (!fullName.trim()) errs.fullName = 'Please enter your full name';
     if (!email.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) errs.email = 'Invalid email';
     if (!username.trim() || username.length < 3) errs.username = 'At least 3 characters';
+    else if (!/^[a-zA-Z0-9_\-.]+$/.test(username.trim())) errs.username = 'Only letters, numbers, _ - and . are allowed';
     if (password.length < 8) errs.password = 'Password must be at least 8 characters';
     if (password !== confirmPassword) errs.confirmPassword = 'Passwords do not match';
     return errs;
@@ -219,7 +220,9 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
       try { data = await res.json(); } catch { data = {}; }
       if (!res.ok) {
         if (data.detail && Array.isArray(data.detail)) {
-          const msg = (data.detail as { msg: string }[]).map((d) => d.msg).join(', ');
+          const msg = (data.detail as { msg: string }[])
+            .map((d) => d.msg.replace(/^value error,\s*/i, ''))
+            .join(', ');
           throw new Error(msg);
         }
         throw new Error((data.detail as string) || 'Registration failed. Please try again.');
@@ -261,7 +264,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
         placeholder="username"
         icon={<AtSign size={16} />}
         error={fieldErrors.username}
-        autoComplete="username"
+        autoComplete="off"
       />
 
       {/* Password with strength */}

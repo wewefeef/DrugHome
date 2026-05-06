@@ -44,7 +44,7 @@ class InteractionRecord(BaseModel):
     drug_b_id: str
     drug_b_name: str
     severity: str
-    description: str
+    description: Optional[str] = ""
     source: str = "DrugBank"
 
 
@@ -126,7 +126,7 @@ def create_session(
         drug_names = ", ".join(d.name for d in payload.drugs_snapshot[:3])
         if len(payload.drugs_snapshot) > 3:
             drug_names += f" +{len(payload.drugs_snapshot) - 3}"
-        title = f"PhÃ¡c Ä‘á»“: {drug_names}"
+        title = f"Phác đồ: {drug_names}"
 
     session = AnalysisSession(
         user_id=current_user.id,
