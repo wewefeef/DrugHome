@@ -242,7 +242,7 @@ function RegisterForm({ onSwitch, from }: { onSwitch: () => void; from: string }
         label="Full name"
         value={fullName}
         onChange={setFullName}
-        placeholder="John Doe"
+        placeholder="Full name"
         icon={<User size={16} />}
         error={fieldErrors.fullName}
         autoComplete="name"

@@ -1281,81 +1281,83 @@ export default function InteractionsPage() {
                 )}
               </div>
 
-              {/* Disease categories */}
+              {/* Disease categories — accordion */}
               <div className="px-3 pt-2 pb-1">
                 <div className="text-[9px] font-extrabold uppercase tracking-widest mb-2" style={{ color: "#334155" }}>Disease Categories</div>
                 {catLoading
                   ? <div className="flex items-center gap-1.5 py-2 text-xs" style={{ color: "#334155" }}><Loader2 size={10} className="animate-spin" /> Loading…</div>
                   : (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="space-y-0.5 max-h-[480px] overflow-y-auto pr-0.5">
                       {categories.map(cat => {
                         const isActive = activeCategory === cat.key;
                         const cols = cc(cat.color);
+                        const drugsForThisCat = isActive ? catDrugsFiltered : [];
                         return (
-                          <button key={cat.key} onClick={() => setActiveCategory(isActive ? null : cat.key)}
-                            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full ring-1 transition-all ${isActive ? `${cols.bg} ${cols.tx} ${cols.rg}` : "ring-transparent"}`}
-                            style={isActive ? {} : { background: "#0a0f1e", color: "#475569" }}>
-                            <span>{cat.icon}</span>
-                            <span>{cat.label}</span>
-                            <span className="text-[9px] opacity-50">{cat.count}</span>
-                          </button>
+                          <div key={cat.key}>
+                            {/* Category row */}
+                            <button
+                              onClick={() => setActiveCategory(isActive ? null : cat.key)}
+                              className={`w-full flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1.5 rounded-lg ring-1 transition-all ${
+                                isActive ? `${cols.bg} ${cols.tx} ${cols.rg}` : "ring-transparent"
+                              }`}
+                              style={isActive ? {} : { background: "transparent", color: "#475569" }}
+                            >
+                              <span>{cat.icon}</span>
+                              <span className="flex-1 text-left">{cat.label}</span>
+                              <span className="text-[9px] opacity-50">{cat.count}</span>
+                              {isActive
+                                ? <ChevronUp size={10} className="shrink-0 opacity-70" />
+                                : <ChevronDown size={10} className="shrink-0 opacity-40" />}
+                            </button>
+
+                            {/* Inline drug list for this category */}
+                            {isActive && (
+                              <div className="mt-0.5 ml-2 mb-1 pl-2 border-l" style={{ borderColor: "#1e3a5f" }}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#22c55e18", color: "#22c55e", border: "1px solid #22c55e30" }}>
+                                    {catDrugsFiltered.length} with data
+                                  </span>
+                                  {catDrugsFiltered.length === 0 && !catDrugsLoading && (
+                                    <span className="text-[9px]" style={{ color: "#ef4444" }}>no network data</span>
+                                  )}
+                                </div>
+                                {catDrugsLoading
+                                  ? <div className="flex items-center justify-center py-3 gap-1.5 text-xs" style={{ color: "#334155" }}><Loader2 size={10} className="animate-spin" /> Loading…</div>
+                                  : drugsForThisCat.length === 0
+                                    ? <p className="text-[10px] py-2 text-center" style={{ color: "#334155" }}>No drugs with network data.</p>
+                                    : (
+                                      <div className="space-y-px max-h-52 overflow-y-auto">
+                                        {drugsForThisCat.map(drug => {
+                                          const isSel = !!networkDrugs.find(s => s.id === drug.id);
+                                          const disabled = !isSel && networkDrugs.length >= 6;
+                                          const totalP = (drug.targetCount ?? 0) + (drug.enzymeCount ?? 0);
+                                          return (
+                                            <button key={drug.id} onClick={() => isSel ? removeNetworkDrug(drug.id) : addNetworkDrug(drug)}
+                                              disabled={disabled}
+                                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
+                                              style={{ background: isSel ? "#1e3a5f" : "transparent", color: isSel ? "#93c5fd" : "#64748b" }}
+                                              onMouseEnter={e => { if (!isSel && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#0a0f1e"; }}
+                                              onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                                              <span className="truncate flex-1 text-left font-medium">{drug.name}</span>
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {totalP > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#ef444418", color: "#ef4444" }}>{totalP}P</span>
+                                                )}
+                                                {isSel ? <X size={8} style={{ color: "#60a5fa" }} /> : <Plus size={8} style={{ color: "#334155" }} />}
+                                              </div>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   )}
               </div>
-
-              {/* Drug list from category — only drugs with network data */}
-              {activeCategory && (
-                <div className="px-3 pb-3 border-b" style={{ borderColor: "#1e3a5f" }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>
-                        {activeCat?.icon} {activeCat?.label}
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#22c55e18", color: "#22c55e", border: "1px solid #22c55e30" }}>
-                        {catDrugsFiltered.length} with data
-                      </span>
-                    </div>
-                    {catDrugsFiltered.length === 0 && !catDrugsLoading && (
-                      <span className="text-[9px]" style={{ color: "#ef4444" }}>no network data</span>
-                    )}
-                  </div>
-                  {catDrugsLoading
-                    ? <div className="flex items-center justify-center py-4 gap-1.5 text-xs" style={{ color: "#334155" }}><Loader2 size={11} className="animate-spin" /> Loading…</div>
-                    : catDrugsFiltered.length === 0
-                      ? (
-                        <p className="text-[11px] py-3 text-center leading-relaxed" style={{ color: "#334155" }}>
-                          No drugs in this category have protein network data.
-                        </p>
-                      )
-                      : (
-                        <div className="space-y-px max-h-56 overflow-y-auto pr-0.5">
-                          {catDrugsFiltered.map(drug => {
-                            const isSel = !!networkDrugs.find(s => s.id === drug.id);
-                            const disabled = !isSel && networkDrugs.length >= 6;
-                            const totalP = (drug.targetCount ?? 0) + (drug.enzymeCount ?? 0);
-                            return (
-                              <button key={drug.id} onClick={() => isSel ? removeNetworkDrug(drug.id) : addNetworkDrug(drug)}
-                                disabled={disabled}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
-                                style={{ background: isSel ? "#1e3a5f" : "transparent", color: isSel ? "#93c5fd" : "#64748b" }}
-                                onMouseEnter={e => { if (!isSel && !disabled) (e.currentTarget as HTMLButtonElement).style.background = "#0a0f1e"; }}
-                                onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
-                                <span className="truncate flex-1 text-left font-medium">{drug.name}</span>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {totalP > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#ef444418", color: "#ef4444" }}>{totalP}P</span>
-                                  )}
-                                  {isSel ? <X size={8} style={{ color: "#60a5fa" }} /> : <Plus size={8} style={{ color: "#334155" }} />}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                </div>
-              )}
 
               {/* Network summary stats */}
               {hasData && (

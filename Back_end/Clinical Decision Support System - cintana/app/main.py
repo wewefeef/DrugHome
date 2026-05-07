@@ -377,6 +377,111 @@ def _run_seed_if_empty():
 
 
 @asynccontextmanager
+def _create_stored_procedures() -> None:
+    """Create (or replace) performance-critical stored procedures.
+
+    Called once at startup — idempotent (uses DROP IF EXISTS + CREATE).
+    All three procedures use dynamic SQL so MySQL can resolve column-level
+    IN-lists efficiently against the covering indexes added in migration 0005.
+    """
+    from sqlalchemy import text as _text
+
+    procs = {
+        # ── 1. Category drugs with protein counts ────────────────────────────
+        # Input:  p_cat_ids  — comma-separated category IDs  e.g. '1,5,22,47'
+        #         p_limit    — max rows to return
+        # Output: drugbank_id, name, target_count, enzyme_count, transporter_count
+        # Uses:   ix_dcm_cat_drug(category_id, drug_id)  +  ix_dpi_drug_type(drug_id, type)
+        "sp_category_drugs_net": """
+CREATE PROCEDURE sp_category_drugs_net(
+    IN p_cat_ids TEXT,
+    IN p_limit   INT
+)
+BEGIN
+    SET @q = CONCAT(
+        'SELECT d.drugbank_id, d.name,',
+        ' SUM(dpi.interaction_type = ''target'')      AS target_count,',
+        ' SUM(dpi.interaction_type = ''enzyme'')      AS enzyme_count,',
+        ' SUM(dpi.interaction_type = ''transporter'') AS transporter_count',
+        ' FROM drugs d',
+        ' INNER JOIN drug_category_map dcm ON dcm.drug_id = d.drugbank_id',
+        ' INNER JOIN drug_protein_interactions dpi ON dpi.drug_id = d.drugbank_id',
+        ' WHERE dcm.category_id IN (', p_cat_ids, ')',
+        ' GROUP BY d.drugbank_id, d.name',
+        ' ORDER BY d.name',
+        ' LIMIT ', p_limit
+    );
+    PREPARE stmt FROM @q;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END""",
+
+        # ── 2. Bidirectional interaction check for multiple drugs ─────────────
+        # Input:  p_drug_ids — comma-separated quoted DrugBank IDs
+        #                      e.g. '''DB00945'',''DB00682'''
+        # Output: drug_id, interacting_drug_id, interacting_drug_name, severity, description
+        # Uses:   ix_di_both(drug_id, interacting_drug_id) + ix_di_rev_cover
+        "sp_check_interactions_multi": """
+CREATE PROCEDURE sp_check_interactions_multi(
+    IN p_drug_ids TEXT
+)
+BEGIN
+    SET @q = CONCAT(
+        'SELECT drug_id, interacting_drug_id, interacting_drug_name, severity, description',
+        ' FROM drug_interactions',
+        ' WHERE drug_id IN (', p_drug_ids, ')',
+        '   AND interacting_drug_id IN (', p_drug_ids, ')'
+    );
+    PREPARE stmt FROM @q;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END""",
+
+        # ── 3. Protein-type counts for a batch of drugs ──────────────────────
+        # Input:  p_drug_ids — comma-separated quoted DrugBank IDs
+        # Output: drug_id, interaction_type, cnt
+        # Uses:   ix_dpi_drug_type(drug_id, interaction_type)
+        "sp_protein_counts_batch": """
+CREATE PROCEDURE sp_protein_counts_batch(
+    IN p_drug_ids TEXT
+)
+BEGIN
+    SET @q = CONCAT(
+        'SELECT drug_id, interaction_type, COUNT(*) AS cnt',
+        ' FROM drug_protein_interactions',
+        ' WHERE drug_id IN (', p_drug_ids, ')',
+        ' GROUP BY drug_id, interaction_type'
+    );
+    PREPARE stmt FROM @q;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END""",
+    }
+
+    try:
+        with engine.begin() as conn:
+            for name, body in procs.items():
+                conn.execute(_text(f"DROP PROCEDURE IF EXISTS `{name}`"))
+                conn.execute(_text(body))
+                logger.info("Stored procedure created: %s", name)
+    except Exception as exc:
+        logger.warning("Stored procedure setup failed (non-fatal): %s", exc)
+
+
+def _warm_category_cache() -> None:
+    """Pre-resolve category keywords → category IDs and warm drug list cache."""
+    from app.core import category_cache
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        category_cache.warm(db)
+    except Exception as exc:
+        logger.warning("Category cache warm failed (non-fatal): %s", exc)
+    finally:
+        db.close()
+
+
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
@@ -387,6 +492,14 @@ async def lifespan(app: FastAPI):
         logger.warning("DB table check failed (non-fatal): %s", exc)
     # Repair any columns missing from pre-existing MySQL tables (idempotent)
     _repair_schema_if_needed()
+    # Create/replace performance stored procedures
+    _create_stored_procedures()
+    # Pre-load category IDs (eliminates LIKE scan on every category request)
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _warm_category_cache)
+    except Exception as exc:
+        logger.warning("Category cache warm executor failed (non-fatal): %s", exc)
     # Auto-seed protein data in background so startup isn't blocked
     try:
         loop = asyncio.get_event_loop()

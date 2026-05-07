@@ -31,6 +31,8 @@ from app.models import (
 )
 from app.schemas import DrugCreate, DrugOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
+from app.core.category_keywords import CATEGORY_KEYWORDS
+from app.core import category_cache
 from sqlalchemy.orm import selectinload
 
 
@@ -46,21 +48,8 @@ def _build_fulltext_query(raw: str) -> str:
     return " ".join(parts) if parts else raw
 
 # Disease category → MySQL LIKE keywords for the JSON categories column
-CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "pain":        ["Analgesic", "Antipyretic", "Anti-Inflammatory", "Opioid", "Migraine", "Nonsteroidal"],
-    "cardio":      ["Cardiovascular", "Antihypertensive", "Antiarrhythmic", "Vasodilator", "Anticoagulant", "Antiplatelet", "Cardiac", "Diuretic"],
-    "antibiotics": ["Anti-Bacterial", "Antibiotic", "Antimicrobial", "Anti-Infective", "Bactericidal"],
-    "cns":         ["Central Nervous System", "Antidepressant", "Antipsychotic", "Anxiolytic", "Sedative", "Hypnotic", "Stimulant"],
-    "diabetes":    ["Hypoglycemic", "Antidiabetic", "Insulin", "Endocrine", "Hormones"],
-    "neuro":       ["Anticonvulsant", "Parkinson", "Alzheimer", "Multiple Sclerosis", "Neuropathy", "Neurology"],
-    "oncology":    ["Antineoplastic", "Chemotherapy", "Cancer", "Immunotherapy", "Cytotoxic"],
-    "gi":          ["Gastrointestinal", "Antacid", "Proton Pump", "Laxative", "Antiemetic", "Digestive"],
-    "immuno":      ["Immunosuppressive", "Immunomodulatory", "Autoimmune", "Antibodies", "Monoclonal"],
-    "antiviral":   ["Antiviral", "Antifungal", "Antiparasitic", "HIV", "Hepatitis", "Antiretroviral"],
-    "cholesterol": ["Lipid", "Statin", "Cholesterol", "Fibrate", "Antilipemic"],
-    "respiratory": ["Respiratory", "Bronchodilator", "Antiasthmatic", "Expectorant", "Antitussive"],
-    "rheuma":      ["Rheumatoid", "Anti-Rheumatic", "Gout", "Bone", "Arthritis", "NSAID"],
-}
+# NOTE: CATEGORY_KEYWORDS is now imported from app.core.category_keywords
+# (kept here for backward compatibility with any direct imports)
 
 router = APIRouter(prefix="/api/v1/drugs", tags=["Drugs"])
 
@@ -131,18 +120,27 @@ def list_drugs(
         )
 
     if category_key.strip() and category_key.strip() in CATEGORY_KEYWORDS:
-        keywords = CATEGORY_KEYWORDS[category_key.strip()]
-        # JOIN through drug_category_map + categories — uses ix_categories_name index
-        cat_filters = [
-            DrugCategory.category.like(f"%{kw}%")
-            for kw in keywords
-        ]
-        qs = (
-            qs.join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
-            .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
-            .filter(or_(*cat_filters))
-            .distinct()
-        )
+        # Fast path: use pre-resolved category IDs (no LIKE scan on categories table)
+        cat_ids = category_cache.get_ids(category_key.strip())
+        if cat_ids:
+            qs = (
+                qs.join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+                .filter(DrugCategoryMap.category_id.in_(cat_ids))
+                .distinct()
+            )
+        else:
+            # Fallback: cache not warmed yet, use LIKE join
+            keywords = CATEGORY_KEYWORDS[category_key.strip()]
+            cat_filters = [
+                DrugCategory.category.like(f"%{kw}%")
+                for kw in keywords
+            ]
+            qs = (
+                qs.join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+                .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
+                .filter(or_(*cat_filters))
+                .distinct()
+            )
 
     total = qs.count()
     offset = (page - 1) * per_page
@@ -210,18 +208,72 @@ def list_drugs_by_category(
     if cached is not None:
         return cached
 
-    keywords = CATEGORY_KEYWORDS[category_key]
-    cat_filters = [
-        DrugCategory.category.like(f"%{kw}%")
-        for kw in keywords
-    ]
-    qs = (
-        db.query(Drug)
-        .join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
-        .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
-        .filter(or_(*cat_filters))
-        .distinct()
-    )
+    # ── Fast path: use stored procedure when cache is warmed ──────────────────
+    if has_network and category_cache.is_warmed():
+        cat_ids = category_cache.get_ids(category_key)
+        if cat_ids:
+            cat_ids_str = ",".join(str(i) for i in cat_ids)
+            limit = page * per_page  # stored proc returns from start; we slice below
+            try:
+                rows = db.execute(
+                    text("CALL sp_category_drugs_net(:ids, :lim)"),
+                    {"ids": cat_ids_str, "lim": limit},
+                ).fetchall()
+                total = len(rows)
+                page_rows = rows[(page - 1) * per_page : page * per_page]
+                items = []
+                for r in page_rows:
+                    out = DrugOut(
+                        drugbank_id=r.drugbank_id,
+                        name=r.name,
+                        drug_type=None, state=None, cas_number=None,
+                        description=None, indication=None, mechanism_of_action=None,
+                        pharmacodynamics=None, toxicity=None, metabolism=None,
+                        absorption=None, half_life=None, protein_binding=None,
+                        route_of_elimination=None, groups=[], categories=[],
+                        synonyms=[], external_identifiers=[], products=[],
+                        average_mass=None, monoisotopic_mass=None,
+                        molecular_formula=None, smiles=None, inchikey=None,
+                        inchi=None, atc_codes=None, unii=None,
+                    )
+                    out.target_count = int(r.target_count or 0)
+                    out.enzyme_count = int(r.enzyme_count or 0)
+                    out.transporter_count = int(r.transporter_count or 0)
+                    items.append(out)
+                result = PaginatedResponse(
+                    total=total, page=page, per_page=per_page,
+                    total_pages=ceil(total / per_page) if total else 0,
+                    items=items,
+                )
+                cache_set(cache_key, result, ttl=3600)
+                return result
+            except Exception:
+                pass  # Fall through to standard ORM path on any error
+
+    # ── Standard ORM path ─────────────────────────────────────────────────────
+    cat_ids = category_cache.get_ids(category_key)
+    if cat_ids:
+        # Fast: IN clause on pre-resolved IDs, uses ix_dcm_cat_drug index
+        qs = (
+            db.query(Drug)
+            .join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+            .filter(DrugCategoryMap.category_id.in_(cat_ids))
+            .distinct()
+        )
+    else:
+        # Fallback LIKE scan (cache not warmed yet)
+        keywords = CATEGORY_KEYWORDS[category_key]
+        cat_filters = [
+            DrugCategory.category.like(f"%{kw}%")
+            for kw in keywords
+        ]
+        qs = (
+            db.query(Drug)
+            .join(DrugCategoryMap, Drug.drugbank_id == DrugCategoryMap.drug_id)
+            .join(DrugCategory, DrugCategoryMap.category_id == DrugCategory.id)
+            .filter(or_(*cat_filters))
+            .distinct()
+        )
 
     if has_network:
         # Only include drugs that have at least 1 protein interaction record

@@ -347,7 +347,7 @@ function SessionCard({ session, onDelete, onEdit, onOpen }: {
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-gray-800 text-sm hover:text-violet-700 transition-colors">{session.title}</h3>
+              <h3 className="font-semibold text-gray-800 text-sm hover:text-violet-700 transition-colors">{session.title.replace(/^Phác đồ:/i, 'Regimen:')}</h3>
               {session.major_count > 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                   <AlertTriangle size={9} /> {session.major_count} high risk
