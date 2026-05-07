@@ -384,49 +384,26 @@ export default function DrugDetailPage() {
 
             {/* Drug-Drug Interactions */}
             <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                  <AlertTriangle size={18} className="text-red-500" /> Drug Interactions
-                  {interactionTotal > 0 && (
-                    <span className="ml-1 text-xs font-normal text-gray-400">({interactionTotal.toLocaleString()} known)</span>
-                  )}
-                </h2>
-                {interactionTotal > 10 && (
-                  <Link to="/interactions" className="text-xs text-primary-600 hover:text-primary-800 font-medium">
-                    Check interactions →
-                  </Link>
-                )}
-              </div>
+              <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
+                <AlertTriangle size={18} className="text-red-500" /> Drug Interactions
+              </h2>
               {interactionsLoading ? (
-                <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                  <Loader2 size={16} className="animate-spin" /> Loading interactions...
+                <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
+                  <Loader2 size={16} className="animate-spin" /> Loading...
                 </div>
-              ) : interactions.length === 0 ? (
-                <p className="text-gray-400 text-sm py-2">No known drug-drug interactions recorded.</p>
+              ) : interactionTotal === 0 ? (
+                <p className="text-gray-400 text-sm">No known drug-drug interactions recorded.</p>
               ) : (
-                <div className="space-y-2">
-                  {interactions.map(ix => (
-                    <div key={ix.id} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-                      <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize mt-0.5 ${severityBadge[ix.severity?.toLowerCase() ?? 'unknown'] ?? severityBadge.unknown}`}>
-                        {ix.severity ?? 'unknown'}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">
-                          {ix.interacting_drug_name ?? ix.interacting_drug_id}
-                          <span className="ml-1.5 font-mono text-xs text-gray-400">{ix.interacting_drug_id}</span>
-                        </p>
-                        {ix.description && (
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{ix.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {interactionTotal > 10 && (
-                    <p className="text-xs text-gray-400 text-center pt-1">
-                      Showing 10 of {interactionTotal.toLocaleString()} interactions.{' '}
-                      <Link to="/interactions" className="text-primary-600 hover:underline">Use the Interactions page</Link> to check a full prescription.
-                    </p>
-                  )}
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-900">{interactionTotal.toLocaleString()}</span> known interactions recorded in DrugBank.
+                  </p>
+                  <Link
+                    to="/interactions"
+                    className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                  >
+                    <Zap size={14} /> Check interactions in Interaction Checker
+                  </Link>
                 </div>
               )}
             </div>

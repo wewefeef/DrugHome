@@ -269,7 +269,7 @@ function InteractionAnalysisPanel({
         // Guest mode — save to sessionStorage
         sessionStorage.setItem('medidb_guest_session', JSON.stringify({
           id: -1,
-          title: `Phác đồ: ${networkDrugs.map(d => d.name).join(', ')}`,
+          title: `Prescription: ${networkDrugs.map(d => d.name).join(', ')}`,
           created_at: new Date().toISOString(),
           tags: null,
           notes: null,
@@ -1038,7 +1038,7 @@ export default function InteractionsPage() {
         risk_score: majorCount > 0 ? 3 : moderateCount > 0 ? 2 : 1,
       };
       if (!user || !token) {
-        sessionStorage.setItem('medidb_guest_session', JSON.stringify({ id: -1, title: `Phác đồ: ${networkDrugs.map(d => d.name).join(', ')}`, created_at: new Date().toISOString(), tags: null, notes: null, ...payload }));
+        sessionStorage.setItem('medidb_guest_session', JSON.stringify({ id: -1, title: `Prescription: ${networkDrugs.map(d => d.name).join(', ')}`, created_at: new Date().toISOString(), tags: null, notes: null, ...payload }));
         setQuickSaved(true);
         setTimeout(() => setQuickSaved(false), 3000);
         return;

@@ -27,7 +27,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Khám phá */}
+          {/* Explore */}
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Explore</h4>
             <ul className="space-y-2.5 text-sm">
@@ -46,7 +46,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Tài nguyên */}
+          {/* Resources */}
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Resources</h4>
             <ul className="space-y-2.5 text-sm">
@@ -71,7 +71,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Thông tin */}
+          {/* About */}
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">About</h4>
             <ul className="space-y-2.5 text-sm">
