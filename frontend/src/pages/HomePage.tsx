@@ -8,21 +8,39 @@ import {
 import { apiFetchSiteStats } from '../lib/api';
 
 // ──────────────────────────────────────────────
+// Trending drugs — read from localStorage (min 3 searches)
+// ──────────────────────────────────────────────
+const MIN_SEARCHES = 3;
+
+function useTrendingDrugs(): string[] {
+  const [trending, setTrending] = useState<string[]>([]);
+  useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('medidb_search_counts');
+        if (!raw) return;
+        const counts: Record<string, number> = JSON.parse(raw);
+        const top = Object.entries(counts)
+          .filter(([, n]) => n >= MIN_SEARCHES)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 6)
+          .map(([name]) => name);
+        setTrending(top);
+      } catch { /* ignore */ }
+    };
+    load();
+    window.addEventListener('storage', load);
+    return () => window.removeEventListener('storage', load);
+  }, []);
+  return trending;
+}
+
+// ──────────────────────────────────────────────
 // Hero Banner
 // ──────────────────────────────────────────────
 function HeroBanner() {
-  const [query, setQuery] = useState('');
-  const [type, setType] = useState('drug');
   const navigate = useNavigate();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      navigate(`/${type === 'drug' ? 'drugs' : type === 'protein' ? 'proteins' : 'interactions'}?q=${encodeURIComponent(query)}`);
-    }
-  };
-
-  const suggestions = ['Aspirin', 'Ibuprofen', 'Metformin', 'Amoxicillin', 'Omeprazole'];
+  const trending = useTrendingDrugs();
 
   return (
     <section className="relative bg-gradient-to-br from-primary-950 via-primary-900 to-primary-800 overflow-hidden">
@@ -51,46 +69,24 @@ function HeroBanner() {
             Search drugs, check interactions, analyze target proteins — all in one clinical decision support platform.
           </p>
 
-          {/* Search Widget */}
-          <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row gap-2 mb-6 max-w-2xl mx-auto">
-            <select
-              value={type}
-              onChange={e => setType(e.target.value)}
-              className="bg-gray-50 text-gray-700 text-sm font-medium px-4 py-3 rounded-xl border border-gray-200 outline-none cursor-pointer"
-            >
-              <option value="drug">💊 Drug</option>
-              <option value="protein">🧬 Protein</option>
-              <option value="interaction">⚡ Interaction</option>
-            </select>
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Enter drug name, substance, DrugBank ID..."
-              className="flex-1 px-4 py-3 text-gray-800 outline-none text-sm rounded-xl bg-transparent"
-            />
-            <button
-              type="submit"
-              className="bg-primary-800 hover:bg-primary-900 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors text-sm shadow"
-            >
-              <Search size={16} />
-              Search
-            </button>
-          </form>
-
-          {/* Quick suggestions */}
-          <div className="flex flex-wrap justify-center gap-2">
-            <span className="text-blue-300 text-sm">Quick search:</span>
-            {suggestions.map(s => (
-              <button
-                key={s}
-                className="bg-primary-700/50 hover:bg-primary-600/60 text-blue-200 hover:text-white border border-primary-600 text-xs px-3 py-1 rounded-full transition-all"
-                onClick={() => navigate(`/drugs?q=${s}`)}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+          {/* Trending searches — only shown when data exists */}
+          {trending.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              <span className="text-blue-300 text-sm flex items-center gap-1">
+                <TrendingUp size={14} />
+                Trending:
+              </span>
+              {trending.map(s => (
+                <button
+                  key={s}
+                  className="bg-primary-700/50 hover:bg-primary-600/60 text-blue-200 hover:text-white border border-primary-600 text-xs px-3 py-1 rounded-full transition-all"
+                  onClick={() => navigate(`/drugs?q=${encodeURIComponent(s)}`)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

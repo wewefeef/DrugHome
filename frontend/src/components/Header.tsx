@@ -128,11 +128,21 @@ export default function Header() {
 
   // Keep dropdown rect fresh when open
 
+  const trackDrugSearch = (name: string) => {
+    try {
+      const raw = localStorage.getItem('medidb_search_counts');
+      const counts: Record<string, number> = raw ? JSON.parse(raw) : {};
+      counts[name] = (counts[name] ?? 0) + 1;
+      localStorage.setItem('medidb_search_counts', JSON.stringify(counts));
+    } catch { /* ignore */ }
+  };
+
   const navigateTo = (s: Suggestion) => {
     setShowDropdown(false);
     setSearchQuery('');
     setSuggestions([]);
     if (s.kind === 'drug') {
+      trackDrugSearch(s.item.name);
       navigate(searchMode === 'interaction' ? `/interactions` : `/drugs/${s.item.id}`);
     } else {
       navigate(`/proteins?q=${encodeURIComponent(s.item.name)}`);
@@ -148,6 +158,8 @@ export default function Header() {
     setShowDropdown(false);
     const q = searchQuery.trim();
     if (!q) return;
+    // Track drug searches submitted by typing (no suggestion selected)
+    if (searchMode === 'drug') trackDrugSearch(q);
     if (searchMode === 'protein') navigate(`/proteins?q=${encodeURIComponent(q)}`);
     else if (searchMode === 'interaction') navigate('/interactions');
     else navigate(`/drugs?q=${encodeURIComponent(q)}`);
