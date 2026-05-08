@@ -48,10 +48,10 @@ SET severity = CASE
   WHEN description LIKE '%risk or severity of%'
    AND description REGEXP 'death|respiratory depression|torsades|cardiac arrest|anaphyla[xs]|serotonin syndrome|neuroleptic malignant|agranulocyto|aplastic|rhabdomyolysis|liver failure|hepatic failure|intracranial|status epilepticus' THEN 'major'
 
-  -- "risk or severity of" + any outcome → moderate
+  -- "risk or severity of" + any outcome = moderate
   WHEN description LIKE '%risk or severity of%' THEN 'moderate'
 
-  -- Activity class modulation (anticoagulant, etc.) → moderate
+  -- Activity class modulation (anticoagulant, etc.) = moderate
   WHEN description REGEXP 'anticoagulant activities|antiplatelet activities|hypotensive activities|sedative activities|immunosuppressive activities' THEN 'moderate'
 
   -- QT / serotonin / specific serious events → moderate
@@ -124,7 +124,7 @@ def print_severity_stats(db):
 
 def verify_clarithromycin_warfarin(db):
     sql = """
-    SELECT di.severity, di.interacting_drug_name, LEFT(di.description, 100) as desc
+    SELECT di.severity, di.interacting_drug_name, LEFT(di.description, 100) as excerpt
     FROM drug_interactions di
     WHERE di.drug_id = 'DB01211' AND di.interacting_drug_id = 'DB00682'
     LIMIT 1
@@ -134,7 +134,7 @@ def verify_clarithromycin_warfarin(db):
         print(f"\nClarithromycin + Warfarin check:")
         print(f"  severity              : {row.severity}")
         print(f"  interacting_drug_name : {row.interacting_drug_name}")
-        print(f"  description           : {row.desc}...")
+        print(f'  description           : {row.excerpt}...')
     else:
         print("\nClarithromycin + Warfarin: NOT FOUND (check drug IDs)")
 
