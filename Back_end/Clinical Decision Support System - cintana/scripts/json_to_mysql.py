@@ -260,9 +260,10 @@ def import_drugs(conn, ndjson_path: Path, batch_size: int) -> int:
 def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
     sql = """
     INSERT INTO drug_interactions
-        (drug_code, interacting_drug_id, severity, description)
-    VALUES (%s, %s, %s, %s)
+        (drug_code, interacting_drug_id, interacting_drug_name, severity, description)
+    VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
+        interacting_drug_name=VALUES(interacting_drug_name),
         severity=VALUES(severity), description=VALUES(description)
     """
     total = 0
@@ -276,10 +277,6 @@ def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
         total += len(batch)
         batch.clear()
 
-    # Only import major/moderate/minor interactions to save disk space.
-    # "unknown" severity makes up ~80% of rows but has little clinical value.
-    KEEP_SEVERITIES = {"major", "moderate", "minor"}
-
     with open(ndjson_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -287,11 +284,10 @@ def import_drug_interactions(conn, ndjson_path: Path, batch_size: int) -> int:
                 continue
             d = json.loads(line)
             severity = (d.get("severity") or "unknown").lower().strip()
-            if severity not in KEEP_SEVERITIES:
-                continue
             batch.append((
                 d.get("drug_id", ""),       # drug_id from NDJSON = drug_code in DB
                 d.get("interacting_drug_id", ""),
+                d.get("interacting_drug_name") or None,
                 severity[:20],
                 d.get("description") or "",
             ))

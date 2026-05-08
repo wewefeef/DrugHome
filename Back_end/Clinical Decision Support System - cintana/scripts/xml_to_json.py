@@ -35,25 +35,128 @@ app = typer.Typer(help="DrugBank XML → 4 NDJSON files (drugs, interactions, pr
 # ---------------------------------------------------------------------------
 # Severity inference từ description text
 # ---------------------------------------------------------------------------
+_MAJOR_PHRASES = [
+    # Explicit severity words
+    "fatal", "life-threatening", "contraindicated", "critically",
+    # Specific dangerous outcome patterns (DrugBank template language)
+    "death,", ", death,", "somnolence, and respiratory depression",
+    "respiratory depression", "cardiac arrest", "torsades de pointes",
+    "ventricular fibrillation", "ventricular tachycardia",
+    "severe hypotension", "anaphylaxis", "anaphylactic",
+    "serotonin syndrome", "neuroleptic malignant",
+    "severe myelosuppression", "severe leukopenia",
+    "agranulocytosis", "aplastic anemia",
+    "severe bleeding", "intracranial hemorrhage",
+    "rhabdomyolysis", "severe renal failure", "acute renal failure",
+    "severe hepatotoxicity", "hepatic failure", "liver failure",
+    "status epilepticus", "severe seizure",
+    "severe qt prolongation", "severe qtc prolongation",
+]
 _MAJOR_KEYWORDS = frozenset([
-    "major", "severe", "fatal", "life-threatening", "contraindicated",
-    "serious", "critically", "death", "dangerous"
+    "major", "severe",
 ])
-_MINOR_KEYWORDS = frozenset(["minor", "mild", "minimal", "slight", "small", "weak"])
+
+# DrugBank uses template: "The risk or severity of X can be increased when..."
+# Where X may be a serious condition. We map these patterns:
+_MAJOR_CONDITION_WORDS = frozenset([
+    "death", "respiratory depression", "torsades", "cardiac arrest",
+    "anaphylax", "serotonin syndrome", "neuroleptic malignant",
+    "agranulocyto", "aplastic", "rhabdomyolysis", "liver failure",
+    "hepatic failure", "intracranial",
+])
+
+_MODERATE_PHRASES = [
+    "qt prolongation", "qtc prolongation", "qt interval",
+    "hypertensive crisis", "hypertensive urgency",
+    "bleeding and hemorrhage", "bleeding and bruising",
+    "risk or severity of bleeding",
+    "metabolism.*decreased", "metabolism.*inhibit",
+    "excretion.*decreased", "excretion.*reduced",
+    "serum concentration.*increased", "plasma concentration.*increased",
+    "toxic", "toxicity",
+    "hypoglycemia", "hypoglycaemia",
+    "hyperkalemia", "hyperkalaemia",
+    "hyponatremia", "hyponatraemia",
+    "hypothyroid", "hyperthyroid",
+]
+
+_MINOR_KEYWORDS = frozenset([
+    "minor", "mild", "minimal", "slight", "small", "weak",
+])
 
 
 def infer_severity(description: str) -> str:
+    """
+    Classify DrugBank interaction severity from description text.
+
+    DrugBank description templates:
+    - major:   "... risk or severity of [death|respiratory depression|...] ..."
+               "The metabolism of X can be decreased when..."  (CYP inhibition → major if NTI drug)
+    - moderate: "... risk or severity of [bleeding|QT prolongation|toxicity] ..."
+                "... metabolism of X can be [decreased|inhibited] ..."
+    - minor:   "... may [slightly|minimally] [affect|alter] ..."
+    - unknown: everything else
+
+    References:
+    - DrugBank interaction severity definitions (drugbank.com)
+    - Lexicomp / Micromedex severity classification standards
+    - FDA drug interaction guidance (major=contraindicated/severe, moderate=significant, minor=minimal)
+    """
     if not description:
         return "unknown"
     low = description.lower()
+
+    # ── 1. Explicit MAJOR keywords ─────────────────────────────────────────
     for kw in _MAJOR_KEYWORDS:
         if kw in low:
             return "major"
-    if "moderate" in low:
+
+    # ── 2. Major outcome phrases ───────────────────────────────────────────
+    for phrase in _MAJOR_PHRASES:
+        if phrase.lower() in low:
+            return "major"
+
+    # ── 3. "risk or severity of X" where X = major condition ──────────────
+    if "risk or severity of" in low or "risk or severity can" in low:
+        for cond in _MAJOR_CONDITION_WORDS:
+            if cond in low:
+                return "major"
+        # Otherwise the risk-increase is moderate level
         return "moderate"
+
+    # ── 4. Common DrugBank increase/decrease/inhibit phrases → moderate ──────
+    # e.g. "may increase the anticoagulant activities of"
+    if ("anticoagulant activities" in low or "antiplatelet activities" in low or
+            "hypotensive activities" in low or "sedative activities" in low or
+            "immunosuppressive activities" in low):
+        if "increase" in low or "decrease" in low or "reduce" in low:
+            return "moderate"
+
+    # ── 5. Moderate patterns ───────────────────────────────────────────────
+    import re
+    for phrase in _MODERATE_PHRASES:
+        if re.search(phrase, low):
+            return "moderate"
+
+    # ── 5. Serum/plasma concentration changes → moderate ──────────────────
+    if (("serum concentration" in low or "plasma concentration" in low or
+         "blood concentration" in low) and
+            ("increase" in low or "decrease" in low or "elevat" in low)):
+        return "moderate"
+
+    # ── 6. Metabolism / CYP interactions → moderate ───────────────────────
+    if "metabolism" in low and ("decrease" in low or "inhibit" in low or
+                                  "increase" in low or "induce" in low):
+        return "moderate"
+
+    if "excretion" in low and ("decrease" in low or "reduce" in low or "increase" in low):
+        return "moderate"
+
+    # ── 7. Minor keywords ─────────────────────────────────────────────────
     for kw in _MINOR_KEYWORDS:
         if kw in low:
             return "minor"
+
     return "unknown"
 
 
@@ -407,6 +510,7 @@ def convert(
             intx_doc = {
                 "drug_id": drug_code,
                 "interacting_drug_id": partner_id,
+                "interacting_drug_name": partner_name,
                 "severity": infer_severity(desc),
                 "description": desc,
             }
