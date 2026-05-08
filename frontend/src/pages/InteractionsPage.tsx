@@ -142,6 +142,12 @@ interface DrugReport {
   pairs: PairAnalysis[];
 }
 
+interface ApiInteractionItem {
+  drug_a_id: string; drug_a_name: string;
+  drug_b_id: string; drug_b_name: string;
+  severity: string; description: string;
+}
+
 function InteractionAnalysisPanel({
   networkDrugs,
   networkData,
@@ -157,9 +163,40 @@ function InteractionAnalysisPanel({
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Build a map: drugA+drugB → interaction (from both directions)
+  // Fetch accurate interactions from check-interactions API (bypasses networkData 300-row limit)
+  const [apiInteractions, setApiInteractions] = useState<ApiInteractionItem[]>([]);
+  const [apiLoading, setApiLoading] = useState(true);
+
+  useEffect(() => {
+    const drugIds = networkDrugs.map(d => d.id);
+    if (drugIds.length < 2) { setApiLoading(false); return; }
+    setApiLoading(true);
+    fetch('/api/v1/analysis/check-interactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ drug_ids: drugIds }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setApiInteractions(data.interactions_found ?? []);
+      })
+      .catch(() => { /* fall back to networkData */ })
+      .finally(() => setApiLoading(false));
+  }, [networkDrugs]);
+
+  // Build a map: drugA+drugB → interaction — uses API data (accurate, no 300-row limit)
   const interactionMap = useMemo(() => {
     const map = new Map<string, { severity: string; description: string }>();
+    if (apiInteractions.length > 0) {
+      for (const ix of apiInteractions) {
+        const key = [ix.drug_a_id, ix.drug_b_id].sort().join(":");
+        if (!map.has(key)) {
+          map.set(key, { severity: ix.severity, description: ix.description });
+        }
+      }
+      return map;
+    }
+    // Fallback: networkData (limited but available immediately)
     for (const drug of networkDrugs) {
       const data = networkData.get(drug.id);
       if (!data) continue;
@@ -171,7 +208,7 @@ function InteractionAnalysisPanel({
       }
     }
     return map;
-  }, [networkDrugs, networkData]);
+  }, [networkDrugs, networkData, apiInteractions]);
 
   const reports: DrugReport[] = useMemo(() => {
     return networkDrugs.map(drug => {
@@ -233,19 +270,25 @@ function InteractionAnalysisPanel({
   const handleSaveSession = async () => {
     setSaving(true); setSaveError(null); setSaved(false);
     try {
-      // Build interactions list from all unique pairs
+      // Use API interactions (accurate) or fall back to networkData
       const pairs: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string | null }[] = [];
-      const seen = new Set<string>();
-      for (const drug of networkDrugs) {
-        const data = networkData.get(drug.id);
-        if (!data) continue;
-        for (const ix of data.interactions) {
-          const partner = networkDrugs.find(d => d.id === ix.drug_id);
-          if (!partner) continue;
-          const key = [drug.id, ix.drug_id].sort().join(":");
-          if (seen.has(key)) continue;
-          seen.add(key);
-          pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? "" });
+      if (apiInteractions.length > 0) {
+        for (const ix of apiInteractions) {
+          pairs.push({ drug_a_id: ix.drug_a_id, drug_a_name: ix.drug_a_name, drug_b_id: ix.drug_b_id, drug_b_name: ix.drug_b_name, severity: ix.severity, description: ix.description });
+        }
+      } else {
+        const seen = new Set<string>();
+        for (const drug of networkDrugs) {
+          const data = networkData.get(drug.id);
+          if (!data) continue;
+          for (const ix of data.interactions) {
+            const partner = networkDrugs.find(d => d.id === ix.drug_id);
+            if (!partner) continue;
+            const key = [drug.id, ix.drug_id].sort().join(":");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? "" });
+          }
         }
       }
       const majorCount = pairs.filter(p => p.severity === "major").length;
@@ -317,8 +360,11 @@ function InteractionAnalysisPanel({
             </div>
             <div>
               <div className="font-extrabold text-base text-white">Drug Interaction Analysis</div>
-              <div className="text-[11px]" style={{ color: "#475569" }}>
-                {networkDrugs.length} drugs · {networkDrugs.length * (networkDrugs.length - 1) / 2} possible pairs
+              <div className="text-[11px] flex items-center gap-1.5" style={{ color: "#475569" }}>
+                {apiLoading
+                  ? <><Loader2 size={10} className="animate-spin" /> Analyzing interactions…</>
+                  : <>{networkDrugs.length} drugs · {networkDrugs.length * (networkDrugs.length - 1) / 2} possible pairs</>
+                }
               </div>
             </div>
           </div>
