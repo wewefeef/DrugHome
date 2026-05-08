@@ -5,6 +5,7 @@ Used by:
   - app/core/category_cache.py   (resolves keywords → category_id list at startup)
   - app/routers/api_drugs.py     (fallback LIKE query if cache not warmed)
 """
+from __future__ import annotations
 
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "pain":        ["Analgesic", "Antipyretic", "Anti-Inflammatory", "Opioid", "Migraine", "Nonsteroidal"],
