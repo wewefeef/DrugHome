@@ -218,7 +218,13 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
         DrugInteraction.updated_at,
     ]
 
-    form_excluded_columns = [DrugInteraction.created_at, DrugInteraction.updated_at]
+    form_columns = [
+        DrugInteraction.drug_id,
+        DrugInteraction.interacting_drug_id,
+        DrugInteraction.interacting_drug_name,
+        DrugInteraction.severity,
+        DrugInteraction.description,
+    ]
 
     page_size = 50
     page_size_options = [20, 50, 100, 200]
@@ -379,7 +385,6 @@ class UserAdmin(ModelView, model=User):
         User.is_admin,
         User.avatar_color,
     ]
-    column_details_exclude_list = [User.hashed_password]
 
     page_size = 50
 
