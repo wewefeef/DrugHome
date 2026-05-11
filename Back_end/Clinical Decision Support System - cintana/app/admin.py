@@ -357,7 +357,6 @@ class UserAdmin(ModelView, model=User):
         User.full_name,
         User.username,
         User.email,
-        User.hashed_password,   # hiển thị ẩn bằng formatter
         User.is_active,
         User.is_admin,
         User.last_login,
@@ -406,10 +405,6 @@ class UserAdmin(ModelView, model=User):
     }
 
     column_formatters = {
-        # Ẩn hash — chỉ hiện dấu sao
-        User.hashed_password: lambda m, a: Markup(
-            '<span style="letter-spacing:2px;color:#94a3b8;font-size:1.1em">••••••••</span>'
-        ),
         User.is_active: lambda m, a: Markup(
             '<span style="padding:2px 8px;border-radius:12px;font-size:0.82em;font-weight:600;background:#dcfce7;color:#166534">Active</span>'
             if m.is_active else
