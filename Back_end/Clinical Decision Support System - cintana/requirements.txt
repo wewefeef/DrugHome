@@ -11,6 +11,7 @@ alembic>=1.13.0         # database migrations
 # ── Admin UI ──────────────────────────────────────────────────────────────────
 sqladmin>=0.18.0        # modern SQLAdmin for FastAPI + SQLAlchemy
 pydantic[email]>=2.0.0  # required by sqladmin for EmailStr fields
+itsdangerous>=2.1.0     # required by SessionMiddleware (sqladmin auth)
 
 # ── Authentication ────────────────────────────────────────────────────────────
 python-jose[cryptography]>=3.3.0  # JWT encoding/decoding

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_cache import FastAPICache
@@ -555,6 +556,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": f"{type(exc).__name__}: {exc}"},
     )
+
+# ── Session (required by sqladmin AuthenticationBackend) ────────────────────
+
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
