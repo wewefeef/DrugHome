@@ -601,7 +601,7 @@ else:
 admin = Admin(
     app,
     engine,
-    title=f"{settings.app_title} — Admin",
+    title="AdminDrug",
     authentication_backend=AdminAuth(secret_key=settings.secret_key),
     templates_dir=str(Path(__file__).parent / "templates"),
 )
