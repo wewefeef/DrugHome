@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # ── Security ──────────────────────────────────────────────────────────────
     secret_key: str = "change-me-in-production-use-a-long-random-string"
 
+    # ── Admin Panel ───────────────────────────────────────────────────────────
+    admin_username: str = "admin"
+    admin_password: str = "change-me-admin-password"
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     allowed_origins: str = "*"
 

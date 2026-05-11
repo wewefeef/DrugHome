@@ -20,7 +20,14 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from sqladmin import Admin
 
-from app.admin import DrugAdmin
+from app.admin import (
+    AdminAuth,
+    DrugAdmin,
+    DrugInteractionAdmin,
+    ProteinAdmin,
+    UserAdmin,
+    AnalysisSessionAdmin,
+)
 from app.config import get_settings
 from app.database import Base, engine
 from app.routers import drugs as drugs_router
@@ -571,8 +578,17 @@ else:
 
 # ── Admin UI (sqladmin) ───────────────────────────────────────────────────────
 
-admin = Admin(app, engine, title=f"{settings.app_title} — Admin")
+admin = Admin(
+    app,
+    engine,
+    title=f"{settings.app_title} — Admin",
+    authentication_backend=AdminAuth(secret_key=settings.secret_key),
+)
 admin.add_view(DrugAdmin)
+admin.add_view(DrugInteractionAdmin)
+admin.add_view(ProteinAdmin)
+admin.add_view(UserAdmin)
+admin.add_view(AnalysisSessionAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 
