@@ -526,6 +526,10 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
     avatar_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
+    # Audit fields — updated by the auth router on every login / register
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )

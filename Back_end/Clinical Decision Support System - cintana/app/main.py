@@ -274,9 +274,20 @@ def _repair_schema_if_needed():
                     ))
                 logger.info("Schema repair: DI drug_id format ✓")
 
+            # ── 5. users: add is_admin, last_login, last_token if missing ─────
+            for col, defn in [
+                ("is_admin",    "TINYINT(1) NOT NULL DEFAULT 0"),
+                ("last_login",  "DATETIME NULL"),
+                ("last_token",  "LONGTEXT NULL"),
+            ]:
+                if not _col_exists(conn, "users", col):
+                    conn.execute(_text(
+                        f"ALTER TABLE `users` ADD COLUMN `{col}` {defn}"
+                    ))
+                    logger.info("Schema repair: added users.%s", col)
+
     except Exception as exc:
         logger.error("Schema repair failed: %s", exc, exc_info=True)
-
 
 def _run_seed_if_empty():
     """Seed proteins and DPI tables from bundled NDJSON if they are empty."""

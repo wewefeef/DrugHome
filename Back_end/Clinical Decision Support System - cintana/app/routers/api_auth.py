@@ -190,6 +190,9 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token(user.id, is_admin=user.is_admin)
+    user.last_login = datetime.now(timezone.utc)
+    user.last_token = token
+    db.commit()
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 
@@ -210,6 +213,9 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Tài khoản đã bị vô hiệu hóa")
 
     token = create_access_token(user.id, is_admin=user.is_admin)
+    user.last_login = datetime.now(timezone.utc)
+    user.last_token = token
+    db.commit()
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 
@@ -223,6 +229,9 @@ def login_form(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Tên đăng nhập hoặc mật khẩu không đúng")
     token = create_access_token(user.id, is_admin=user.is_admin)
+    user.last_login = datetime.now(timezone.utc)
+    user.last_token = token
+    db.commit()
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 

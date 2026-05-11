@@ -351,31 +351,37 @@ class UserAdmin(ModelView, model=User):
     can_edit = True
     can_delete = True
 
+    # ── List view: thông tin chính ─────────────────────────────────────────
     column_list = [
         User.id,
+        User.full_name,
         User.username,
         User.email,
-        User.full_name,
+        User.hashed_password,   # hiển thị ẩn bằng formatter
         User.is_active,
         User.is_admin,
-        User.avatar_color,
+        User.last_login,
         User.created_at,
     ]
 
+    # ── Detail view: đầy đủ bao gồm token ─────────────────────────────────
     column_details_list = [
         User.id,
+        User.full_name,
         User.username,
         User.email,
-        User.full_name,
+        User.hashed_password,   # masked
+        User.avatar_color,
         User.is_active,
         User.is_admin,
-        User.avatar_color,
+        User.last_login,
+        User.last_token,        # JWT token (masked)
         User.created_at,
         User.updated_at,
     ]
 
     column_searchable_list = [User.username, User.email, User.full_name]
-    column_sortable_list = [User.id, User.username, User.created_at, User.is_active]
+    column_sortable_list = [User.id, User.username, User.created_at, User.last_login, User.is_active]
 
     form_columns = [
         User.username,
@@ -388,14 +394,67 @@ class UserAdmin(ModelView, model=User):
 
     page_size = 50
 
+    column_labels = {
+        User.full_name: "Full Name",
+        User.hashed_password: "Password",
+        User.is_active: "Active",
+        User.is_admin: "Admin",
+        User.last_login: "Last Login",
+        User.last_token: "Last Token",
+        User.avatar_color: "Avatar Color",
+        User.created_at: "Registered At",
+    }
+
     column_formatters = {
+        # Ẩn hash — chỉ hiện dấu sao
+        User.hashed_password: lambda m, a: Markup(
+            '<span style="letter-spacing:2px;color:#94a3b8;font-size:1.1em">••••••••</span>'
+        ),
         User.is_active: lambda m, a: Markup(
             '<span style="padding:2px 8px;border-radius:12px;font-size:0.82em;font-weight:600;background:#dcfce7;color:#166534">Active</span>'
             if m.is_active else
             '<span style="padding:2px 8px;border-radius:12px;font-size:0.82em;font-weight:600;background:#fee2e2;color:#991b1b">Inactive</span>'
         ),
+        User.is_admin: lambda m, a: Markup(
+            '<span style="padding:2px 8px;border-radius:12px;font-size:0.82em;font-weight:600;background:#ede9fe;color:#5b21b6">Admin</span>'
+            if m.is_admin else
+            '<span style="padding:2px 8px;border-radius:12px;font-size:0.82em;font-weight:600;background:#f3f4f6;color:#6b7280">User</span>'
+        ),
         User.avatar_color: lambda m, a: Markup(
-            f'<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:{m.avatar_color};vertical-align:middle"></span> {m.avatar_color}'
+            f'<span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:{m.avatar_color};vertical-align:middle;margin-right:4px"></span>{m.avatar_color}'
+        ) if m.avatar_color else "—",
+    }
+
+    column_formatters_detail = {
+        User.hashed_password: lambda m, a: Markup(
+            '<span style="letter-spacing:3px;font-size:1.2em;color:#94a3b8">••••••••••••</span>'
+            '<span style="font-size:11px;color:#94a3b8;margin-left:8px">(hashed, not shown for security)</span>'
+        ),
+        User.last_token: lambda m, a: (
+            Markup(
+                '<div style="font-family:monospace;font-size:12px;word-break:break-all;'
+                'background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;color:#374151">'
+                + m.last_token[:40]
+                + '<span style="color:#94a3b8">•••••••••••••••••••••</span>'
+                + m.last_token[-8:]
+                + '</div>'
+                '<div style="font-size:11px;color:#94a3b8;margin-top:4px">JWT Bearer Token — copy \u0111\u1ec3 d\u00f9ng v\u1edbi API</div>'
+            ) if m.last_token else Markup("<em style='color:#94a3b8'>Ch\u01b0a \u0111\u0103ng nh\u1eadp</em>")
+        ),
+        User.is_active: lambda m, a: Markup(
+            '<span style="padding:3px 12px;border-radius:12px;font-size:0.9em;font-weight:600;background:#dcfce7;color:#166534">Active</span>'
+            if m.is_active else
+            '<span style="padding:3px 12px;border-radius:12px;font-size:0.9em;font-weight:600;background:#fee2e2;color:#991b1b">Inactive</span>'
+        ),
+        User.is_admin: lambda m, a: Markup(
+            '<span style="padding:3px 12px;border-radius:12px;font-size:0.9em;font-weight:600;background:#ede9fe;color:#5b21b6">Admin</span>'
+            if m.is_admin else
+            '<span style="padding:3px 12px;border-radius:12px;font-size:0.9em;font-weight:600;background:#f3f4f6;color:#6b7280">User</span>'
+        ),
+        User.avatar_color: lambda m, a: Markup(
+            f'<span style="display:inline-flex;align-items:center;gap:8px">'
+            f'<span style="width:24px;height:24px;border-radius:50%;background:{m.avatar_color};border:2px solid #e2e8f0"></span>'
+            f'<code>{m.avatar_color}</code></span>'
         ) if m.avatar_color else "—",
     }
 
