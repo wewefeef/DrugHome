@@ -28,6 +28,10 @@ from app.admin import (
     ProteinAdmin,
     UserAdmin,
     AnalysisSessionAdmin,
+    DrugSynonymAdmin,
+    DrugProductAdmin,
+    DrugExternalIdentifierAdmin,
+    DrugCalculatedPropertyAdmin,
 )
 from app.config import get_settings
 from app.database import Base, engine
@@ -588,12 +592,17 @@ admin = Admin(
     engine,
     title=f"{settings.app_title} — Admin",
     authentication_backend=AdminAuth(secret_key=settings.secret_key),
+    templates_dir=str(Path(__file__).parent / "templates"),
 )
 admin.add_view(DrugAdmin)
 admin.add_view(DrugInteractionAdmin)
 admin.add_view(ProteinAdmin)
 admin.add_view(UserAdmin)
 admin.add_view(AnalysisSessionAdmin)
+admin.add_view(DrugSynonymAdmin)
+admin.add_view(DrugProductAdmin)
+admin.add_view(DrugExternalIdentifierAdmin)
+admin.add_view(DrugCalculatedPropertyAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 

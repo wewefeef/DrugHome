@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediDB Admin — Login</title>
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background blobs */
+        body::before {
+            content: '';
+            position: fixed;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
+            top: -200px; right: -200px;
+            border-radius: 50%;
+            animation: blobFloat 8s ease-in-out infinite;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+            bottom: -150px; left: -150px;
+            border-radius: 50%;
+            animation: blobFloat 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes blobFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        .login-card {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 420px;
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 48px 40px 40px;
+            box-shadow:
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        }
+
+        /* Brand */
+        .brand {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .brand-icon {
+            width: 72px; height: 72px;
+            background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%);
+            border-radius: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        }
+        .brand-icon i {
+            font-size: 30px;
+            color: #fff;
+        }
+        .brand-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: #f1f5f9;
+            letter-spacing: -0.5px;
+        }
+        .brand-title span {
+            color: #3b82f6;
+        }
+        .brand-subtitle {
+            font-size: 13px;
+            color: rgba(148, 163, 184, 0.85);
+            margin-top: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(203, 213, 225, 0.9);
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(148, 163, 184, 0.6);
+            font-size: 14px;
+            pointer-events: none;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 14px 12px 40px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #f1f5f9;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .form-control::placeholder { color: rgba(148, 163, 184, 0.5); }
+        .form-control:focus {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Error alert */
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fca5a5;
+            font-size: 13px;
+        }
+        .alert-error i { font-size: 15px; color: #ef4444; flex-shrink: 0; }
+
+        /* Submit button */
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+            margin-top: 8px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+        }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+        .btn-login:active { transform: translateY(0); }
+
+        /* Footer note */
+        .login-footer {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 12px;
+            color: rgba(100, 116, 139, 0.8);
+        }
+        .login-footer a {
+            color: rgba(148, 163, 184, 0.7);
+            text-decoration: none;
+        }
+        .login-footer a:hover { color: #94a3b8; }
+
+        /* Stats row */
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: rgba(100, 116, 139, 0.7);
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="brand">
+            <div class="brand-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div class="brand-title">Medi<span>DB</span></div>
+            <div class="brand-subtitle">Admin Control Panel</div>
+        </div>
+
+        {% if error %}
+        <div class="alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            Invalid credentials. Please try again.
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ request.url_for('admin:login') }}">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-user"></i>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-control"
+                        placeholder="Enter admin username"
+                        autocomplete="username"
+                        autofocus
+                        required
+                    />
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-lock"></i>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-control"
+                        placeholder="Enter admin password"
+                        autocomplete="current-password"
+                        required
+                    />
+                </div>
+            </div>
+            <button type="submit" class="btn-login">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                Sign In to Admin Panel
+            </button>
+        </form>
+
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value">14</div>
+                <div class="stat-label">DB Tables</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">11K+</div>
+                <div class="stat-label">Drugs</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">1.3M+</div>
+                <div class="stat-label">Interactions</div>
+            </div>
+        </div>
+
+        <div class="login-footer">
+            Clinical Decision Support System &copy; 2025<br />
+            <a href="/">&#8592; Back to main website</a>
+        </div>
+    </div>
+</body>
+</html>
