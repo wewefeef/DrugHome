@@ -18,7 +18,9 @@ if config.config_file_name is not None:
 
 # Override sqlalchemy.url from app settings so Alembic uses the same
 # MySQL connection as the app — no duplication in alembic.ini.
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# Escape % → %% to prevent configparser interpolation errors with URL-encoded passwords.
+_db_url = get_settings().database_url.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", _db_url)
 
 target_metadata = Base.metadata
 
