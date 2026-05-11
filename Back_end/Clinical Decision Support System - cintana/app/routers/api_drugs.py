@@ -33,6 +33,7 @@ from app.schemas import DrugCreate, DrugOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
 from app.core.category_keywords import CATEGORY_KEYWORDS
 from app.core import category_cache
+from app.routers.api_auth import require_admin, User
 from sqlalchemy.orm import selectinload
 
 
@@ -520,6 +521,7 @@ def update_drug(
     drugbank_id: str,
     payload: DrugUpdate,
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
     drug = db.query(Drug).filter(Drug.drugbank_id == drugbank_id.upper()).first()
     if not drug:

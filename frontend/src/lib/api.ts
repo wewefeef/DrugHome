@@ -151,6 +151,40 @@ export async function apiFetchDrug(drugbankId: string): Promise<Drug | null> {
   return normalizeDrug(await res.json() as ApiDrug);
 }
 
+export interface DrugPatchPayload {
+  description?: string;
+  indication?: string;
+  mechanism_of_action?: string;
+  pharmacodynamics?: string;
+  toxicity?: string;
+  absorption?: string;
+  metabolism?: string;
+  half_life?: string;
+  protein_binding?: string;
+  route_of_elimination?: string;
+}
+
+/** Admin-only: partially update a drug's editable fields */
+export async function apiPatchDrug(
+  drugbankId: string,
+  payload: DrugPatchPayload,
+  token: string,
+): Promise<Drug> {
+  const res = await fetch(`${BASE}/drugs/${encodeURIComponent(drugbankId)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? `Patch failed: ${res.status}`);
+  }
+  return normalizeDrug(await res.json() as ApiDrug);
+}
+
 /** Fetch all drugs for a disease category from backend */
 export async function apiFetchDrugsByCategory(
   categoryKey: string,

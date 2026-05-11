@@ -5,6 +5,7 @@ export interface AuthUser {
   username: string;
   email: string;
   full_name: string;
+  is_admin: boolean;
   avatar_color?: string;
   created_at: string;
 }
@@ -13,6 +14,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
+  isAdmin: boolean;
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
 }
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, isAdmin: user?.is_admin ?? false, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

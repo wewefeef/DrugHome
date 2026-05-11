@@ -55,6 +55,7 @@ class UserPublic(BaseModel):
     username: str
     email: str
     full_name: str
+    is_admin: bool = False
     avatar_color: Optional[str] = None
     created_at: datetime
 
@@ -115,9 +116,9 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, is_admin: bool = False) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": str(user_id), "exp": expire}
+    payload = {"sub": str(user_id), "exp": expire, "is_admin": is_admin}
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
@@ -153,6 +154,18 @@ def require_user(
     return current_user
 
 
+def require_admin(
+    current_user: Annotated[User, Depends(require_user)],
+) -> User:
+    """Hard dependency — raises 403 if user is not admin."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền thực hiện thao tác này",
+        )
+    return current_user
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -176,7 +189,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, is_admin=user.is_admin)
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 
@@ -196,7 +209,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Tài khoản đã bị vô hiệu hóa")
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, is_admin=user.is_admin)
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 
@@ -209,7 +222,7 @@ def login_form(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     )
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Tên đăng nhập hoặc mật khẩu không đúng")
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, is_admin=user.is_admin)
     return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
 
 

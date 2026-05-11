@@ -3,10 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Pill, ChevronRight, Zap, FlaskConical, BookOpen,
   ExternalLink, Tag, Loader2, Activity, AlertTriangle,
-  Droplets, Clock, Shield, ArrowDownUp,
+  Droplets, Clock, Shield, ArrowDownUp, Pencil, X, Check,
 } from 'lucide-react';
 import type { Drug } from '../types/drug';
-import { apiFetchDrug, apiFetchDrugInteractions, type DrugInteraction } from '../lib/api';
+import { apiFetchDrug, apiFetchDrugInteractions, apiPatchDrug, type DrugInteraction, type DrugPatchPayload } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Drug-Protein Network SVG (detail page version)
@@ -144,8 +145,127 @@ const severityBadge: Record<string, string> = {
   unknown:  'bg-gray-100 text-gray-600 border border-gray-200',
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin Edit Panel
+// ─────────────────────────────────────────────────────────────────────────────
+const EDITABLE_FIELDS: { key: keyof DrugPatchPayload; label: string }[] = [
+  { key: 'description',          label: 'Description' },
+  { key: 'indication',           label: 'Indication' },
+  { key: 'mechanism_of_action',  label: 'Mechanism of Action' },
+  { key: 'pharmacodynamics',     label: 'Pharmacodynamics' },
+  { key: 'toxicity',             label: 'Toxicity' },
+  { key: 'absorption',           label: 'Absorption' },
+  { key: 'metabolism',           label: 'Metabolism' },
+  { key: 'half_life',            label: 'Half Life' },
+  { key: 'protein_binding',      label: 'Protein Binding' },
+  { key: 'route_of_elimination', label: 'Route of Elimination' },
+];
+
+function AdminDrugEditor({ drug, token, onSaved }: {
+  drug: Drug;
+  token: string;
+  onSaved: (updated: Drug) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<DrugPatchPayload>({
+    description:          drug.description,
+    indication:           drug.indication,
+    mechanism_of_action:  drug.mechanism,
+    pharmacodynamics:     drug.pharmacodynamics,
+    toxicity:             drug.toxicity,
+    absorption:           drug.absorption,
+    metabolism:           drug.metabolism,
+    half_life:            drug.half_life,
+    protein_binding:      drug.protein_binding,
+    route_of_elimination: drug.route_of_elimination,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const updated = await apiPatchDrug(drug.id, form, token);
+      onSaved(updated);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg transition-colors"
+      >
+        <Pencil size={12} /> Edit Drug
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Pencil size={18} className="text-amber-500" />
+            <h2 className="font-bold text-gray-900 text-lg">Edit Drug — {drug.name}</h2>
+          </div>
+          <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {EDITABLE_FIELDS.map(({ key, label }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+              <textarea
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-y min-h-[72px]"
+                value={(form[key] as string) ?? ''}
+                onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+          <div className="text-sm">
+            {error   && <span className="text-red-600 font-medium">{error}</span>}
+            {success && <span className="text-emerald-600 font-medium flex items-center gap-1"><Check size={14} /> Saved successfully</span>}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setOpen(false)} className="text-sm px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-100 text-gray-600 transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="text-sm px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DrugDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { isAdmin, token } = useAuth();
   const [drug, setDrug] = useState<Drug | null | undefined>(undefined); // undefined = loading
   const [interactions, setInteractions] = useState<DrugInteraction[]>([]);
   const [interactionTotal, setInteractionTotal] = useState(0);
@@ -231,6 +351,9 @@ export default function DrugDetailPage() {
               className="hidden md:flex items-center gap-1.5 text-blue-300 hover:text-white text-xs font-medium shrink-0 transition-colors border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10">
               <ExternalLink size={12} /> DrugBank.ca
             </a>
+            {isAdmin && token && (
+              <AdminDrugEditor drug={drug} token={token} onSaved={setDrug} />
+            )}
           </div>
         </div>
       </div>
