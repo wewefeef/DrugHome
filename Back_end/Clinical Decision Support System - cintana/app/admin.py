@@ -95,18 +95,31 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.updated_at,
     ]
 
-    # ── Form (create/edit) ────────────────────────────────────────────────────
-    form_excluded_columns = [
-        Drug.created_at,
-        Drug.updated_at,
-        Drug.synonyms_rel,
-        Drug.products_rel,
-        Drug.external_ids_rel,
-        Drug.calc_props_rel,
-        Drug.group_maps,
-        Drug.category_maps,
-        Drug.drug_interactions_rel,
-        Drug.drug_protein_interactions_rel,
+    # ── Form (create/edit) — only scalar columns, exclude timestamps + relationships ──
+    form_columns = [
+        Drug.drugbank_id,
+        Drug.name,
+        Drug.drug_type,
+        Drug.cas_number,
+        Drug.unii,
+        Drug.atc_codes,
+        Drug.state,
+        Drug.molecular_formula,
+        Drug.average_mass,
+        Drug.monoisotopic_mass,
+        Drug.smiles,
+        Drug.inchi,
+        Drug.inchikey,
+        Drug.description,
+        Drug.indication,
+        Drug.pharmacodynamics,
+        Drug.mechanism_of_action,
+        Drug.toxicity,
+        Drug.metabolism,
+        Drug.absorption,
+        Drug.half_life,
+        Drug.protein_binding,
+        Drug.route_of_elimination,
     ]
 
     # ── Column labels (hiển thị tên đẹp hơn) ─────────────────────────────────
@@ -132,10 +145,10 @@ class DrugAdmin(ModelView, model=Drug):
             + (
                 f'<br><img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{m.smiles}/PNG?image_size=300x200" '
                 f'style="margin-top:8px;border:1px solid #e2e8f0;border-radius:6px" '
-                f'onerror="this.style.display=\'none\'" />'
+                f'onerror="this.style.display:none" />'
                 if m.smiles else ""
             )
-        ) if True else lambda m, a: m.smiles,
+        ) if m.smiles else Markup("<em>N/A</em>"),
         Drug.description: lambda m, a: Markup(
             f'<div style="max-height:200px;overflow-y:auto;font-size:0.9em">{m.description}</div>'
         ) if m.description else "",
@@ -278,7 +291,16 @@ class ProteinAdmin(ModelView, model=Protein):
         Protein.updated_at,
     ]
 
-    form_excluded_columns = [Protein.created_at, Protein.updated_at, Protein.drug_protein_interactions]
+    form_columns = [
+        Protein.uniprot_id,
+        Protein.entrez_gene_id,
+        Protein.name,
+        Protein.gene_name,
+        Protein.protein_type,
+        Protein.organism,
+        Protein.general_function,
+        Protein.specific_function,
+    ]
 
     page_size = 50
     page_size_options = [20, 50, 100]
@@ -349,7 +371,14 @@ class UserAdmin(ModelView, model=User):
     column_searchable_list = [User.username, User.email, User.full_name]
     column_sortable_list = [User.id, User.username, User.created_at, User.is_active]
 
-    form_excluded_columns = [User.hashed_password, User.created_at, User.updated_at]
+    form_columns = [
+        User.username,
+        User.email,
+        User.full_name,
+        User.is_active,
+        User.is_admin,
+        User.avatar_color,
+    ]
     column_details_exclude_list = [User.hashed_password]
 
     page_size = 50
@@ -447,7 +476,7 @@ class DrugSynonymAdmin(ModelView, model=DrugSynonym):
     ]
     column_searchable_list = [DrugSynonym.drug_id, DrugSynonym.synonym]
     column_sortable_list = [DrugSynonym.id, DrugSynonym.drug_id]
-    form_excluded_columns = []
+    form_columns = [DrugSynonym.drug_id, DrugSynonym.synonym, DrugSynonym.language, DrugSynonym.coder]
     page_size = 50
     page_size_options = [20, 50, 100]
 
@@ -474,7 +503,7 @@ class DrugProductAdmin(ModelView, model=DrugProduct):
     ]
     column_searchable_list = [DrugProduct.drug_id, DrugProduct.name, DrugProduct.labeller]
     column_sortable_list = [DrugProduct.id, DrugProduct.drug_id, DrugProduct.country]
-    form_excluded_columns = []
+    form_columns = [DrugProduct.drug_id, DrugProduct.name, DrugProduct.labeller, DrugProduct.ndc_id, DrugProduct.dosage_form, DrugProduct.strength, DrugProduct.route, DrugProduct.country, DrugProduct.source]
     page_size = 50
     page_size_options = [20, 50, 100]
 
@@ -500,7 +529,7 @@ class DrugExternalIdentifierAdmin(ModelView, model=DrugExternalIdentifier):
         DrugExternalIdentifier.identifier,
     ]
     column_sortable_list = [DrugExternalIdentifier.id, DrugExternalIdentifier.drug_id, DrugExternalIdentifier.resource]
-    form_excluded_columns = []
+    form_columns = [DrugExternalIdentifier.drug_id, DrugExternalIdentifier.resource, DrugExternalIdentifier.identifier]
     page_size = 50
     page_size_options = [20, 50, 100]
 
@@ -523,7 +552,7 @@ class DrugCalculatedPropertyAdmin(ModelView, model=DrugCalculatedProperty):
     ]
     column_searchable_list = [DrugCalculatedProperty.drug_id, DrugCalculatedProperty.kind]
     column_sortable_list = [DrugCalculatedProperty.id, DrugCalculatedProperty.drug_id, DrugCalculatedProperty.kind]
-    form_excluded_columns = []
+    form_columns = [DrugCalculatedProperty.drug_id, DrugCalculatedProperty.kind, DrugCalculatedProperty.value, DrugCalculatedProperty.source]
     page_size = 50
     page_size_options = [20, 50, 100]
 
