@@ -269,10 +269,10 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
 
     column_formatters = {
         DrugInteraction.drug_id: lambda m, a: Markup(
-            f'<div>'
             f'<span style="font-family:monospace;font-size:0.82em;font-weight:700;color:#1d4ed8">{m.drug_id}</span>'
-            + (f'<br><span style="font-size:0.78em;color:#64748b">{m.drug.name}</span>' if m.drug else '')
-            + '</div>'
+        ),
+        DrugInteraction.interacting_drug_id: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-size:0.82em;font-weight:700;color:#0f766e">{m.interacting_drug_id}</span>'
         ),
         DrugInteraction.severity: lambda m, a: Markup(
             f'<span style="padding:2px 10px;border-radius:12px;font-size:0.82em;font-weight:700;'
@@ -286,10 +286,10 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
 
     column_formatters_detail = {
         DrugInteraction.drug_id: lambda m, a: Markup(
-            f'<div>'
             f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8">{m.drug_id}</span>'
-            + (f' \u2014 <span style="font-weight:600">{m.drug.name}</span>' if m.drug else '')
-            + '</div>'
+        ),
+        DrugInteraction.interacting_drug_id: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;color:#0f766e">{m.interacting_drug_id}</span>'
         ),
         DrugInteraction.description: lambda m, a: Markup(
             f'<div style="max-height:200px;overflow-y:auto;font-size:0.9em;line-height:1.6">{m.description}</div>'
