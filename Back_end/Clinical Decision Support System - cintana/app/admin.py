@@ -244,27 +244,30 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
         DrugInteraction.updated_at,
     ]
 
-    # Override drug_id to be a plain StringField (not FK Select2 dropdown)
-    # so admin can type any DrugBank ID directly
-    form_overrides = {"drug_id": StringField}
+    # Override cả 2 ID fields thành plain text (tránh Select2 dropdown 11K rows)
+    form_overrides = {
+        "drug_id": StringField,
+        "interacting_drug_id": StringField,
+    }
 
+    # Dùng tên string (không dùng attribute) để form_overrides được áp dụng đúng
     form_columns = [
-        DrugInteraction.drug_id,
-        DrugInteraction.interacting_drug_id,
-        DrugInteraction.interacting_drug_name,
-        DrugInteraction.severity,
-        DrugInteraction.description,
+        "drug_id",
+        "interacting_drug_id",
+        "interacting_drug_name",
+        "severity",
+        "description",
     ]
 
     page_size = 50
     page_size_options = [20, 50, 100, 200]
 
     column_labels = {
-        DrugInteraction.drug_id:              "Drug A \u2014 DrugBank ID",
-        DrugInteraction.interacting_drug_id:  "Drug B \u2014 DrugBank ID",
-        DrugInteraction.interacting_drug_name: "Drug B \u2014 Name",
-        DrugInteraction.severity:             "Severity",
-        DrugInteraction.description:          "Description",
+        "drug_id":              "Drug A \u2014 DrugBank ID (e.g. DB00001)",
+        "interacting_drug_id":  "Drug B \u2014 DrugBank ID (e.g. DB00006)",
+        "interacting_drug_name": "Drug B \u2014 Tên thuốc",
+        "severity":             "Mức độ (major / moderate / minor)",
+        "description":          "Mô tả tương tác",
     }
 
     column_formatters = {
