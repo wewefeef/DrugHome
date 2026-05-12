@@ -141,6 +141,7 @@ def import_drug_data(conn, ndjson_path: Path):
     synonym_rows:   list = []
     ext_id_rows:    list = []
     calc_prop_rows: list = []
+    product_rows:   list = []
 
     SQL_DRUG_UPDATE = """
         UPDATE drugs SET
@@ -169,6 +170,11 @@ def import_drug_data(conn, ndjson_path: Path):
     SQL_SYNONYM_INSERT    = "INSERT IGNORE INTO drug_synonyms (drug_id, synonym) VALUES (%s, %s)"
     SQL_EXT_ID_INSERT     = "INSERT IGNORE INTO drug_external_identifiers (drug_id, resource, identifier) VALUES (%s, %s, %s)"
     SQL_CALC_PROP_INSERT  = "INSERT IGNORE INTO drug_calculated_properties (drug_id, kind, value, source) VALUES (%s, %s, %s, %s)"
+    SQL_PRODUCT_INSERT    = (
+        "INSERT IGNORE INTO drug_products "
+        "(drug_id, name, labeller, ndc_id, dosage_form, strength, route, country, source) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    )
 
     cnt_drugs = 0
     cnt_groups = 0
@@ -176,6 +182,7 @@ def import_drug_data(conn, ndjson_path: Path):
     cnt_syns = 0
     cnt_ext = 0
     cnt_calc = 0
+    cnt_products = 0
     start = time.monotonic()
 
     def _get_or_create_group(name: str) -> int:
@@ -280,6 +287,24 @@ def import_drug_data(conn, ndjson_path: Path):
                 calc_prop_rows.append((dbid, "Molecular Weight", mol_weight, "DrugBank"))
                 cnt_calc += 1
 
+            # ── Products (brand names) ────────────────────────────────────
+            for prod in (d.get("products") or []):
+                pname = (prod.get("name") or "").strip()[:255]
+                if not pname:
+                    continue
+                product_rows.append((
+                    dbid,
+                    pname,
+                    (prod.get("labeller") or "")[:255] or None,
+                    (prod.get("ndc_id") or "")[:50] or None,
+                    (prod.get("dosage_form") or "")[:255] or None,
+                    (prod.get("strength") or "")[:100] or None,
+                    (prod.get("route") or "")[:100] or None,
+                    (prod.get("country") or "")[:50] or None,
+                    (prod.get("source") or "")[:50] or None,
+                ))
+                cnt_products += 1
+
             # ── Flush batches ─────────────────────────────────────────────
             if len(drug_updates) >= BATCH_SIZE:
                 flush_batch(conn, SQL_DRUG_UPDATE, drug_updates)
@@ -293,6 +318,8 @@ def import_drug_data(conn, ndjson_path: Path):
                 flush_batch(conn, SQL_EXT_ID_INSERT, ext_id_rows)
             if len(calc_prop_rows) >= BATCH_SIZE:
                 flush_batch(conn, SQL_CALC_PROP_INSERT, calc_prop_rows)
+            if len(product_rows) >= BATCH_SIZE:
+                flush_batch(conn, SQL_PRODUCT_INSERT, product_rows)
 
             if cnt_drugs % 2000 == 0:
                 elapsed = time.monotonic() - start
@@ -305,6 +332,7 @@ def import_drug_data(conn, ndjson_path: Path):
     flush_batch(conn, SQL_SYNONYM_INSERT, synonym_rows)
     flush_batch(conn, SQL_EXT_ID_INSERT, ext_id_rows)
     flush_batch(conn, SQL_CALC_PROP_INSERT, calc_prop_rows)
+    flush_batch(conn, SQL_PRODUCT_INSERT, product_rows)
 
     elapsed = time.monotonic() - start
     typer.echo(f"\n   ✅ Done in {elapsed:.1f}s")
@@ -314,6 +342,7 @@ def import_drug_data(conn, ndjson_path: Path):
     typer.echo(f"      Synonyms           : {cnt_syns:,}")
     typer.echo(f"      External IDs       : {cnt_ext:,}")
     typer.echo(f"      Calc properties    : {cnt_calc:,}")
+    typer.echo(f"      Products (brands)  : {cnt_products:,}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -494,7 +523,7 @@ def main(
     typer.echo("\n── Final row counts ──")
     for table in ["drugs", "groups", "drug_group_map", "categories", "drug_category_map",
                   "drug_synonyms", "drug_external_identifiers", "drug_calculated_properties",
-                  "drug_interactions", "drug_protein_interactions"]:
+                  "drug_products", "drug_interactions", "drug_protein_interactions"]:
         n = count_table(conn, table)
         typer.echo(f"   {table:<35} {n:>10,}")
 

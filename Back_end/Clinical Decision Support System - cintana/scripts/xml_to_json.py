@@ -171,6 +171,28 @@ def safe_text(node) -> Optional[str]:
     return text.strip() if isinstance(text, str) and text.strip() else None
 
 
+def _extract_products(elem, ns: str) -> list:
+    """Extract all commercial brand products from a drug XML element."""
+    products = []
+    products_node = elem.find(f"{ns}products")
+    if products_node is not None:
+        for p in products_node.findall(f"{ns}product"):
+            p_name = safe_text(p.find(f"{ns}name"))
+            if not p_name:
+                continue
+            products.append({
+                "name": p_name,
+                "labeller":    safe_text(p.find(f"{ns}labeller")),
+                "ndc_id":      safe_text(p.find(f"{ns}ndc-id")),
+                "dosage_form": safe_text(p.find(f"{ns}dosage-form")),
+                "strength":    safe_text(p.find(f"{ns}strength")),
+                "route":       safe_text(p.find(f"{ns}route")),
+                "country":     safe_text(p.find(f"{ns}country")),
+                "source":      safe_text(p.find(f"{ns}source")),
+            })
+    return products
+
+
 def detect_ns(tag: str) -> str:
     return tag.split("}")[0] + "}" if tag.startswith("{") and "}" in tag else ""
 
@@ -492,6 +514,7 @@ def convert(
             "cas_number": safe_text(elem.find(f"{ns}cas-number")) or "",
             "unii": safe_text(elem.find(f"{ns}unii")) or "",
             "state": safe_text(elem.find(f"{ns}state")) or "",
+            "products": _extract_products(elem, ns),
         }
         f_drugs.write(json.dumps(drug_doc, ensure_ascii=False, default=str) + "\n")
         cnt_drug += 1
