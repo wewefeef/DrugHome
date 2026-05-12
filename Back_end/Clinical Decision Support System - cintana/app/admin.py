@@ -9,7 +9,18 @@ from sqladmin import ModelView
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 from markupsafe import Markup
-from wtforms import StringField
+from wtforms import Form, StringField, TextAreaField
+from wtforms.validators import DataRequired, Optional as WTOptional
+
+
+class _DrugInteractionForm(Form):
+    """Custom form — bypasses sqladmin FK auto-detection for drug_id."""
+    drug_id             = StringField("Drug A \u2014 DrugBank ID (VD: DB00001)", validators=[DataRequired()])
+    drug_name           = StringField("Drug A \u2014 T\u00ean thu\u1ed1c",          validators=[WTOptional()])
+    interacting_drug_id = StringField("Drug B \u2014 DrugBank ID (VD: DB00006)", validators=[DataRequired()])
+    interacting_drug_name = StringField("Drug B \u2014 T\u00ean thu\u1ed1c",        validators=[WTOptional()])
+    severity            = StringField("M\u1ee9c \u0111\u1ed9 (major / moderate / minor)", validators=[WTOptional()])
+    description         = TextAreaField("M\u00f4 t\u1ea3 t\u01b0\u01a1ng t\u00e1c",       validators=[WTOptional()])
 
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
@@ -245,23 +256,8 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
         DrugInteraction.updated_at,
     ]
 
-    # Override tất cả ID + Name fields thành plain text (tránh Select2 dropdown 11K rows)
-    form_overrides = {
-        "drug_id": StringField,
-        "drug_name": StringField,
-        "interacting_drug_id": StringField,
-        "interacting_drug_name": StringField,
-    }
-
-    # Dùng tên string để form_overrides được áp dụng đúng — 6 trường
-    form_columns = [
-        "drug_id",
-        "drug_name",
-        "interacting_drug_id",
-        "interacting_drug_name",
-        "severity",
-        "description",
-    ]
+    # Custom form — 6 trường plain text, không có Select2 dropdown
+    form = _DrugInteractionForm
 
     page_size = 50
     page_size_options = [20, 50, 100, 200]
