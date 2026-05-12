@@ -79,10 +79,12 @@ def get_conn() -> pymysql.Connection:
 def find_xml() -> Optional[Path]:
     """Try common locations for drugbank_full.xml."""
     candidates = [
+        Path("C:/cdss/Back_end/Database/drugbank_full.xml"),
         Path("C:/cdss/Database/drugbank_full.xml"),
         Path("C:/cdss/backend/Database/drugbank_full.xml"),
         Path("D:/Du_an/Back_end/Database/drugbank_full.xml"),
         Path(__file__).resolve().parent.parent.parent.parent / "Database" / "drugbank_full.xml",
+        Path(__file__).resolve().parent.parent.parent / "Database" / "drugbank_full.xml",
     ]
     for c in candidates:
         if c.exists():
