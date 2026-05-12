@@ -9,6 +9,7 @@ from sqladmin import ModelView
 from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 from markupsafe import Markup
+from wtforms import StringField
 
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
@@ -90,6 +91,8 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.half_life,
         Drug.protein_binding,
         Drug.route_of_elimination,
+        # Brand names
+        Drug.products_rel,
         # Timestamps
         Drug.created_at,
         Drug.updated_at,
@@ -161,6 +164,29 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.toxicity: lambda m, a: Markup(
             f'<div style="max-height:150px;overflow-y:auto;font-size:0.9em">{m.toxicity}</div>'
         ) if m.toxicity else "",
+        # Brand names / products
+        "products_rel": lambda m, a: (
+            Markup(
+                '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
+                '<thead><tr>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Brand Name</th>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Manufacturer</th>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Form</th>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Country</th>'
+                '</tr></thead><tbody>'
+                + ''.join(
+                    f'<tr style="border-bottom:1px solid #e2e8f0">'
+                    f'<td style="padding:4px 8px;font-weight:600;color:#1e293b">{p.name or "—"}</td>'
+                    f'<td style="padding:4px 8px;color:#64748b">{p.labeller or "—"}</td>'
+                    f'<td style="padding:4px 8px;color:#64748b">{p.dosage_form or "—"}</td>'
+                    f'<td style="padding:4px 8px;color:#64748b">{p.country or "—"}</td>'
+                    f'</tr>'
+                    for p in m.products_rel[:20]
+                )
+                + ('</tbody></table>'
+                   + (f'<div style="font-size:0.78em;color:#94a3b8;margin-top:4px">Showing 20 of {len(m.products_rel)}</div>' if len(m.products_rel) > 20 else '</tbody></table>'))
+            ) if m.products_rel else Markup('<em style="color:#94a3b8">No brand names in database</em>')
+        ),
     }
 
     column_formatters = {
@@ -218,6 +244,10 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
         DrugInteraction.updated_at,
     ]
 
+    # Override drug_id to be a plain StringField (not FK Select2 dropdown)
+    # so admin can type any DrugBank ID directly
+    form_overrides = {"drug_id": StringField}
+
     form_columns = [
         DrugInteraction.drug_id,
         DrugInteraction.interacting_drug_id,
@@ -230,12 +260,20 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     page_size_options = [20, 50, 100, 200]
 
     column_labels = {
-        DrugInteraction.drug_id: "Drug ID",
-        DrugInteraction.interacting_drug_id: "Interacting Drug ID",
-        DrugInteraction.interacting_drug_name: "Interacting Drug Name",
+        DrugInteraction.drug_id:              "Drug A \u2014 DrugBank ID",
+        DrugInteraction.interacting_drug_id:  "Drug B \u2014 DrugBank ID",
+        DrugInteraction.interacting_drug_name: "Drug B \u2014 Name",
+        DrugInteraction.severity:             "Severity",
+        DrugInteraction.description:          "Description",
     }
 
     column_formatters = {
+        DrugInteraction.drug_id: lambda m, a: Markup(
+            f'<div>'
+            f'<span style="font-family:monospace;font-size:0.82em;font-weight:700;color:#1d4ed8">{m.drug_id}</span>'
+            + (f'<br><span style="font-size:0.78em;color:#64748b">{m.drug.name}</span>' if m.drug else '')
+            + '</div>'
+        ),
         DrugInteraction.severity: lambda m, a: Markup(
             f'<span style="padding:2px 10px;border-radius:12px;font-size:0.82em;font-weight:700;'
             + ("background:#fee2e2;color:#991b1b" if m.severity == "major"
@@ -247,9 +285,15 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     }
 
     column_formatters_detail = {
+        DrugInteraction.drug_id: lambda m, a: Markup(
+            f'<div>'
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8">{m.drug_id}</span>'
+            + (f' \u2014 <span style="font-weight:600">{m.drug.name}</span>' if m.drug else '')
+            + '</div>'
+        ),
         DrugInteraction.description: lambda m, a: Markup(
             f'<div style="max-height:200px;overflow-y:auto;font-size:0.9em;line-height:1.6">{m.description}</div>'
-        ) if m.description else "—",
+        ) if m.description else "\u2014",
         DrugInteraction.severity: lambda m, a: Markup(
             f'<span style="padding:3px 12px;border-radius:12px;font-size:0.9em;font-weight:700;'
             + ("background:#fee2e2;color:#991b1b" if m.severity == "major"

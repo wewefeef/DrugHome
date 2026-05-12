@@ -193,6 +193,25 @@ class DrugOut(BaseModel):
     transporter_count: int = 0
 
 
+class DrugProductOut(BaseModel):
+    """Brand name / commercial product for a drug."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: Optional[str] = None
+    labeller: Optional[str] = None
+    dosage_form: Optional[str] = None
+    strength: Optional[str] = None
+    route: Optional[str] = None
+    country: Optional[str] = None
+    source: Optional[str] = None
+
+
+class DrugDetailOut(DrugOut):
+    """Extended schema for single-drug endpoint — includes brand names.
+    Only used for GET /drugs/{id} to avoid N+1 in list views."""
+    products: List[DrugProductOut] = []
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Protein / Active Substance schemas
 # ═══════════════════════════════════════════════════════════════════════════════

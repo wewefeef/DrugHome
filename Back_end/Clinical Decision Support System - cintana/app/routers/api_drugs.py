@@ -29,7 +29,7 @@ from app.models import (
     Drug, DrugProteinInteraction, Protein, DrugInteraction,
     DrugGroup, DrugGroupMap, DrugCategory, DrugCategoryMap,
 )
-from app.schemas import DrugCreate, DrugOut, DrugUpdate, PaginatedResponse
+from app.schemas import DrugCreate, DrugOut, DrugDetailOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
 from app.core.category_keywords import CATEGORY_KEYWORDS
 from app.core import category_cache
@@ -404,7 +404,7 @@ def get_drug_network(
     return result
 
 
-@router.get("/{drugbank_id}", response_model=DrugOut, summary="Get a single drug")
+@router.get("/{drugbank_id}", response_model=DrugDetailOut, summary="Get a single drug")
 def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
     detail_key = f"drugs:detail:{drugbank_id.upper()}"
     cached = cache_get(detail_key)
@@ -425,7 +425,7 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
         .group_by(DrugProteinInteraction.interaction_type)
         .all()
     )
-    result = DrugOut.model_validate(drug)
+    result = DrugDetailOut.model_validate(drug)
     for itype, cnt in counts:
         if itype == "target":
             result.target_count = cnt
@@ -433,6 +433,13 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
             result.enzyme_count = cnt
         elif itype == "transporter":
             result.transporter_count = cnt
+    # Load brand names (products) — only in detail endpoint to avoid N+1
+    result.products = [
+        {"id": p.id, "name": p.name, "labeller": p.labeller,
+         "dosage_form": p.dosage_form, "strength": p.strength,
+         "route": p.route, "country": p.country, "source": p.source}
+        for p in drug.products_rel
+    ]
     cache_set(detail_key, result, ttl=600)
     return result
 

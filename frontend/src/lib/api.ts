@@ -10,6 +10,17 @@ const BASE = '/api/v1';
 
 // ── Raw API response types (as returned by backend) ───────────────────────────
 
+export interface ApiDrugProduct {
+  id: number;
+  name: string | null;
+  labeller: string | null;
+  dosage_form: string | null;
+  strength: string | null;
+  route: string | null;
+  country: string | null;
+  source: string | null;
+}
+
 export interface ApiDrug {
   drugbank_id: string;
   name: string;
@@ -38,6 +49,7 @@ export interface ApiDrug {
   target_count: number;
   enzyme_count: number;
   transporter_count: number;
+  products: ApiDrugProduct[];
 }
 
 export interface ApiProtein {
@@ -96,6 +108,7 @@ export function normalizeDrug(d: ApiDrug): Drug {
     targets: d.target_count ?? 0,
     enzymes: d.enzyme_count ?? 0,
     transporters: d.transporter_count ?? 0,
+    products: d.products ?? [],
   };
 }
 

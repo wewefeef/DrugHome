@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Pill, ChevronRight, Zap, FlaskConical, BookOpen,
   ExternalLink, Tag, Loader2, Activity, AlertTriangle,
-  Droplets, Clock, Shield, ArrowDownUp, Pencil, X, Check,
+  Droplets, Clock, Shield, ArrowDownUp, Pencil, X, Check, Package,
 } from 'lucide-react';
 import type { Drug } from '../types/drug';
 import { apiFetchDrug, apiFetchDrugInteractions, apiPatchDrug, type DrugInteraction, type DrugPatchPayload } from '../lib/api';
@@ -666,6 +666,41 @@ export default function DrugDetailPage() {
                   ))}
                   {drug.aliases.length > 8 && (
                     <p className="text-xs text-gray-400 italic">+{drug.aliases.length - 8} more aliases</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Brand Names / Products */}
+            {drug.products.length > 0 && (
+              <div className="card p-5">
+                <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                  <Package size={15} className="text-indigo-500" /> Brand Names
+                </h3>
+                <div className="space-y-2">
+                  {drug.products.slice(0, 8).map(p => (
+                    <div key={p.id} className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                      <p className="text-sm font-semibold text-slate-800">{p.name || '—'}</p>
+                      {p.labeller && (
+                        <p className="text-xs text-slate-500 mt-0.5">{p.labeller}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.dosage_form && (
+                          <span className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded">{p.dosage_form}</span>
+                        )}
+                        {p.route && (
+                          <span className="text-[10px] bg-sky-50 text-sky-600 border border-sky-100 px-1.5 py-0.5 rounded">{p.route}</span>
+                        )}
+                        {p.country && (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded">{p.country}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {drug.products.length > 8 && (
+                    <p className="text-xs text-gray-400 italic text-center pt-1">
+                      +{drug.products.length - 8} more brand names
+                    </p>
                   )}
                 </div>
               </div>

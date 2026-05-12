@@ -1,3 +1,14 @@
+export interface DrugProduct {
+  id: number;
+  name: string | null;
+  labeller: string | null;
+  dosage_form: string | null;
+  strength: string | null;
+  route: string | null;
+  country: string | null;
+  source: string | null;
+}
+
 export interface Drug {
   id: string;
   drug_code: string;
@@ -26,4 +37,5 @@ export interface Drug {
   targets: number;
   enzymes: number;
   transporters: number;
+  products: DrugProduct[];
 }
