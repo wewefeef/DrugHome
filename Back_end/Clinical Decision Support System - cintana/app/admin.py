@@ -236,6 +236,7 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     column_details_list = [
         DrugInteraction.id,
         DrugInteraction.drug_id,
+        "drug_name",
         DrugInteraction.interacting_drug_id,
         DrugInteraction.interacting_drug_name,
         DrugInteraction.severity,
@@ -244,15 +245,18 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
         DrugInteraction.updated_at,
     ]
 
-    # Override cả 2 ID fields thành plain text (tránh Select2 dropdown 11K rows)
+    # Override tất cả ID + Name fields thành plain text (tránh Select2 dropdown 11K rows)
     form_overrides = {
         "drug_id": StringField,
+        "drug_name": StringField,
         "interacting_drug_id": StringField,
+        "interacting_drug_name": StringField,
     }
 
-    # Dùng tên string (không dùng attribute) để form_overrides được áp dụng đúng
+    # Dùng tên string để form_overrides được áp dụng đúng — 6 trường
     form_columns = [
         "drug_id",
+        "drug_name",
         "interacting_drug_id",
         "interacting_drug_name",
         "severity",
@@ -263,11 +267,12 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     page_size_options = [20, 50, 100, 200]
 
     column_labels = {
-        "drug_id":              "Drug A \u2014 DrugBank ID (e.g. DB00001)",
-        "interacting_drug_id":  "Drug B \u2014 DrugBank ID (e.g. DB00006)",
-        "interacting_drug_name": "Drug B \u2014 Tên thuốc",
-        "severity":             "Mức độ (major / moderate / minor)",
-        "description":          "Mô tả tương tác",
+        DrugInteraction.drug_id:              "Drug A — DrugBank ID (VD: DB00001)",
+        "drug_name":                          "Drug A — Tên thuốc",
+        DrugInteraction.interacting_drug_id:  "Drug B — DrugBank ID (VD: DB00006)",
+        DrugInteraction.interacting_drug_name: "Drug B — Tên thuốc",
+        DrugInteraction.severity:             "Mức độ (major / moderate / minor)",
+        DrugInteraction.description:          "Mô tả tương tác",
     }
 
     column_formatters = {

@@ -286,6 +286,14 @@ def _repair_schema_if_needed():
                     ))
                     logger.info("Schema repair: added users.%s", col)
 
+            # ── 6. drug_interactions: add drug_name column if missing ──────────
+            if not _col_exists(conn, "drug_interactions", "drug_name"):
+                conn.execute(_text(
+                    "ALTER TABLE `drug_interactions` ADD COLUMN "
+                    "`drug_name` VARCHAR(500) NULL AFTER `drug_id`"
+                ))
+                logger.info("Schema repair: added drug_interactions.drug_name")
+
     except Exception as exc:
         logger.error("Schema repair failed: %s", exc, exc_info=True)
 

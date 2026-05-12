@@ -424,6 +424,7 @@ class DrugInteraction(Base):
         String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
+    drug_name: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     interacting_drug_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     interacting_drug_name: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
