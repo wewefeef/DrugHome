@@ -112,18 +112,12 @@ class DrugAdmin(ModelView, model=Drug):
 
     # ── Inline sub-forms (shown inside Drug create/edit page) ────────────────
     inline_models = [
-        (DrugSynonym, {"form_columns": ["synonym", "language", "coder"],
-                        "label": "Tên đồng nghĩa (Synonyms)"}),
-        (DrugProduct, {"form_columns": ["name", "labeller", "ndc_id", "dosage_form",
-                                        "strength", "route", "country", "source"],
-                        "label": "Sản phẩm thương mại (Products)"}),
-        (DrugFoodInteraction, {"form_columns": ["interaction"],
-                               "label": "Tương tác thức ăn (Food Interactions)"}),
-        (DrugDosage, {"form_columns": ["form", "route", "strength"],
-                      "label": "Liều dùng (Dosages)"}),
-        (DrugInteraction, {"form_columns": ["interacting_drug_id", "interacting_drug_name",
-                                            "severity", "description"],
-                           "label": "Tương tác thuốc (Drug Interactions)"}),
+        (DrugSynonym, {"form_columns": [DrugSynonym.synonym, DrugSynonym.language, DrugSynonym.coder]}),
+        (DrugProduct, {"form_columns": [DrugProduct.name, DrugProduct.labeller, DrugProduct.ndc_id,
+                                        DrugProduct.dosage_form, DrugProduct.strength,
+                                        DrugProduct.route, DrugProduct.country, DrugProduct.source]}),
+        (DrugFoodInteraction, {"form_columns": [DrugFoodInteraction.interaction]}),
+        (DrugDosage, {"form_columns": [DrugDosage.form, DrugDosage.route, DrugDosage.strength]}),
     ]
 
     # ── Form (create/edit) — only scalar columns, exclude timestamps + relationships ──
