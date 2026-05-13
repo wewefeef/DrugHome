@@ -88,6 +88,9 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.unii,
         Drug.atc_codes,
         Drug.state,
+        # Classification
+        Drug.group_maps,
+        Drug.category_maps,
         # Chemical
         Drug.molecular_formula,
         Drug.average_mass,
@@ -106,7 +109,10 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.half_life,
         Drug.protein_binding,
         Drug.route_of_elimination,
-        # Brand names
+        # Related data
+        Drug.synonyms_rel,
+        Drug.food_interactions_rel,
+        Drug.dosages_rel,
         Drug.products_rel,
         # Timestamps
         Drug.created_at,
@@ -164,6 +170,12 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.route_of_elimination: "Route of Elimination",
         Drug.protein_binding: "Protein Binding",
         Drug.pharmacodynamics: "Pharmacodynamics",
+        Drug.group_maps: "Groups (Approval Status)",
+        Drug.category_maps: "Categories",
+        Drug.synonyms_rel: "Synonyms / Aliases",
+        Drug.food_interactions_rel: "Food Interactions",
+        Drug.dosages_rel: "Dosages",
+        Drug.products_rel: "Brand Names / Products",
     }
 
     # ── Formatter: hiển thị cấu trúc hóa học từ PubChem qua SMILES/InChIKey ──
@@ -189,6 +201,73 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.toxicity: lambda m, a: Markup(
             f'<div style="max-height:150px;overflow-y:auto;font-size:0.9em">{m.toxicity}</div>'
         ) if m.toxicity else "",
+        # Groups
+        "group_maps": lambda m, a: Markup(
+            " ".join(
+                f'<span style="display:inline-block;padding:2px 10px;margin:2px;border-radius:12px;'
+                f'font-size:0.82em;font-weight:600;'
+                + ("background:#dcfce7;color:#166534" if (gm.group and gm.group.name == "approved")
+                   else "background:#fee2e2;color:#991b1b" if (gm.group and gm.group.name == "withdrawn")
+                   else "background:#dbeafe;color:#1e40af" if (gm.group and gm.group.name in ("investigational", "experimental"))
+                   else "background:#f3f4f6;color:#374151")
+                + f'">{gm.group.name if gm.group else "?"}</span>'
+                for gm in m.group_maps
+            ) or "<em style='color:#94a3b8'>No groups assigned</em>"
+        ),
+        # Categories
+        "category_maps": lambda m, a: Markup(
+            (
+                '<div style="max-height:160px;overflow-y:auto">'
+                + ", ".join(
+                    f'<span style="white-space:nowrap">{cm.category.category if cm.category else "?"}</span>'
+                    for cm in m.category_maps[:50]
+                )
+                + ("..." if len(m.category_maps) > 50 else "")
+                + "</div>"
+            ) if m.category_maps else "<em style='color:#94a3b8'>No categories assigned</em>"
+        ),
+        # Synonyms
+        "synonyms_rel": lambda m, a: Markup(
+            (
+                '<div style="max-height:160px;overflow-y:auto;font-size:0.88em">'
+                + ", ".join(
+                    f'<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;'
+                    f'border-radius:4px;padding:1px 6px;margin:2px">{s.synonym}</span>'
+                    for s in m.synonyms_rel[:60]
+                )
+                + (f' <em style="color:#94a3b8">+{len(m.synonyms_rel)-60} more</em>' if len(m.synonyms_rel) > 60 else "")
+                + "</div>"
+            ) if m.synonyms_rel else "<em style='color:#94a3b8'>No synonyms</em>"
+        ),
+        # Food interactions
+        "food_interactions_rel": lambda m, a: Markup(
+            (
+                '<ul style="margin:0;padding-left:18px;font-size:0.88em;max-height:200px;overflow-y:auto">'
+                + "".join(f'<li style="margin-bottom:4px">{fi.interaction}</li>' for fi in m.food_interactions_rel)
+                + "</ul>"
+            ) if m.food_interactions_rel else "<em style='color:#94a3b8'>No food interactions recorded</em>"
+        ),
+        # Dosages
+        "dosages_rel": lambda m, a: (
+            Markup(
+                '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
+                '<thead><tr>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Form</th>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Route</th>'
+                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Strength</th>'
+                '</tr></thead><tbody>'
+                + "".join(
+                    f'<tr style="border-bottom:1px solid #e2e8f0">'
+                    f'<td style="padding:4px 8px">{d.form or "—"}</td>'
+                    f'<td style="padding:4px 8px">{d.route or "—"}</td>'
+                    f'<td style="padding:4px 8px">{d.strength or "—"}</td>'
+                    f'</tr>'
+                    for d in m.dosages_rel[:30]
+                )
+                + ("</tbody></table>"
+                   + (f'<div style="font-size:0.78em;color:#94a3b8">Showing 30 of {len(m.dosages_rel)}</div>' if len(m.dosages_rel) > 30 else ""))
+            ) if m.dosages_rel else Markup("<em style='color:#94a3b8'>No dosages recorded</em>")
+        ),
         # Brand names / products
         "products_rel": lambda m, a: (
             Markup(
