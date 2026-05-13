@@ -25,7 +25,7 @@ class _DrugInteractionForm(Form):
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
-    DrugFoodInteraction, DrugDosage,
+    DrugFoodInteraction, DrugDosage, DrugGroupMap, DrugCategoryMap,
 )
 from app.config import get_settings
 
@@ -49,6 +49,142 @@ class AdminAuth(AuthenticationBackend):
 
     async def authenticate(self, request: Request) -> bool:
         return request.session.get("admin_authenticated", False)
+
+
+# ── Module-level formatter functions (with try/except to prevent 500) ─────────
+
+def _fmt_groups(m, a):
+    try:
+        maps = list(m.group_maps)
+        if not maps:
+            return Markup("<em style='color:#94a3b8'>No groups assigned</em>")
+        parts = []
+        for gm in maps:
+            try:
+                grp = gm.group
+                name = grp.name if grp else f"group_{gm.group_id}"
+            except Exception:
+                name = f"group_{gm.group_id}"
+            if name == "approved":
+                style = "background:#dcfce7;color:#166534"
+            elif name == "withdrawn":
+                style = "background:#fee2e2;color:#991b1b"
+            elif name in ("investigational", "experimental"):
+                style = "background:#dbeafe;color:#1e40af"
+            else:
+                style = "background:#f3f4f6;color:#374151"
+            parts.append(
+                f'<span style="display:inline-block;padding:2px 10px;margin:2px;'
+                f'border-radius:12px;font-size:0.82em;font-weight:600;{style}">{name}</span>'
+            )
+        return Markup(" ".join(parts))
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error loading groups: {e}</em>")
+
+
+def _fmt_categories(m, a):
+    try:
+        maps = list(m.category_maps)
+        if not maps:
+            return Markup("<em style='color:#94a3b8'>No categories assigned</em>")
+        items = []
+        for cm in maps[:50]:
+            try:
+                name = cm.category.category if cm.category else f"cat_{cm.category_id}"
+            except Exception:
+                name = f"cat_{cm.category_id}"
+            items.append(f'<span style="white-space:nowrap">{name}</span>')
+        extra = f"... (+{len(maps) - 50} more)" if len(maps) > 50 else ""
+        return Markup(
+            f'<div style="max-height:160px;overflow-y:auto">{", ".join(items)}{extra}</div>'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error loading categories: {e}</em>")
+
+
+def _fmt_synonyms(m, a):
+    try:
+        syns = list(m.synonyms_rel)
+        if not syns:
+            return Markup("<em style='color:#94a3b8'>No synonyms</em>")
+        chips = "".join(
+            f'<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;'
+            f'border-radius:4px;padding:1px 6px;margin:2px">{s.synonym}</span>'
+            for s in syns[:60]
+        )
+        extra = f' <em style="color:#94a3b8">+{len(syns) - 60} more</em>' if len(syns) > 60 else ""
+        return Markup(
+            f'<div style="max-height:160px;overflow-y:auto;font-size:0.88em">{chips}{extra}</div>'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
+
+
+def _fmt_food(m, a):
+    try:
+        items = list(m.food_interactions_rel)
+        if not items:
+            return Markup("<em style='color:#94a3b8'>No food interactions recorded</em>")
+        li = "".join(f'<li style="margin-bottom:4px">{fi.interaction}</li>' for fi in items)
+        return Markup(
+            f'<ul style="margin:0;padding-left:18px;font-size:0.88em;max-height:200px;overflow-y:auto">{li}</ul>'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
+
+
+def _fmt_dosages(m, a):
+    try:
+        dos = list(m.dosages_rel)[:30]
+        if not dos:
+            return Markup("<em style='color:#94a3b8'>No dosages recorded</em>")
+        rows = "".join(
+            f'<tr style="border-bottom:1px solid #e2e8f0">'
+            f'<td style="padding:4px 8px">{d.form or "—"}</td>'
+            f'<td style="padding:4px 8px">{d.route or "—"}</td>'
+            f'<td style="padding:4px 8px">{d.strength or "—"}</td>'
+            f'</tr>'
+            for d in dos
+        )
+        note = '<div style="font-size:0.78em;color:#94a3b8">Showing up to 30 rows</div>' if len(dos) == 30 else ""
+        return Markup(
+            '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
+            '<thead><tr>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Form</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Route</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Strength</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table>{note}'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
+
+
+def _fmt_products(m, a):
+    try:
+        prods = list(m.products_rel)[:20]
+        if not prods:
+            return Markup('<em style="color:#94a3b8">No brand names in database</em>')
+        rows = "".join(
+            f'<tr style="border-bottom:1px solid #e2e8f0">'
+            f'<td style="padding:4px 8px;font-weight:600;color:#1e293b">{p.name or "—"}</td>'
+            f'<td style="padding:4px 8px;color:#64748b">{p.labeller or "—"}</td>'
+            f'<td style="padding:4px 8px;color:#64748b">{p.dosage_form or "—"}</td>'
+            f'<td style="padding:4px 8px;color:#64748b">{p.country or "—"}</td>'
+            f'</tr>'
+            for p in prods
+        )
+        note = '<div style="font-size:0.78em;color:#94a3b8;margin-top:4px">Showing first 20 — see Drug Products section for full list</div>' if len(prods) == 20 else ""
+        return Markup(
+            '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
+            '<thead><tr>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Brand Name</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Manufacturer</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Form</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Country</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table>{note}'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
 
 
 # ── Model Views ───────────────────────────────────────────────────────────────
@@ -78,6 +214,27 @@ class DrugAdmin(ModelView, model=Drug):
 
     # Allow editing the primary key field (drugbank_id) in create form
     form_include_pk = True
+
+    # ── Eager-load all relationships used in detail view ─────────────────────
+    # Prevents DetachedInstanceError when sqladmin closes session before rendering
+    def get_query(self):
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        return (
+            select(Drug)
+            .options(
+                selectinload(Drug.group_maps).selectinload(DrugGroupMap.group),
+                selectinload(Drug.category_maps).selectinload(DrugCategoryMap.category),
+                selectinload(Drug.synonyms_rel),
+                selectinload(Drug.food_interactions_rel),
+                selectinload(Drug.dosages_rel),
+                selectinload(Drug.products_rel),
+            )
+        )
+
+    def get_count_query(self):
+        from sqlalchemy import select, func
+        return select(func.count()).select_from(Drug)
 
     # ── Detail view — tất cả fields ───────────────────────────────────────────
     column_details_list = [
@@ -120,14 +277,9 @@ class DrugAdmin(ModelView, model=Drug):
     ]
 
     # ── Inline sub-forms (shown inside Drug create/edit page) ────────────────
-    inline_models = [
-        (DrugSynonym, {"form_columns": [DrugSynonym.synonym, DrugSynonym.language, DrugSynonym.coder]}),
-        (DrugProduct, {"form_columns": [DrugProduct.name, DrugProduct.labeller, DrugProduct.ndc_id,
-                                        DrugProduct.dosage_form, DrugProduct.strength,
-                                        DrugProduct.route, DrugProduct.country, DrugProduct.source]}),
-        (DrugFoodInteraction, {"form_columns": [DrugFoodInteraction.interaction]}),
-        (DrugDosage, {"form_columns": [DrugDosage.form, DrugDosage.route, DrugDosage.strength]}),
-    ]
+    # Note: scroll to bottom of form to see inline sections for Synonyms,
+    # Products, Food Interactions, Dosages
+    inline_models = [DrugSynonym, DrugProduct, DrugFoodInteraction, DrugDosage]
 
     # ── Form (create/edit) — scalar columns + M2M selects ────────────────────
     form_columns = [
@@ -183,9 +335,10 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.smiles: lambda m, a: Markup(
             f'<code style="word-break:break-all;font-size:0.8em">{m.smiles}</code>'
             + (
-                f'<br><img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{m.smiles}/PNG?image_size=300x200" '
+                f'<br><img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/'
+                f'{m.smiles}/PNG?image_size=300x200" '
                 f'style="margin-top:8px;border:1px solid #e2e8f0;border-radius:6px" '
-                f'onerror="this.style.display:none" />'
+                f'onerror="this.style.display=\'none\'" />'
                 if m.smiles else ""
             )
         ) if m.smiles else Markup("<em>N/A</em>"),
@@ -201,96 +354,13 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.toxicity: lambda m, a: Markup(
             f'<div style="max-height:150px;overflow-y:auto;font-size:0.9em">{m.toxicity}</div>'
         ) if m.toxicity else "",
-        # Groups
-        "group_maps": lambda m, a: Markup(
-            " ".join(
-                f'<span style="display:inline-block;padding:2px 10px;margin:2px;border-radius:12px;'
-                f'font-size:0.82em;font-weight:600;'
-                + ("background:#dcfce7;color:#166534" if (gm.group and gm.group.name == "approved")
-                   else "background:#fee2e2;color:#991b1b" if (gm.group and gm.group.name == "withdrawn")
-                   else "background:#dbeafe;color:#1e40af" if (gm.group and gm.group.name in ("investigational", "experimental"))
-                   else "background:#f3f4f6;color:#374151")
-                + f'">{gm.group.name if gm.group else "?"}</span>'
-                for gm in m.group_maps
-            ) or "<em style='color:#94a3b8'>No groups assigned</em>"
-        ),
-        # Categories
-        "category_maps": lambda m, a: Markup(
-            (
-                '<div style="max-height:160px;overflow-y:auto">'
-                + ", ".join(
-                    f'<span style="white-space:nowrap">{cm.category.category if cm.category else "?"}</span>'
-                    for cm in m.category_maps[:50]
-                )
-                + ("..." if len(m.category_maps) > 50 else "")
-                + "</div>"
-            ) if m.category_maps else "<em style='color:#94a3b8'>No categories assigned</em>"
-        ),
-        # Synonyms
-        "synonyms_rel": lambda m, a: Markup(
-            (
-                '<div style="max-height:160px;overflow-y:auto;font-size:0.88em">'
-                + ", ".join(
-                    f'<span style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;'
-                    f'border-radius:4px;padding:1px 6px;margin:2px">{s.synonym}</span>'
-                    for s in m.synonyms_rel[:60]
-                )
-                + (f' <em style="color:#94a3b8">+{len(m.synonyms_rel)-60} more</em>' if len(m.synonyms_rel) > 60 else "")
-                + "</div>"
-            ) if m.synonyms_rel else "<em style='color:#94a3b8'>No synonyms</em>"
-        ),
-        # Food interactions
-        "food_interactions_rel": lambda m, a: Markup(
-            (
-                '<ul style="margin:0;padding-left:18px;font-size:0.88em;max-height:200px;overflow-y:auto">'
-                + "".join(f'<li style="margin-bottom:4px">{fi.interaction}</li>' for fi in m.food_interactions_rel)
-                + "</ul>"
-            ) if m.food_interactions_rel else "<em style='color:#94a3b8'>No food interactions recorded</em>"
-        ),
-        # Dosages
-        "dosages_rel": lambda m, a: (
-            Markup(
-                '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
-                '<thead><tr>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Form</th>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Route</th>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Strength</th>'
-                '</tr></thead><tbody>'
-                + "".join(
-                    f'<tr style="border-bottom:1px solid #e2e8f0">'
-                    f'<td style="padding:4px 8px">{d.form or "—"}</td>'
-                    f'<td style="padding:4px 8px">{d.route or "—"}</td>'
-                    f'<td style="padding:4px 8px">{d.strength or "—"}</td>'
-                    f'</tr>'
-                    for d in m.dosages_rel[:30]
-                )
-                + ("</tbody></table>"
-                   + (f'<div style="font-size:0.78em;color:#94a3b8">Showing 30 of {len(m.dosages_rel)}</div>' if len(m.dosages_rel) > 30 else ""))
-            ) if m.dosages_rel else Markup("<em style='color:#94a3b8'>No dosages recorded</em>")
-        ),
-        # Brand names / products
-        "products_rel": lambda m, a: (
-            Markup(
-                '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
-                '<thead><tr>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Brand Name</th>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Manufacturer</th>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Form</th>'
-                '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569;font-weight:700">Country</th>'
-                '</tr></thead><tbody>'
-                + ''.join(
-                    f'<tr style="border-bottom:1px solid #e2e8f0">'
-                    f'<td style="padding:4px 8px;font-weight:600;color:#1e293b">{p.name or "—"}</td>'
-                    f'<td style="padding:4px 8px;color:#64748b">{p.labeller or "—"}</td>'
-                    f'<td style="padding:4px 8px;color:#64748b">{p.dosage_form or "—"}</td>'
-                    f'<td style="padding:4px 8px;color:#64748b">{p.country or "—"}</td>'
-                    f'</tr>'
-                    for p in m.products_rel[:20]
-                )
-                + ('</tbody></table>'
-                   + (f'<div style="font-size:0.78em;color:#94a3b8;margin-top:4px">Showing 20 of {len(m.products_rel)}</div>' if len(m.products_rel) > 20 else '</tbody></table>'))
-            ) if m.products_rel else Markup('<em style="color:#94a3b8">No brand names in database</em>')
-        ),
+        # Relationships — use module-level functions (try/except, no 500)
+        "group_maps":           _fmt_groups,
+        "category_maps":        _fmt_categories,
+        "synonyms_rel":         _fmt_synonyms,
+        "food_interactions_rel": _fmt_food,
+        "dosages_rel":          _fmt_dosages,
+        "products_rel":         _fmt_products,
     }
 
     column_formatters = {
