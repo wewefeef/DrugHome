@@ -124,6 +124,20 @@ class Drug(Base):
         back_populates="drug", cascade="all, delete-orphan", lazy="select"
     )
 
+    # ── M2M shortcuts — used by sqladmin multi-select widgets ─────────────────
+    groups_m2m: Mapped[List["DrugGroup"]] = relationship(
+        "DrugGroup",
+        secondary="drug_group_map",
+        lazy="select",
+        overlaps="group_maps,drug_maps,group,drug",
+    )
+    categories_m2m: Mapped[List["DrugCategory"]] = relationship(
+        "DrugCategory",
+        secondary="drug_category_map",
+        lazy="select",
+        overlaps="category_maps,drug_maps,category,drug",
+    )
+
     # ── Convenience properties (schema compatibility) ─────────────────────────
     @property
     def groups(self) -> List[str]:

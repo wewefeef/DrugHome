@@ -25,7 +25,7 @@ class _DrugInteractionForm(Form):
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
-    DrugFoodInteraction, DrugDosage,
+    DrugFoodInteraction, DrugDosage, DrugGroup, DrugCategory,
 )
 from app.config import get_settings
 
@@ -76,6 +76,9 @@ class DrugAdmin(ModelView, model=Drug):
     page_size = 25
     page_size_options = [10, 25, 50, 100]
 
+    # Allow editing the primary key field (drugbank_id) in create form
+    form_include_pk = True
+
     # ── Detail view — tất cả fields ───────────────────────────────────────────
     column_details_list = [
         Drug.drugbank_id,
@@ -105,6 +108,9 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.route_of_elimination,
         # Brand names
         Drug.products_rel,
+        # Groups & Categories
+        Drug.groups_m2m,
+        Drug.categories_m2m,
         # Timestamps
         Drug.created_at,
         Drug.updated_at,
@@ -120,7 +126,7 @@ class DrugAdmin(ModelView, model=Drug):
         (DrugDosage, {"form_columns": [DrugDosage.form, DrugDosage.route, DrugDosage.strength]}),
     ]
 
-    # ── Form (create/edit) — only scalar columns, exclude timestamps + relationships ──
+    # ── Form (create/edit) — scalar columns + M2M selects ────────────────────
     form_columns = [
         Drug.drugbank_id,
         Drug.name,
@@ -145,6 +151,9 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.half_life,
         Drug.protein_binding,
         Drug.route_of_elimination,
+        # M2M selects — rendered as multi-select dropdowns
+        Drug.groups_m2m,
+        Drug.categories_m2m,
     ]
 
     # ── Column labels (hiển thị tên đẹp hơn) ─────────────────────────────────
@@ -161,6 +170,8 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.route_of_elimination: "Route of Elimination",
         Drug.protein_binding: "Protein Binding",
         Drug.pharmacodynamics: "Pharmacodynamics",
+        Drug.groups_m2m: "Groups (Approval Status)",
+        Drug.categories_m2m: "Categories (Pharmacological)",
     }
 
     # ── Formatter: hiển thị cấu trúc hóa học từ PubChem qua SMILES/InChIKey ──
