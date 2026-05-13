@@ -118,7 +118,7 @@ def create_session(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ lÆ°u phiÃªn phÃ¢n tÃ­ch")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in to save the analysis session")
 
     # Auto-generate title if not provided
     title = payload.title
@@ -156,7 +156,7 @@ def get_stats(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
 
     cache_key = f"sessions:stats:{current_user.id}"
     cached = cache_get(cache_key)
@@ -220,7 +220,7 @@ def list_sessions(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
 
     q = db.query(AnalysisSession).filter(AnalysisSession.user_id == current_user.id)
     if search:
@@ -243,7 +243,7 @@ def get_session(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,
@@ -261,7 +261,7 @@ def update_session(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,
@@ -288,7 +288,7 @@ def delete_session(
     current_user: Optional[User] = Depends(get_user_from_token),
 ):
     if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Vui lÃ²ng Ä‘Äƒng nháº­p")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
     session = db.query(AnalysisSession).filter(
         AnalysisSession.id == session_id,
         AnalysisSession.user_id == current_user.id,
