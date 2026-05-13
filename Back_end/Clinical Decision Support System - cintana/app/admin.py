@@ -25,7 +25,7 @@ class _DrugInteractionForm(Form):
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
-    DrugFoodInteraction, DrugDosage, DrugGroup, DrugCategory,
+    DrugFoodInteraction, DrugDosage,
 )
 from app.config import get_settings
 
@@ -108,9 +108,6 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.route_of_elimination,
         # Brand names
         Drug.products_rel,
-        # Groups & Categories
-        Drug.groups_m2m,
-        Drug.categories_m2m,
         # Timestamps
         Drug.created_at,
         Drug.updated_at,
@@ -151,9 +148,6 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.half_life,
         Drug.protein_binding,
         Drug.route_of_elimination,
-        # M2M selects — rendered as multi-select dropdowns
-        Drug.groups_m2m,
-        Drug.categories_m2m,
     ]
 
     # ── Column labels (hiển thị tên đẹp hơn) ─────────────────────────────────
@@ -170,8 +164,6 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.route_of_elimination: "Route of Elimination",
         Drug.protein_binding: "Protein Binding",
         Drug.pharmacodynamics: "Pharmacodynamics",
-        Drug.groups_m2m: "Groups (Approval Status)",
-        Drug.categories_m2m: "Categories (Pharmacological)",
     }
 
     # ── Formatter: hiển thị cấu trúc hóa học từ PubChem qua SMILES/InChIKey ──
