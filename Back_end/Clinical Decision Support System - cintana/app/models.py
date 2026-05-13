@@ -88,10 +88,10 @@ class Drug(Base):
 
     # ── Relationships ─────────────────────────────────────────────────────────
     synonyms_rel: Mapped[List["DrugSynonym"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
     products_rel: Mapped[List["DrugProduct"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
     external_ids_rel: Mapped[List["DrugExternalIdentifier"]] = relationship(
         back_populates="drug", cascade="all, delete-orphan", lazy="select"
@@ -100,10 +100,10 @@ class Drug(Base):
         back_populates="drug", cascade="all, delete-orphan", lazy="select"
     )
     group_maps: Mapped[List["DrugGroupMap"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
     category_maps: Mapped[List["DrugCategoryMap"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
     drug_interactions_rel: Mapped[List["DrugInteraction"]] = relationship(
         "DrugInteraction",
@@ -118,10 +118,10 @@ class Drug(Base):
         cascade="all, delete-orphan",
     )
     food_interactions_rel: Mapped[List["DrugFoodInteraction"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
     dosages_rel: Mapped[List["DrugDosage"]] = relationship(
-        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+        back_populates="drug", cascade="all, delete-orphan", lazy="selectin"
     )
 
     # ── Convenience properties (schema compatibility) ─────────────────────────
@@ -382,7 +382,7 @@ class DrugGroupMap(Base):
     )
 
     drug: Mapped["Drug"] = relationship(back_populates="group_maps")
-    group: Mapped["DrugGroup"] = relationship(back_populates="drug_maps")
+    group: Mapped["DrugGroup"] = relationship(back_populates="drug_maps", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<DrugGroupMap {self.drug_id} → group {self.group_id}>"
@@ -405,7 +405,7 @@ class DrugCategoryMap(Base):
     )
 
     drug: Mapped["Drug"] = relationship(back_populates="category_maps")
-    category: Mapped["DrugCategory"] = relationship(back_populates="drug_maps")
+    category: Mapped["DrugCategory"] = relationship(back_populates="drug_maps", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<DrugCategoryMap {self.drug_id} → category {self.category_id}>"
