@@ -32,6 +32,8 @@ from app.admin import (
     DrugProductAdmin,
     DrugExternalIdentifierAdmin,
     DrugCalculatedPropertyAdmin,
+    DrugFoodInteractionAdmin,
+    DrugDosageAdmin,
 )
 from app.config import get_settings
 from app.database import Base, engine
@@ -293,6 +295,20 @@ def _repair_schema_if_needed():
                     "`drug_name` VARCHAR(500) NULL AFTER `drug_id`"
                 ))
                 logger.info("Schema repair: added drug_interactions.drug_name")
+
+            # ── 7. Backfill drug_name from drugs table where NULL ─────────────
+            null_count = conn.execute(_text(
+                "SELECT COUNT(*) FROM drug_interactions "
+                "WHERE drug_name IS NULL OR drug_name = ''"
+            )).scalar() or 0
+            if null_count > 0:
+                conn.execute(_text(
+                    "UPDATE drug_interactions di "
+                    "JOIN drugs d ON d.drugbank_id = di.drug_id "
+                    "SET di.drug_name = d.name "
+                    "WHERE di.drug_name IS NULL OR di.drug_name = ''"
+                ))
+                logger.info("Schema repair: backfilled drug_name for %d interaction rows", null_count)
 
     except Exception as exc:
         logger.error("Schema repair failed: %s", exc, exc_info=True)
@@ -622,6 +638,8 @@ admin.add_view(DrugSynonymAdmin)
 admin.add_view(DrugProductAdmin)
 admin.add_view(DrugExternalIdentifierAdmin)
 admin.add_view(DrugCalculatedPropertyAdmin)
+admin.add_view(DrugFoodInteractionAdmin)
+admin.add_view(DrugDosageAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 

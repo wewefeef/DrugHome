@@ -117,6 +117,12 @@ class Drug(Base):
         back_populates="drug",
         cascade="all, delete-orphan",
     )
+    food_interactions_rel: Mapped[List["DrugFoodInteraction"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
+    dosages_rel: Mapped[List["DrugDosage"]] = relationship(
+        back_populates="drug", cascade="all, delete-orphan", lazy="select"
+    )
 
     # ── Convenience properties (schema compatibility) ─────────────────────────
     @property
@@ -508,7 +514,53 @@ class DrugProteinInteraction(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 13. User Account
+# 13. DrugFoodInteraction  (drug_food_interactions table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugFoodInteraction(Base):
+    """Maps to the `drug_food_interactions` table. Food/drink interaction warnings."""
+
+    __tablename__ = "drug_food_interactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    interaction: Mapped[str] = mapped_column(Text, nullable=False)
+
+    drug: Mapped["Drug"] = relationship(back_populates="food_interactions_rel")
+
+    def __repr__(self) -> str:
+        return f"<DrugFoodInteraction {self.drug_id}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. DrugDosage  (drug_dosages table — 1-N from drugs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugDosage(Base):
+    """Maps to the `drug_dosages` table. Approved dosage forms and routes."""
+
+    __tablename__ = "drug_dosages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    form: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    route: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    strength: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
+    drug: Mapped["Drug"] = relationship(back_populates="dosages_rel")
+
+    def __repr__(self) -> str:
+        return f"<DrugDosage {self.drug_id}: {self.form} — {self.route}>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 15. User Account
 # ─────────────────────────────────────────────────────────────────────────────
 
 class User(Base):

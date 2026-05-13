@@ -25,6 +25,7 @@ class _DrugInteractionForm(Form):
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
+    DrugFoodInteraction, DrugDosage,
 )
 from app.config import get_settings
 
@@ -107,6 +108,22 @@ class DrugAdmin(ModelView, model=Drug):
         # Timestamps
         Drug.created_at,
         Drug.updated_at,
+    ]
+
+    # ── Inline sub-forms (shown inside Drug create/edit page) ────────────────
+    inline_models = [
+        (DrugSynonym, {"form_columns": ["synonym", "language", "coder"],
+                        "label": "Tên đồng nghĩa (Synonyms)"}),
+        (DrugProduct, {"form_columns": ["name", "labeller", "ndc_id", "dosage_form",
+                                        "strength", "route", "country", "source"],
+                        "label": "Sản phẩm thương mại (Products)"}),
+        (DrugFoodInteraction, {"form_columns": ["interaction"],
+                               "label": "Tương tác thức ăn (Food Interactions)"}),
+        (DrugDosage, {"form_columns": ["form", "route", "strength"],
+                      "label": "Liều dùng (Dosages)"}),
+        (DrugInteraction, {"form_columns": ["interacting_drug_id", "interacting_drug_name",
+                                            "severity", "description"],
+                           "label": "Tương tác thuốc (Drug Interactions)"}),
     ]
 
     # ── Form (create/edit) — only scalar columns, exclude timestamps + relationships ──
@@ -667,4 +684,60 @@ class DrugCalculatedPropertyAdmin(ModelView, model=DrugCalculatedProperty):
         DrugCalculatedProperty.kind: "Property",
         DrugCalculatedProperty.value: "Value",
         DrugCalculatedProperty.source: "Source (Calculator)",
+    }
+
+
+class DrugFoodInteractionAdmin(ModelView, model=DrugFoodInteraction):
+    name = "Food Interaction"
+    name_plural = "Food Interactions"
+    icon = "fa-solid fa-utensils"
+
+    can_create = True
+    can_edit = True
+    can_delete = True
+
+    column_list = [
+        DrugFoodInteraction.id,
+        DrugFoodInteraction.drug_id,
+        DrugFoodInteraction.interaction,
+    ]
+    column_searchable_list = [DrugFoodInteraction.drug_id, DrugFoodInteraction.interaction]
+    column_sortable_list = [DrugFoodInteraction.id, DrugFoodInteraction.drug_id]
+    form_columns = [DrugFoodInteraction.drug_id, DrugFoodInteraction.interaction]
+    page_size = 50
+    page_size_options = [20, 50, 100]
+
+    column_labels = {
+        DrugFoodInteraction.drug_id: "DrugBank ID",
+        DrugFoodInteraction.interaction: "Food/Drink Interaction",
+    }
+
+
+class DrugDosageAdmin(ModelView, model=DrugDosage):
+    name = "Dosage"
+    name_plural = "Dosages"
+    icon = "fa-solid fa-prescription-bottle"
+
+    can_create = True
+    can_edit = True
+    can_delete = True
+
+    column_list = [
+        DrugDosage.id,
+        DrugDosage.drug_id,
+        DrugDosage.form,
+        DrugDosage.route,
+        DrugDosage.strength,
+    ]
+    column_searchable_list = [DrugDosage.drug_id, DrugDosage.form, DrugDosage.route]
+    column_sortable_list = [DrugDosage.id, DrugDosage.drug_id, DrugDosage.form]
+    form_columns = [DrugDosage.drug_id, DrugDosage.form, DrugDosage.route, DrugDosage.strength]
+    page_size = 50
+    page_size_options = [20, 50, 100]
+
+    column_labels = {
+        DrugDosage.drug_id: "DrugBank ID",
+        DrugDosage.form: "Dosage Form",
+        DrugDosage.route: "Route of Administration",
+        DrugDosage.strength: "Strength",
     }
