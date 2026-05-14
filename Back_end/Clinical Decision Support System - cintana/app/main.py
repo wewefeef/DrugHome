@@ -423,7 +423,6 @@ def _run_seed_if_empty():
         logger.info("drug_protein_interactions has %d rows (%d matched) — skipping seed", dpi_count, dpi_matched)
 
 
-@asynccontextmanager
 def _create_stored_procedures() -> None:
     """Create (or replace) performance-critical stored procedures.
 
@@ -529,6 +528,7 @@ def _warm_category_cache() -> None:
         db.close()
 
 
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     FastAPICache.init(InMemoryBackend(), prefix="cdss-cache")
@@ -537,22 +537,13 @@ async def lifespan(app: FastAPI):
         logger.info("DB tables verified OK")
     except Exception as exc:
         logger.warning("DB table check failed (non-fatal): %s", exc)
-    # Repair any columns missing from pre-existing MySQL tables (idempotent)
-    _repair_schema_if_needed()
-    # Create/replace performance stored procedures
+    # Stored procedures must be ready before serving requests (fast, < 1s)
     _create_stored_procedures()
-    # Pre-load category IDs (eliminates LIKE scan on every category request)
-    try:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _warm_category_cache)
-    except Exception as exc:
-        logger.warning("Category cache warm executor failed (non-fatal): %s", exc)
-    # Auto-seed protein data in background so startup isn't blocked
-    try:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, _run_seed_if_empty)
-    except Exception as exc:
-        logger.warning("Auto-seed executor failed (non-fatal): %s", exc)
+    # Kick off slow background tasks — server starts accepting requests immediately
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _repair_schema_if_needed)
+    loop.run_in_executor(None, _warm_category_cache)
+    loop.run_in_executor(None, _run_seed_if_empty)
     yield
 
 
