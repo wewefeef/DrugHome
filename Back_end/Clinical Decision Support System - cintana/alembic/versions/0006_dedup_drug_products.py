@@ -17,44 +17,61 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # ── Step 1: Delete exact duplicates, keep the row with the smallest id ──
-    # A duplicate is defined as: same (drug_id, name, labeller, dosage_form,
-    # strength, route, country, source) — NULLs treated as equal via <=>
-    conn.execute(sa.text("""
-        DELETE dp
-        FROM drug_products dp
-        INNER JOIN (
-            SELECT MIN(id) AS keep_id,
-                   drug_id, name, labeller, dosage_form, strength, route, country, source
-            FROM drug_products
-            GROUP BY drug_id, name, labeller, dosage_form, strength, route, country, source
-            HAVING COUNT(*) > 1
-        ) AS dupes
-          ON  dp.drug_id      <=> dupes.drug_id
-          AND dp.name         <=> dupes.name
-          AND dp.labeller     <=> dupes.labeller
-          AND dp.dosage_form  <=> dupes.dosage_form
-          AND dp.strength     <=> dupes.strength
-          AND dp.route        <=> dupes.route
-          AND dp.country      <=> dupes.country
-          AND dp.source       <=> dupes.source
-          AND dp.id > dupes.keep_id
-    """))
+    # ── Check if unique index already exists (in case migration ran partially) ──
+    idx_exists = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.STATISTICS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'drug_products' "
+        "AND INDEX_NAME = 'uq_drug_products_dedup'"
+    )).scalar()
 
-    # ── Step 2: Add a unique index (prefix lengths for TEXT/long VARCHAR cols) ──
-    conn.execute(sa.text("""
-        CREATE UNIQUE INDEX uq_drug_products_dedup
-        ON drug_products (
-            drug_id,
-            name(80),
-            labeller(80),
-            dosage_form(80),
-            strength(80),
-            route(80),
-            country,
-            source
-        )
-    """))
+    if not idx_exists:
+        # ── Fast dedup: CREATE TABLE with MIN(id) per unique combo, then RENAME ──
+        # This is O(n log n) via GROUP BY, vs O(n²) for a self-join DELETE.
+
+        # Clean up leftover temp table from any previous failed run
+        conn.execute(sa.text(
+            "DROP TABLE IF EXISTS drug_products_dedup_tmp"
+        ))
+
+        # Step 1: Create a new table with the same structure
+        conn.execute(sa.text(
+            "CREATE TABLE drug_products_dedup_tmp LIKE drug_products"
+        ))
+
+        # Step 2: Copy only the rows we want to keep (one row per unique combo)
+        conn.execute(sa.text("""
+            INSERT INTO drug_products_dedup_tmp
+            SELECT * FROM drug_products
+            WHERE id IN (
+                SELECT MIN(id)
+                FROM drug_products
+                GROUP BY drug_id, name, labeller, dosage_form, strength, route, country, source
+            )
+        """))
+
+        # Step 3: Atomic swap — rename both tables in one statement
+        conn.execute(sa.text(
+            "RENAME TABLE drug_products TO drug_products_old_bak, "
+            "             drug_products_dedup_tmp TO drug_products"
+        ))
+
+        # Step 4: Drop the old data
+        conn.execute(sa.text("DROP TABLE drug_products_old_bak"))
+
+        # Step 5: Add unique index to prevent future duplicates
+        conn.execute(sa.text("""
+            CREATE UNIQUE INDEX uq_drug_products_dedup
+            ON drug_products (
+                drug_id,
+                name(80),
+                labeller(80),
+                dosage_form(80),
+                strength(80),
+                route(80),
+                country,
+                source
+            )
+        """))
 
 
 def downgrade() -> None:
