@@ -15,12 +15,13 @@ from wtforms.validators import DataRequired, Optional as WTOptional
 
 class _DrugInteractionForm(Form):
     """Custom form — bypasses sqladmin FK auto-detection for drug_id."""
-    drug_id             = StringField("Drug A \u2014 DrugBank ID (VD: DB00001)", validators=[DataRequired()])
-    drug_name           = StringField("Drug A \u2014 T\u00ean thu\u1ed1c",          validators=[WTOptional()])
-    interacting_drug_id = StringField("Drug B \u2014 DrugBank ID (VD: DB00006)", validators=[DataRequired()])
-    interacting_drug_name = StringField("Drug B \u2014 T\u00ean thu\u1ed1c",        validators=[WTOptional()])
-    severity            = StringField("M\u1ee9c \u0111\u1ed9 (major / moderate / minor)", validators=[WTOptional()])
-    description         = TextAreaField("M\u00f4 t\u1ea3 t\u01b0\u01a1ng t\u00e1c",       validators=[WTOptional()])
+    drug_id               = StringField("Drug A — DrugBank ID (e.g. DB00001)",        validators=[DataRequired()])
+    drug_name             = StringField("Drug A — Drug Name",                          validators=[WTOptional()])
+    interacting_drug_id   = StringField("Drug B — DrugBank ID (e.g. DB00006)",        validators=[DataRequired()])
+    interacting_drug_name = StringField("Drug B — Drug Name",                          validators=[WTOptional()])
+    severity              = StringField("Severity (major / moderate / minor)",         validators=[WTOptional()])
+    description           = TextAreaField("Interaction Description",                    validators=[WTOptional()],
+                                          render_kw={"rows": "10", "style": "width:100%;min-height:180px;font-size:0.9em"})
 
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
@@ -426,12 +427,12 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     page_size_options = [20, 50, 100, 200]
 
     column_labels = {
-        DrugInteraction.drug_id:              "Drug A — DrugBank ID (VD: DB00001)",
-        "drug_name":                          "Drug A — Tên thuốc",
-        DrugInteraction.interacting_drug_id:  "Drug B — DrugBank ID (VD: DB00006)",
-        DrugInteraction.interacting_drug_name: "Drug B — Tên thuốc",
-        DrugInteraction.severity:             "Mức độ (major / moderate / minor)",
-        DrugInteraction.description:          "Mô tả tương tác",
+        DrugInteraction.drug_id:              "Drug A — DrugBank ID",
+        "drug_name":                          "Drug A — Name",
+        DrugInteraction.interacting_drug_id:  "Drug B — DrugBank ID",
+        DrugInteraction.interacting_drug_name: "Drug B — Name",
+        DrugInteraction.severity:             "Severity",
+        DrugInteraction.description:          "Interaction Description",
     }
 
     column_formatters = {
