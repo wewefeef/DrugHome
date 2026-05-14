@@ -433,13 +433,20 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
             result.enzyme_count = cnt
         elif itype == "transporter":
             result.transporter_count = cnt
-    # Load brand names (products) — only in detail endpoint to avoid N+1
-    result.products = [
-        {"id": p.id, "name": p.name, "labeller": p.labeller,
-         "dosage_form": p.dosage_form, "strength": p.strength,
-         "route": p.route, "country": p.country, "source": p.source}
-        for p in drug.products_rel
-    ]
+    # Load brand names (products) — sorted by name, deduplicated by (name, labeller)
+    seen = set()
+    products_out = []
+    for p in sorted(drug.products_rel, key=lambda x: (x.name or "", x.labeller or "")):
+        key = (p.name or "").lower().strip(), (p.labeller or "").lower().strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        products_out.append(
+            {"id": p.id, "name": p.name, "labeller": p.labeller,
+             "dosage_form": p.dosage_form, "strength": p.strength,
+             "route": p.route, "country": p.country, "source": p.source}
+        )
+    result.products = products_out
     cache_set(detail_key, result, ttl=600)
     return result
 

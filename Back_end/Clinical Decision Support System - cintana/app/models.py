@@ -283,9 +283,13 @@ class DrugSynonym(Base):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DrugProduct(Base):
-    """Maps to the `drug_products` table.  Commercial brand names."""
+    """Maps to the `drug_products` table.  Commercial brand names (1 row per brand+manufacturer)."""
 
     __tablename__ = "drug_products"
+    __table_args__ = (
+        # One row per brand name + manufacturer per drug — migration 0007
+        UniqueConstraint("drug_id", "name", "labeller", name="uq_dp_drug_name_labeller"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     drug_id: Mapped[str] = mapped_column(
