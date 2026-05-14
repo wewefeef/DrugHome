@@ -39,13 +39,14 @@ def upgrade() -> None:
         ))
 
         # Step 2: Copy only the rows we want to keep (one row per unique combo)
+        # Use LEFT(col, 80) to match the prefix lengths used in the UNIQUE index
         conn.execute(sa.text("""
             INSERT INTO drug_products_dedup_tmp
             SELECT * FROM drug_products
             WHERE id IN (
                 SELECT MIN(id)
                 FROM drug_products
-                GROUP BY drug_id, name, labeller, dosage_form, strength, route, country, source
+                GROUP BY drug_id, LEFT(name,80), LEFT(labeller,80), LEFT(dosage_form,80), LEFT(strength,80), LEFT(route,80), country, source
             )
         """))
 
