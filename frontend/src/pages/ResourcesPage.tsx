@@ -663,7 +663,7 @@ export default function ResourcesPage() {
 
             <div className="mt-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
               <Info size={15} className="mt-0.5 shrink-0" />
-              <span>WHO updates the ATC catalogue annually. Current version: <strong>WHO ATC 2024</strong>. DDD (Defined Daily Dose) definitions are included to assess national drug consumption.</span>
+              <span>WHO updates the ATC catalogue annually. Current version: <strong>WHO ATC 2026</strong>. DDD (Defined Daily Dose) definitions are included to assess national drug consumption.</span>
             </div>
           </div>
         )}
