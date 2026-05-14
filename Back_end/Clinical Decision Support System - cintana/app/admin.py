@@ -15,11 +15,11 @@ from wtforms.validators import DataRequired, Optional as WTOptional
 
 class _DrugInteractionForm(Form):
     """Custom form — bypasses sqladmin FK auto-detection for drug_id."""
-    drug_id               = StringField("Drug A — DrugBank ID (e.g. DB00001)",        validators=[DataRequired()])
-    drug_name             = StringField("Drug A — Drug Name",                          validators=[WTOptional()])
-    interacting_drug_id   = StringField("Drug B — DrugBank ID (e.g. DB00006)",        validators=[DataRequired()])
-    interacting_drug_name = StringField("Drug B — Drug Name",                          validators=[WTOptional()])
-    severity              = StringField("Severity (major / moderate / minor)",         validators=[WTOptional()])
+    drug_id               = StringField("Drug A — DrugBank ID (e.g. DB00001)",        validators=[DataRequired()], render_kw={"style": "width: 420px;"})
+    drug_name             = StringField("Drug A — Drug Name",                          validators=[WTOptional()], render_kw={"style": "width: 420px;"})
+    interacting_drug_id   = StringField("Drug B — DrugBank ID (e.g. DB00006)",        validators=[DataRequired()], render_kw={"style": "width: 420px;"})
+    interacting_drug_name = StringField("Drug B — Drug Name",                          validators=[WTOptional()], render_kw={"style": "width: 420px;"})
+    severity              = StringField("Severity (major / moderate / minor)",         validators=[WTOptional()], render_kw={"style": "width: 420px;"})
     description           = TextAreaField("Interaction Description",                    validators=[WTOptional()],
                                           render_kw={"rows": "10", "style": "width:100%;min-height:180px;font-size:0.9em"})
 
