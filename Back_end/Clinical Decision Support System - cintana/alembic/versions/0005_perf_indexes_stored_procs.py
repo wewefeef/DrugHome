@@ -31,6 +31,7 @@ Stored Procedures (created at startup via main.py; listed here for reference):
 """
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 
@@ -41,21 +42,27 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── drug_category_map ────────────────────────────────────────────────────
-    # PK is (drug_id, category_id) — fast when you know the drug.
-    # New index is (category_id, drug_id) — fast when you know the categories.
-    op.create_index(
-        "ix_dcm_cat_drug", "drug_category_map",
-        ["category_id", "drug_id"],
-    )
+    conn = op.get_bind()
 
-    # ── drug_interactions: reverse covering index ─────────────────────────────
-    # When we look up all interactions WHERE interacting_drug_id IN (...),
-    # MySQL now can do an index range scan instead of a full table scan.
-    op.create_index(
-        "ix_di_rev_cover", "drug_interactions",
-        ["interacting_drug_id", "drug_id", "severity"],
-    )
+    def index_exists(index_name: str, table_name: str) -> bool:
+        r = conn.execute(sa.text(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = :tbl AND INDEX_NAME = :idx"
+        ), {"tbl": table_name, "idx": index_name})
+        return r.scalar() > 0
+
+    if not index_exists("ix_dcm_cat_drug", "drug_category_map"):
+        op.create_index(
+            "ix_dcm_cat_drug", "drug_category_map",
+            ["category_id", "drug_id"],
+        )
+
+    if not index_exists("ix_di_rev_cover", "drug_interactions"):
+        op.create_index(
+            "ix_di_rev_cover", "drug_interactions",
+            ["interacting_drug_id", "drug_id", "severity"],
+        )
 
 
 def downgrade() -> None:
