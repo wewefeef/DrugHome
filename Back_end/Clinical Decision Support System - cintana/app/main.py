@@ -34,6 +34,7 @@ from app.admin import (
     DrugCalculatedPropertyAdmin,
     DrugFoodInteractionAdmin,
     DrugDosageAdmin,
+    SystemMetadataAdmin,
 )
 from app.config import get_settings
 from app.database import Base, engine
@@ -529,6 +530,40 @@ def _warm_category_cache() -> None:
         db.close()
 
 
+def _seed_system_metadata() -> None:
+    """
+    Tạo row mặc định trong system_metadata nếu bảng còn trống.
+    Chỉ chạy 1 lần khi deploy lần đầu — idempotent.
+    Admin có thể cập nhật phiên bản qua /admin/systemmetadata/
+    """
+    from sqlalchemy import text as _text
+    from app.models import SystemMetadata
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        count = db.query(SystemMetadata).count()
+        if count == 0:
+            db.add(SystemMetadata(
+                id=1,
+                drugbank_version="5.1.12",
+                data_year="2026",
+                release_date="2026-01-15",
+                import_date="2026-03-20",
+                notes="Full database import from DrugBank v5.1.12 (2026 release). "
+                      "17,430 drugs, 2,855,848 interactions, 5,206 proteins.",
+            ))
+            db.commit()
+            logger.info("system_metadata: seeded default row (DrugBank v5.1.12 / 2026)")
+        else:
+            logger.info("system_metadata: already has %d row(s) — skipping seed", count)
+    except Exception as exc:
+        logger.warning("system_metadata seed failed (non-fatal): %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
@@ -545,6 +580,7 @@ async def lifespan(app: FastAPI):
     loop.run_in_executor(None, _repair_schema_if_needed)
     loop.run_in_executor(None, _warm_category_cache)
     loop.run_in_executor(None, _run_seed_if_empty)
+    loop.run_in_executor(None, _seed_system_metadata)
     yield
 
 
@@ -632,6 +668,7 @@ admin.add_view(DrugExternalIdentifierAdmin)
 admin.add_view(DrugCalculatedPropertyAdmin)
 admin.add_view(DrugFoodInteractionAdmin)
 admin.add_view(DrugDosageAdmin)
+admin.add_view(SystemMetadataAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 

@@ -1,5 +1,5 @@
 """
-SQLAlchemy ORM models — 14 normalized tables.
+SQLAlchemy ORM models — 16 normalized tables.
 
 DrugBank core (12 tables):
   1.  drugs                      ← PK: drugbank_id
@@ -15,9 +15,12 @@ DrugBank core (12 tables):
   11. drug_interactions          ← drug-drug interactions
   12. drug_protein_interactions  ← drug-protein interactions
 
-App-specific (2 tables):
+App-specific (4 tables):
   13. users
   14. analysis_sessions
+  15. drug_food_interactions
+  16. drug_dosages
+  17. system_metadata            ← phiên bản dữ liệu DrugBank, ngày cập nhật
 """
 
 from __future__ import annotations
@@ -660,3 +663,59 @@ class AnalysisSession(Base):
     def __repr__(self) -> str:
         return f"<AnalysisSession id={self.id} drugs={self.total_drugs} interactions={self.total_interactions}>"
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 17. SystemMetadata — phiên bản dữ liệu DrugBank
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SystemMetadata(Base):
+    """
+    Maps to the `system_metadata` table.
+    Lưu thông tin phiên bản dữ liệu DrugBank đang dùng trong hệ thống.
+    Chỉ có 1 row (id=1) — admin cập nhật qua /admin/ khi import dữ liệu mới.
+
+    Ví dụ:
+      drugbank_version = "5.1.12"
+      data_year        = "2026"
+      release_date     = "2026-01-15"
+      import_date      = "2026-03-20"
+      notes            = "Full database import from DrugBank v5.1.12"
+    """
+    __tablename__ = "system_metadata"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Phiên bản DrugBank (e.g. "5.1.12")
+    drugbank_version: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="5.1.12"
+    )
+
+    # Năm phát hành dữ liệu (e.g. "2026") — hiển thị trên website
+    data_year: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="2026"
+    )
+
+    # Ngày phát hành chính thức của DrugBank release này
+    release_date: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )
+
+    # Ngày admin import dữ liệu vào hệ thống này
+    import_date: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )
+
+    # Ghi chú thêm (e.g. "Full import", "Partial update — interactions only")
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Timestamps tự động
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<SystemMetadata DrugBank v{self.drugbank_version} ({self.data_year})>"

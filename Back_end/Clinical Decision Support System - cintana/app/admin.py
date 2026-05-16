@@ -55,7 +55,7 @@ from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
     DrugFoodInteraction, DrugDosage, DrugGroupMap, DrugCategoryMap,
-    DrugGroup, DrugCategory, DrugProteinInteraction,
+    DrugGroup, DrugCategory, DrugProteinInteraction, SystemMetadata,
 )
 from app.config import get_settings
 
@@ -1007,3 +1007,89 @@ class DrugDosageAdmin(ModelView, model=DrugDosage):
         DrugDosage.route: "Route of Administration",
         DrugDosage.strength: "Strength",
     }
+
+
+class SystemMetadataAdmin(ModelView, model=SystemMetadata):
+    """
+    Admin view cho bảng system_metadata.
+    Chỉ có 1 row (id=1) — admin chỉnh sửa phiên bản DrugBank tại đây.
+    Thông tin này hiển thị trên website qua GET /api/v1/stats.
+    """
+    name = "System Metadata"
+    name_plural = "System Metadata"
+    icon = "fa-solid fa-database"
+
+    can_create = False   # chỉ 1 row, không tạo thêm
+    can_edit = True
+    can_delete = False
+
+    column_list = [
+        SystemMetadata.id,
+        SystemMetadata.drugbank_version,
+        SystemMetadata.data_year,
+        SystemMetadata.release_date,
+        SystemMetadata.import_date,
+        SystemMetadata.notes,
+        SystemMetadata.updated_at,
+    ]
+
+    column_details_list = [
+        SystemMetadata.id,
+        SystemMetadata.drugbank_version,
+        SystemMetadata.data_year,
+        SystemMetadata.release_date,
+        SystemMetadata.import_date,
+        SystemMetadata.notes,
+        SystemMetadata.created_at,
+        SystemMetadata.updated_at,
+    ]
+
+    form_columns = [
+        SystemMetadata.drugbank_version,
+        SystemMetadata.data_year,
+        SystemMetadata.release_date,
+        SystemMetadata.import_date,
+        SystemMetadata.notes,
+    ]
+
+    column_labels = {
+        SystemMetadata.drugbank_version: "DrugBank Version (e.g. 5.1.12)",
+        SystemMetadata.data_year:        "Data Year (e.g. 2026) — hien thi tren website",
+        SystemMetadata.release_date:     "Release Date (YYYY-MM-DD)",
+        SystemMetadata.import_date:      "Import Date (YYYY-MM-DD) — ngay admin import vao he thong",
+        SystemMetadata.notes:            "Notes",
+        SystemMetadata.updated_at:       "Last Updated",
+    }
+
+    column_formatters = {
+        SystemMetadata.drugbank_version: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;font-size:1em;'
+            f'background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:8px">'
+            f'DrugBank v{m.drugbank_version}</span>'
+        ),
+        SystemMetadata.data_year: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;font-size:1em;'
+            f'background:#dcfce7;color:#166534;padding:3px 10px;border-radius:8px">'
+            f'{m.data_year}</span>'
+        ),
+    }
+
+    column_formatters_detail = {
+        SystemMetadata.drugbank_version: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;font-size:1.1em;'
+            f'background:#dbeafe;color:#1e40af;padding:4px 14px;border-radius:8px">'
+            f'DrugBank v{m.drugbank_version}</span>'
+        ),
+        SystemMetadata.data_year: lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;font-size:1.1em;'
+            f'background:#dcfce7;color:#166534;padding:4px 14px;border-radius:8px">'
+            f'{m.data_year}</span>'
+            f'<div style="font-size:0.78em;color:#94a3b8;margin-top:4px">'
+            f'Gia tri nay hien thi tren trang chu website tai muc "Latest System"</div>'
+        ),
+        SystemMetadata.notes: lambda m, a: Markup(
+            f'<div style="font-size:0.9em;line-height:1.6">{m.notes}</div>'
+        ) if m.notes else Markup("<em style='color:#94a3b8'>No notes</em>"),
+    }
+
+    page_size = 10

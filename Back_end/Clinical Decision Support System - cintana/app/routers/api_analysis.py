@@ -17,13 +17,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import func as sqlfunc, text as sqtext
 from sqlalchemy.orm import Session, load_only
+from typing import Optional
 
 from app.core.interaction_engine import check_interactions
 from app.core.recommendation_engine import generate_recommendations
 from app.core.risk_engine import compute_risk_score
 from app.core.simple_cache import cache_get, cache_set
 from app.database import get_db
-from app.models import Drug, DrugInteraction, DrugProteinInteraction, Protein
+from app.models import Drug, DrugInteraction, DrugProteinInteraction, Protein, SystemMetadata
 from app.schemas import (
     CheckInteractionsRequest,
     CheckInteractionsResponse,
@@ -156,6 +157,11 @@ class SystemStats(BaseModel):
     minor_count: int
     data_source: str = "DrugBank® v5"
     last_updated: str = "2026"
+    # Phiên bản dữ liệu từ bảng system_metadata
+    drugbank_version: str = "5.1.12"
+    data_year: str = "2026"
+    release_date: Optional[str] = None
+    import_date: Optional[str] = None
 
 
 @stats_router.get(
@@ -204,6 +210,13 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStats:
     protein_count: int = db.query(sqlfunc.count(Protein.id)).scalar() or 0
     dpi_count: int = db.query(sqlfunc.count(DrugProteinInteraction.id)).scalar() or 0
 
+    # ── System metadata (phiên bản DrugBank) ─────────────────────────────────
+    meta = db.query(SystemMetadata).filter(SystemMetadata.id == 1).first()
+    drugbank_version = meta.drugbank_version if meta else "5.1.12"
+    data_year        = meta.data_year        if meta else "2026"
+    release_date     = meta.release_date     if meta else None
+    import_date      = meta.import_date      if meta else None
+
     result = SystemStats(
         drug_count=drug_count,
         interaction_count=interaction_unique,
@@ -213,6 +226,11 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStats:
         major_count=sev_map.get("major", 0),
         moderate_count=sev_map.get("moderate", 0),
         minor_count=sev_map.get("minor", 0),
+        drugbank_version=drugbank_version,
+        data_year=data_year,
+        last_updated=data_year,
+        release_date=release_date,
+        import_date=import_date,
     )
     cache_set(CACHE_KEY, result, ttl=600)
     return result
