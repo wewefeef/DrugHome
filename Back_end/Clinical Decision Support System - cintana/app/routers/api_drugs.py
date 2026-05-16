@@ -525,6 +525,34 @@ def create_drug(payload: DrugCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(drug)
     cache_delete_prefix("drugs:list:")
+
+    # ── Feedback 2: Backfill interacting_drug_name trong drug_interactions ────
+    # Khi thuốc mới được thêm vào, có thể đã có hàng nghìn rows trong
+    # drug_interactions với interacting_drug_id = drugbank_id nhưng
+    # interacting_drug_name = NULL (vì thuốc chưa tồn tại lúc import).
+    # Cập nhật tên ngay sau khi tạo để dữ liệu nhất quán.
+    try:
+        backfill_count = (
+            db.query(DrugInteraction)
+            .filter(
+                DrugInteraction.interacting_drug_id == drug.drugbank_id,
+                DrugInteraction.interacting_drug_name.is_(None),
+            )
+            .update(
+                {DrugInteraction.interacting_drug_name: drug.name},
+                synchronize_session=False,
+            )
+        )
+        if backfill_count:
+            db.commit()
+            import logging
+            logging.getLogger(__name__).info(
+                "Backfilled interacting_drug_name='%s' for %d interaction rows (interacting_drug_id=%s)",
+                drug.name, backfill_count, drug.drugbank_id,
+            )
+    except Exception:
+        db.rollback()  # backfill thất bại không ảnh hưởng đến việc tạo thuốc
+
     return DrugOut.model_validate(drug)
 
 

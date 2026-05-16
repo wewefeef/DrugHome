@@ -23,10 +23,39 @@ class _DrugInteractionForm(Form):
     description           = TextAreaField("Interaction Description",                    validators=[WTOptional()],
                                           render_kw={"rows": "10", "style": "width:100%;min-height:180px;font-size:0.9em"})
 
+
+class _DrugProteinInteractionInlineForm(Form):
+    """
+    Inline form cho drug_protein_interactions trong Drug edit page.
+    Dùng protein_id (integer) thay vì Select2 dropdown để tránh load 5,206 proteins.
+    Admin nhập protein_id trực tiếp (có thể tra cứu từ trang Proteins).
+    """
+    protein_id       = StringField(
+        "Protein ID (so nguyen — tra cuu tai /admin/protein/list)",
+        validators=[DataRequired()],
+        render_kw={"style": "width: 200px;", "placeholder": "e.g. 1"},
+    )
+    uniprot_id       = StringField(
+        "UniProt ID (tuy chon, e.g. P04637)",
+        validators=[WTOptional()],
+        render_kw={"style": "width: 200px;"},
+    )
+    interaction_type = StringField(
+        "Loai tuong tac (target / enzyme / transporter / carrier)",
+        validators=[WTOptional()],
+        render_kw={"style": "width: 200px;", "placeholder": "target"},
+    )
+    known_action     = StringField(
+        "Known action (yes / no / unknown)",
+        validators=[WTOptional()],
+        render_kw={"style": "width: 120px;", "placeholder": "unknown"},
+    )
+
 from app.models import (
     Drug, DrugInteraction, Protein, User, AnalysisSession,
     DrugSynonym, DrugProduct, DrugExternalIdentifier, DrugCalculatedProperty,
     DrugFoodInteraction, DrugDosage, DrugGroupMap, DrugCategoryMap,
+    DrugGroup, DrugCategory, DrugProteinInteraction,
 )
 from app.config import get_settings
 
@@ -188,6 +217,54 @@ def _fmt_products(m, a):
         return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
 
 
+def _fmt_protein_interactions(m, a):
+    """Hiển thị danh sách protein interactions trong detail view của Drug."""
+    try:
+        dpis = list(m.drug_protein_interactions_rel)[:30]
+        if not dpis:
+            return Markup("<em style='color:#94a3b8'>No protein interactions recorded</em>")
+
+        TYPE_STYLE = {
+            "target":      "background:#dbeafe;color:#1e40af",
+            "enzyme":      "background:#dcfce7;color:#166534",
+            "transporter": "background:#ede9fe;color:#5b21b6",
+            "carrier":     "background:#fef3c7;color:#92400e",
+        }
+        rows = ""
+        for dpi in dpis:
+            itype = dpi.interaction_type or "target"
+            style = TYPE_STYLE.get(itype, "background:#f3f4f6;color:#374151")
+            protein_name = ""
+            try:
+                protein_name = dpi.protein.name if dpi.protein else ""
+            except Exception:
+                pass
+            rows += (
+                f'<tr style="border-bottom:1px solid #e2e8f0">'
+                f'<td style="padding:4px 8px;font-family:monospace;font-size:0.82em">{dpi.protein_id}</td>'
+                f'<td style="padding:4px 8px;font-size:0.82em">{dpi.uniprot_id or "—"}</td>'
+                f'<td style="padding:4px 8px;font-size:0.82em">{protein_name[:60] or "—"}</td>'
+                f'<td style="padding:4px 8px">'
+                f'<span style="padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:600;{style}">{itype}</span>'
+                f'</td>'
+                f'<td style="padding:4px 8px;font-size:0.82em">{dpi.known_action or "—"}</td>'
+                f'</tr>'
+            )
+        note = f'<div style="font-size:0.78em;color:#94a3b8;margin-top:4px">Showing first 30 of {len(list(m.drug_protein_interactions_rel))} records</div>' if len(list(m.drug_protein_interactions_rel)) > 30 else ""
+        return Markup(
+            '<table style="width:100%;border-collapse:collapse;font-size:0.82em">'
+            '<thead><tr>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Protein ID</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">UniProt ID</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Protein Name</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Type</th>'
+            '<th style="text-align:left;padding:4px 8px;background:#f1f5f9;color:#475569">Known Action</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table>{note}'
+        )
+    except Exception as e:
+        return Markup(f"<em style='color:#dc2626'>Error: {e}</em>")
+
+
 # ── Model Views ───────────────────────────────────────────────────────────────
 
 class DrugAdmin(ModelView, model=Drug):
@@ -234,6 +311,7 @@ class DrugAdmin(ModelView, model=Drug):
                 selectinload(Drug.food_interactions_rel),
                 selectinload(Drug.dosages_rel),
                 selectinload(Drug.products_rel),
+                selectinload(Drug.drug_protein_interactions_rel),
             )
         )
 
@@ -276,15 +354,35 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.food_interactions_rel,
         Drug.dosages_rel,
         Drug.products_rel,
+        Drug.drug_protein_interactions_rel,
         # Timestamps
         Drug.created_at,
         Drug.updated_at,
     ]
 
     # ── Inline sub-forms (shown inside Drug create/edit page) ────────────────
-    # Note: scroll to bottom of form to see inline sections for Synonyms,
-    # Products, Food Interactions, Dosages
-    inline_models = [DrugSynonym, DrugProduct, DrugFoodInteraction, DrugDosage]
+    # 7 bảng liên quan đều có thể thêm/sửa/xóa trực tiếp trong form thuốc:
+    #   1. drug_synonyms          — tên đồng nghĩa
+    #   2. drug_products          — sản phẩm thương mại / brand names
+    #   3. drug_food_interactions — tương tác thức ăn
+    #   4. drug_dosages           — liều dùng
+    #   5. drug_protein_interactions — liên kết protein (target/enzyme/transporter/carrier)
+    # Còn drug_group_map và drug_category_map được xử lý qua form_columns M2M select bên dưới
+    inline_models = [
+        DrugSynonym,
+        DrugProduct,
+        DrugFoodInteraction,
+        DrugDosage,
+        (DrugProteinInteraction, {
+            "form_columns": ["protein_id", "uniprot_id", "interaction_type", "known_action"],
+            "column_labels": {
+                "protein_id":       "Protein ID (so nguyen)",
+                "uniprot_id":       "UniProt ID",
+                "interaction_type": "Loai (target/enzyme/transporter/carrier)",
+                "known_action":     "Known Action (yes/no/unknown)",
+            },
+        }),
+    ]
 
     # ── Form (create/edit) — scalar columns + M2M selects ────────────────────
     form_columns = [
@@ -311,6 +409,9 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.half_life,
         Drug.protein_binding,
         Drug.route_of_elimination,
+        # M2M: groups và categories — sqladmin render multi-select
+        Drug.group_maps,
+        Drug.category_maps,
     ]
 
     # ── Column labels (hiển thị tên đẹp hơn) ─────────────────────────────────
@@ -328,11 +429,12 @@ class DrugAdmin(ModelView, model=Drug):
         Drug.protein_binding: "Protein Binding",
         Drug.pharmacodynamics: "Pharmacodynamics",
         Drug.group_maps: "Groups (Approval Status)",
-        Drug.category_maps: "Categories",
+        Drug.category_maps: "Categories (Disease Groups)",
         Drug.synonyms_rel: "Synonyms / Aliases",
         Drug.food_interactions_rel: "Food Interactions",
         Drug.dosages_rel: "Dosages",
         Drug.products_rel: "Brand Names / Products",
+        Drug.drug_protein_interactions_rel: "Protein Interactions (Targets / Enzymes / Transporters)",
     }
 
     # ── Formatter: hiển thị cấu trúc hóa học từ PubChem qua SMILES/InChIKey ──
@@ -360,12 +462,13 @@ class DrugAdmin(ModelView, model=Drug):
             f'<div style="max-height:150px;overflow-y:auto;font-size:0.9em">{m.toxicity}</div>'
         ) if m.toxicity else "",
         # Relationships — use module-level functions (try/except, no 500)
-        "group_maps":           _fmt_groups,
-        "category_maps":        _fmt_categories,
-        "synonyms_rel":         _fmt_synonyms,
-        "food_interactions_rel": _fmt_food,
-        "dosages_rel":          _fmt_dosages,
-        "products_rel":         _fmt_products,
+        "group_maps":                       _fmt_groups,
+        "category_maps":                    _fmt_categories,
+        "synonyms_rel":                     _fmt_synonyms,
+        "food_interactions_rel":            _fmt_food,
+        "dosages_rel":                      _fmt_dosages,
+        "products_rel":                     _fmt_products,
+        "drug_protein_interactions_rel":    _fmt_protein_interactions,
     }
 
     column_formatters = {
