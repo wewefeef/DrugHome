@@ -101,26 +101,16 @@ function HeroBanner() {
 }
 
 // ──────────────────────────────────────────────
-// Stats Section
+// Stats Section — nhận props từ HomePage (fetch 1 lần duy nhất)
 // ──────────────────────────────────────────────
-function StatsSection() {
-  const [drugCount, setDrugCount] = useState('...');
-  const [proteinCount, setProteinCount] = useState('...');
-
-  useEffect(() => {
-    apiFetchSiteStats()
-      .then(({ drug_count, protein_count }) => {
-        setDrugCount(drug_count.toLocaleString());
-        setProteinCount(protein_count.toLocaleString());
-      })
-      .catch(() => { setDrugCount('17,590'); setProteinCount('5,309'); });
-  }, []);
-
+function StatsSection({ drugCount, interactionCount, proteinCount, dpiCount }: {
+  drugCount: string; interactionCount: string; proteinCount: string; dpiCount: string;
+}) {
   const stats = [
-    { value: drugCount, label: 'Drugs', sub: 'Approved & experimental', icon: <Pill size={28} />, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { value: '1,128,500+', label: 'Drug Interactions', sub: 'Recorded interaction pairs', icon: <Zap size={28} />, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { value: proteinCount, label: 'Target Proteins', sub: 'Molecular target proteins', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { value: '41,908', label: 'Drug-Protein Interactions', sub: 'Pharmacodynamic bindings', icon: <Database size={28} />, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { value: drugCount,        label: 'Drugs',                    sub: 'Approved & experimental',   icon: <Pill size={28} />,        color: 'text-blue-600',    bg: 'bg-blue-50'    },
+    { value: interactionCount, label: 'Drug Interactions',         sub: 'Unique interaction pairs',  icon: <Zap size={28} />,         color: 'text-amber-600',   bg: 'bg-amber-50'   },
+    { value: proteinCount,     label: 'Target Proteins',           sub: 'Molecular target proteins', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { value: dpiCount,         label: 'Drug-Protein Interactions', sub: 'Pharmacodynamic bindings',  icon: <Database size={28} />,    color: 'text-purple-600',  bg: 'bg-purple-50'  },
   ];
 
   return (
@@ -150,7 +140,9 @@ function StatsSection() {
 // ──────────────────────────────────────────────
 // Feature Cards
 // ──────────────────────────────────────────────
-function FeaturesSection() {
+function FeaturesSection({ drugCount, interactionCount, proteinCount }: {
+  drugCount: string; interactionCount: string; proteinCount: string;
+}) {
   const features = [
     {
       icon: <Pill size={32} />,
@@ -158,7 +150,7 @@ function FeaturesSection() {
       desc: 'Detailed drug information: mechanism of action, indications, contraindications, pharmacokinetics and clinical data.',
       to: '/drugs',
       color: 'from-blue-600 to-blue-800',
-      badge: '17,590 drugs',
+      badge: `${drugCount} drugs`,
       highlights: ['Full FDA data', 'Mechanism of action', 'Pharmacokinetics', 'ATC classification'],
     },
     {
@@ -167,7 +159,7 @@ function FeaturesSection() {
       desc: 'Analyze interactions between multiple drugs simultaneously, classify severity levels and provide clinical recommendations.',
       to: '/interactions',
       color: 'from-amber-500 to-orange-600',
-      badge: '1,128,500+ interactions',
+      badge: `${interactionCount} interactions`,
       highlights: ['Multi-drug checker', 'Risk classification', 'Interaction mechanism', 'Clinical alerts'],
     },
     {
@@ -176,7 +168,7 @@ function FeaturesSection() {
       desc: 'Explore molecular target protein data, gene information, structures and relationships with therapeutic drugs.',
       to: '/proteins',
       color: 'from-emerald-600 to-teal-700',
-      badge: '5,309 proteins',
+      badge: `${proteinCount} proteins`,
       highlights: ['UniProt data', '3D structure', 'Gene info', 'Drug binding'],
     },
     {
@@ -371,14 +363,44 @@ function CTASection() {
 }
 
 // ──────────────────────────────────────────────
-// HomePage
+// HomePage — fetch stats once, pass down as props
 // ──────────────────────────────────────────────
 export default function HomePage() {
+  const [drugCount, setDrugCount] = useState('...');
+  const [interactionCount, setInteractionCount] = useState('...');
+  const [proteinCount, setProteinCount] = useState('...');
+  const [dpiCount, setDpiCount] = useState('...');
+
+  useEffect(() => {
+    apiFetchSiteStats()
+      .then((s) => {
+        setDrugCount(s.drug_count.toLocaleString());
+        setInteractionCount(s.interaction_count.toLocaleString() + '+');
+        setProteinCount(s.protein_count.toLocaleString());
+        setDpiCount(s.drug_protein_interaction_count.toLocaleString());
+      })
+      .catch(() => {
+        setDrugCount('17,590');
+        setInteractionCount('1,427,924+');
+        setProteinCount('5,309');
+        setDpiCount('33,227');
+      });
+  }, []);
+
   return (
     <main>
       <HeroBanner />
-      <StatsSection />
-      <FeaturesSection />
+      <StatsSection
+        drugCount={drugCount}
+        interactionCount={interactionCount}
+        proteinCount={proteinCount}
+        dpiCount={dpiCount}
+      />
+      <FeaturesSection
+        drugCount={drugCount}
+        interactionCount={interactionCount}
+        proteinCount={proteinCount}
+      />
       <PopularDrugs />
       <HowItWorksSection />
       <CTASection />

@@ -38,7 +38,8 @@ from app.admin import (
 from app.config import get_settings
 from app.database import Base, engine
 from app.routers import drugs as drugs_router
-from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth
+from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth, api_export
+from app.routers.api_analysis import stats_router
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -642,6 +643,8 @@ app.include_router(api_drugs.router)
 app.include_router(api_substances.router)
 app.include_router(api_interactions.router)
 app.include_router(api_analysis.router)
+app.include_router(stats_router)          # GET /api/v1/stats
+app.include_router(api_export.router)     # GET /api/v1/export/*
 app.include_router(api_sessions.router)
 app.include_router(api_auth.router)
 

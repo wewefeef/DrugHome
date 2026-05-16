@@ -275,11 +275,25 @@ export async function apiSearchProteins(
 
 export interface SiteStats {
   drug_count: number;
+  interaction_count: number;           // unique pairs after dedup
+  interaction_count_raw: number;       // total rows in DB
   protein_count: number;
+  drug_protein_interaction_count: number;
+  major_count: number;
+  moderate_count: number;
+  minor_count: number;
+  data_source: string;
+  last_updated: string;
 }
 
-/** Fetch live totals from the backend (2 lightweight calls) */
+/** Fetch live totals from /api/v1/stats — single request, cached 10 min on server */
 export async function apiFetchSiteStats(): Promise<SiteStats> {
+  try {
+    const res = await fetch(`${BASE}/stats`);
+    if (res.ok) return await res.json() as SiteStats;
+  } catch { /* fallback below */ }
+
+  // Fallback: old 2-request method if /stats not yet deployed
   const [drugRes, proteinRes] = await Promise.all([
     fetch(`${BASE}/drugs?per_page=1&page=1`),
     fetch(`${BASE}/substances?per_page=1&page=1`),
@@ -288,7 +302,15 @@ export async function apiFetchSiteStats(): Promise<SiteStats> {
   const proteinData: Paginated<unknown> = proteinRes.ok ? await proteinRes.json() : { total: 5309 };
   return {
     drug_count: (drugData as Paginated<unknown>).total,
+    interaction_count: 1427924,
+    interaction_count_raw: 2855848,
     protein_count: (proteinData as Paginated<unknown>).total,
+    drug_protein_interaction_count: 33227,
+    major_count: 0,
+    moderate_count: 0,
+    minor_count: 0,
+    data_source: 'DrugBank® v5',
+    last_updated: '2026',
   };
 }
 

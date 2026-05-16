@@ -20,9 +20,9 @@ const menuItems = [
   {
     label: 'Explore',
     children: [
-      { label: 'Drug Database', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,590+ drugs' },
-      { label: 'Target Proteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,309 target proteins' },
-      { label: 'Drug Interactions', icon: <Zap size={16} />, to: '/interactions', desc: '1,128,500+ interaction pairs' },
+      { label: 'Drug Database', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,000+ drugs' },
+      { label: 'Target Proteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,000+ target proteins' },
+      { label: 'Drug Interactions', icon: <Zap size={16} />, to: '/interactions', desc: '1.4M+ interaction pairs' },
     ],
   },
   {

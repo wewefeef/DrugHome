@@ -195,6 +195,10 @@ class DrugAdmin(ModelView, model=Drug):
     name_plural = "Drugs"
     icon = "fa-solid fa-capsules"
 
+    can_export = True
+    export_types = ["csv", "json"]
+    export_max_rows = 0   # không giới hạn (17k rows — OK)
+
     # ── List view ─────────────────────────────────────────────────────────────
     column_list = [
         Drug.drugbank_id,
@@ -390,6 +394,9 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     can_create = True
     can_edit = True
     can_delete = True
+    # Export sqladmin mặc định bị giới hạn với 2.8M rows → dùng endpoint streaming riêng
+    # Xem: GET /api/v1/export/interactions  và  GET /api/v1/export/interactions/unique
+    can_export = False
 
     column_list = [
         DrugInteraction.id,
@@ -481,6 +488,9 @@ class ProteinAdmin(ModelView, model=Protein):
     can_create = True
     can_edit = True
     can_delete = False
+    can_export = True
+    export_types = ["csv", "json"]
+    export_max_rows = 0
 
     column_list = [
         Protein.id,
@@ -737,6 +747,9 @@ class DrugSynonymAdmin(ModelView, model=DrugSynonym):
     can_create = True
     can_edit = True
     can_delete = True
+    can_export = True
+    export_types = ["csv", "json"]
+    export_max_rows = 0
 
     column_list = [
         DrugSynonym.id,
@@ -760,6 +773,9 @@ class DrugProductAdmin(ModelView, model=DrugProduct):
     can_create = True
     can_edit = True
     can_delete = True
+    can_export = True
+    export_types = ["csv", "json"]
+    export_max_rows = 0
 
     column_list = [
         DrugProduct.id,
