@@ -172,6 +172,19 @@
       color: #1e293b;
       padding: 11px 16px !important;
       border: none !important;
+      /* Cho phep noi dung dai xuong dong, tranh keo bang qua phai */
+      white-space: normal !important;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      max-width: 720px;
+    }
+
+    /* Cot ID/PK ngan giu nguyen 1 dong */
+    .table tbody td.column-id,
+    .table tbody td.action-column,
+    .table tbody td:first-child {
+      white-space: nowrap !important;
+      max-width: none;
     }
 
     /* Striped rows */
@@ -333,6 +346,42 @@
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/select2.full.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/flatpickr.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/main.js') }}"></script>
+  <script>
+    /* ── Format so co dau cham phan cach ngan (kieu Viet Nam) ─────────────
+       Vi du: "Showing 1 to 25 of 17430 items" -> "Showing 1 to 25 of 17.430 items"
+       Ap dung cho TAT CA cac trang admin (chan trang pagination, count badge, ...).
+    */
+    (function () {
+      function fmtVN(n) {
+        return Number(n).toLocaleString('vi-VN');
+      }
+      function formatNumbersIn(root) {
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        var node;
+        while ((node = walker.nextNode())) {
+          var text = node.nodeValue;
+          if (!text) continue;
+          /* Chi format text co tu khoa "items" / "rows" / "results"
+             de tranh dung cham toi ID, ngay thang, hay so trong noi dung khac. */
+          if (/\b\d{4,}\b/.test(text) && /(items|rows|results)\b/i.test(text)) {
+            nodes.push(node);
+          }
+        }
+        nodes.forEach(function (n) {
+          n.nodeValue = n.nodeValue.replace(/\b(\d{4,})\b/g, function (m) {
+            return fmtVN(m);
+          });
+        });
+      }
+      function run() { formatNumbersIn(document.body); }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+      } else {
+        run();
+      }
+    })();
+  </script>
   {% block tail %}
   {% endblock %}
 </body>
