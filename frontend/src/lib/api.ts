@@ -284,6 +284,10 @@ export interface SiteStats {
   minor_count: number;
   data_source: string;
   last_updated: string;
+  drugbank_version: string;            // e.g. "5.1.12"
+  data_year: string;                   // e.g. "2024" — hiển thị trên trang chủ
+  release_date?: string | null;
+  import_date?: string | null;
 }
 
 /** Fetch live totals from /api/v1/stats — single request, cached 10 min on server */
@@ -311,6 +315,8 @@ export async function apiFetchSiteStats(): Promise<SiteStats> {
     minor_count: 0,
     data_source: 'DrugBank® v5',
     last_updated: '2026',
+    drugbank_version: '5.1.12',
+    data_year: '2026',
   };
 }
 

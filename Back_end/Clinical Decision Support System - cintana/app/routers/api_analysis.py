@@ -232,5 +232,36 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStats:
         release_date=release_date,
         import_date=import_date,
     )
-    cache_set(CACHE_KEY, result, ttl=600)
+    cache_set(CACHE_KEY, result, ttl=30)
     return result
+
+
+# ── 5. Manual cache clear (admin) ─────────────────────────────────────────────
+
+@stats_router.post(
+    "/admin/clear-cache",
+    summary="Clear all backend caches (admin only)",
+    description="""
+Xóa toàn bộ cache backend. Dùng khi admin sửa dữ liệu qua /admin/ và muốn
+chắc chắn frontend thấy ngay (sqladmin tự động clear cache, endpoint này
+là phương án dự phòng).
+    """,
+    tags=["Statistics"],
+)
+def clear_all_caches() -> dict:
+    """Clear toàn bộ cache backend — không cần auth vì mặc định nằm sau IIS proxy."""
+    from app.core.simple_cache import cache_delete_prefix, cache_delete
+
+    cleared_prefixes = [
+        "drugs:list:", "drugs:detail:", "drugs:cat:", "drugs:network:",
+        "proteins:list:", "proteins:detail:",
+        "sessions:stats:",
+    ]
+    for prefix in cleared_prefixes:
+        cache_delete_prefix(prefix)
+    cache_delete("system:stats")
+    return {
+        "success": True,
+        "message": "Cache cleared successfully",
+        "cleared_prefixes": cleared_prefixes + ["system:stats"],
+    }

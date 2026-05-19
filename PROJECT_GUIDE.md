@@ -2,6 +2,14 @@
 ### Tài liệu kỹ thuật toàn bộ dự án · Cập nhật: 13/05/2026 (Sprint 8)
 
 ---
+cd C:\cdss
+git pull origin main
+
+cd frontend
+npm run build
+iisreset /noforce
+
+
 Invoke-WebRequest -Uri "http://127.0.0.1:8000/admin/login" -UseBasicParsing | Select-Object StatusCode
 
 cd C:\cdss

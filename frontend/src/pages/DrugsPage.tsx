@@ -224,31 +224,9 @@ export default function DrugsPage() {
           setTotalPages(result.total_pages);
         }
       } catch {
-        // Fallback: load from local static JSON when backend is unavailable
-        try {
-          const res = await fetch(`${import.meta.env.BASE_URL}data/drugs.json`);
-          if (!res.ok) throw new Error();
-          const allDrugs: Drug[] = await res.json();
-          let filtered = allDrugs;
-          if (activeQuery) {
-            const q = activeQuery.toLowerCase();
-            filtered = filtered.filter(d =>
-              d.name.toLowerCase().includes(q) ||
-              d.id.toLowerCase().includes(q)
-            );
-          }
-          const total = filtered.length;
-          const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-          const start = (page - 1) * PAGE_SIZE;
-          const items = filtered.slice(start, start + PAGE_SIZE);
-          if (!cancelled) {
-            setDrugs(items);
-            setTotal(total);
-            setTotalPages(totalPages);
-          }
-        } catch {
-          if (!cancelled) { setDrugs([]); setTotal(0); setTotalPages(0); }
-        }
+        // Backend không truy cập được → hiển thị thông báo, KHÔNG load JSON tĩnh
+        // (JSON tĩnh là snapshot cũ, không phản ánh thay đổi từ admin panel).
+        if (!cancelled) { setDrugs([]); setTotal(0); setTotalPages(0); }
       } finally {
         if (!cancelled) setLoading(false);
       }

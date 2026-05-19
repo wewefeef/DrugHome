@@ -249,7 +249,7 @@ export default function ResourcesPage() {
   const [drugClassData, setDrugClassData] = useState<{[group: string]: Drug[]}>({});
   const [loadingDrugs, setLoadingDrugs] = useState(false);
   const [featuredDrugs, setFeaturedDrugs] = useState<Drug[]>([]);
-  const [liveStats, setLiveStats] = useState<{drug_count: number; protein_count: number} | null>(null);
+  const [liveStats, setLiveStats] = useState<{drug_count: number; protein_count: number; data_year?: string; drugbank_version?: string} | null>(null);
 
   // Fetch live stats for DRUG_FACTS banner
   useEffect(() => {
@@ -310,7 +310,7 @@ export default function ResourcesPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
-                <Microscope size={13} /> DrugBank® v5 · 2026 Edition
+                <Microscope size={13} /> DrugBank® {liveStats?.drugbank_version ? `v${liveStats.drugbank_version}` : 'v5'} · {liveStats?.data_year || '2026'} Edition
               </div>
               <h1 className="text-4xl lg:text-5xl font-extrabold leading-tight mb-4">
                 Pharmacology<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-violet-300">Library</span>

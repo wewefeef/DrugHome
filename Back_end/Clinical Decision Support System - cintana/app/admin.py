@@ -58,6 +58,75 @@ from app.models import (
     DrugGroup, DrugCategory, DrugProteinInteraction, SystemMetadata,
 )
 from app.config import get_settings
+from app.core.simple_cache import cache_delete_prefix, cache_delete
+
+
+# ── Cache invalidation mixin ──────────────────────────────────────────────────
+# Mọi thay đổi trong admin (thêm/sửa/xóa) sẽ tự động xóa cache liên quan,
+# đảm bảo trang chính cập nhật ngay lập tức — không phải đợi 5-10 phút TTL.
+
+class CacheInvalidatingAdmin:
+    """
+    Mixin cho ModelView của sqladmin. Tự động clear cache backend mỗi khi
+    admin thêm/sửa/xóa bản ghi → trang chính (frontend) thấy thay đổi ngay.
+
+    Xóa toàn bộ cache prefix:
+      - drugs:list:    → danh sách thuốc (DrugsPage, Header search)
+      - drugs:detail:  → chi tiết thuốc (DrugDetailPage)
+      - drugs:cat:     → thuốc theo nhóm bệnh (InteractionsPage sidebar)
+      - drugs:network: → mạng lưới protein (DrugDetailPage tab Network)
+      - proteins:list:    → danh sách protein (ProteinsPage)
+      - proteins:detail:  → chi tiết protein
+      - sessions:stats:   → thống kê phiên phân tích
+      - system:stats      → thống kê tổng (HomePage badge)
+    """
+
+    async def _invalidate_all_caches(self) -> None:
+        """Xóa toàn bộ cache khiến trang chính phải fetch lại data mới."""
+        try:
+            for prefix in (
+                "drugs:list:",
+                "drugs:detail:",
+                "drugs:cat:",
+                "drugs:network:",
+                "proteins:list:",
+                "proteins:detail:",
+                "sessions:stats:",
+            ):
+                cache_delete_prefix(prefix)
+            cache_delete("system:stats")
+            # Cũng clear FastAPICache (cdss-cache prefix dùng cho route khác)
+            try:
+                from fastapi_cache import FastAPICache
+                backend = FastAPICache.get_backend()
+                if backend is not None:
+                    await backend.clear(namespace="cdss-cache")
+            except Exception:
+                pass
+        except Exception:
+            # Không bao giờ làm fail thao tác save vì lỗi clear cache
+            pass
+
+    async def after_model_change(self, data, model, is_created, request) -> None:  # type: ignore[override]
+        """Hook của sqladmin — gọi sau khi INSERT/UPDATE thành công."""
+        await self._invalidate_all_caches()
+        # Gọi parent nếu có
+        parent_hook = getattr(super(), "after_model_change", None)
+        if parent_hook is not None:
+            try:
+                await parent_hook(data, model, is_created, request)
+            except Exception:
+                pass
+
+    async def after_model_delete(self, model, request) -> None:  # type: ignore[override]
+        """Hook của sqladmin — gọi sau khi DELETE thành công."""
+        await self._invalidate_all_caches()
+        parent_hook = getattr(super(), "after_model_delete", None)
+        if parent_hook is not None:
+            try:
+                await parent_hook(model, request)
+            except Exception:
+                pass
 
 
 # ── Authentication ────────────────────────────────────────────────────────────
@@ -267,7 +336,7 @@ def _fmt_protein_interactions(m, a):
 
 # ── Model Views ───────────────────────────────────────────────────────────────
 
-class DrugAdmin(ModelView, model=Drug):
+class DrugAdmin(CacheInvalidatingAdmin, ModelView, model=Drug):
     name = "Drug"
     name_plural = "Drugs"
     icon = "fa-solid fa-capsules"
@@ -489,7 +558,7 @@ class DrugAdmin(ModelView, model=Drug):
     }
 
 
-class DrugInteractionAdmin(ModelView, model=DrugInteraction):
+class DrugInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugInteraction):
     name = "Drug Interaction"
     name_plural = "Drug Interactions"
     icon = "fa-solid fa-triangle-exclamation"
@@ -583,7 +652,7 @@ class DrugInteractionAdmin(ModelView, model=DrugInteraction):
     }
 
 
-class ProteinAdmin(ModelView, model=Protein):
+class ProteinAdmin(CacheInvalidatingAdmin, ModelView, model=Protein):
     name = "Protein"
     name_plural = "Proteins"
     icon = "fa-solid fa-dna"
@@ -667,7 +736,7 @@ class ProteinAdmin(ModelView, model=Protein):
     }
 
 
-class UserAdmin(ModelView, model=User):
+class UserAdmin(CacheInvalidatingAdmin, ModelView, model=User):
     name = "User"
     name_plural = "Users"
     icon = "fa-solid fa-users"
@@ -779,7 +848,7 @@ class UserAdmin(ModelView, model=User):
     }
 
 
-class AnalysisSessionAdmin(ModelView, model=AnalysisSession):
+class AnalysisSessionAdmin(CacheInvalidatingAdmin, ModelView, model=AnalysisSession):
     name = "Analysis Session"
     name_plural = "Analysis Sessions"
     icon = "fa-solid fa-chart-line"
@@ -842,7 +911,7 @@ class AnalysisSessionAdmin(ModelView, model=AnalysisSession):
 
 # ── Supporting table views ────────────────────────────────────────────────────
 
-class DrugSynonymAdmin(ModelView, model=DrugSynonym):
+class DrugSynonymAdmin(CacheInvalidatingAdmin, ModelView, model=DrugSynonym):
     name = "Drug Synonym"
     name_plural = "Drug Synonyms"
     icon = "fa-solid fa-tag"
@@ -868,7 +937,7 @@ class DrugSynonymAdmin(ModelView, model=DrugSynonym):
     page_size_options = [20, 50, 100]
 
 
-class DrugProductAdmin(ModelView, model=DrugProduct):
+class DrugProductAdmin(CacheInvalidatingAdmin, ModelView, model=DrugProduct):
     name = "Drug Product"
     name_plural = "Drug Products"
     icon = "fa-solid fa-box"
@@ -898,7 +967,7 @@ class DrugProductAdmin(ModelView, model=DrugProduct):
     page_size_options = [20, 50, 100]
 
 
-class DrugExternalIdentifierAdmin(ModelView, model=DrugExternalIdentifier):
+class DrugExternalIdentifierAdmin(CacheInvalidatingAdmin, ModelView, model=DrugExternalIdentifier):
     name = "External Identifier"
     name_plural = "External Identifiers"
     icon = "fa-solid fa-link"
@@ -924,7 +993,7 @@ class DrugExternalIdentifierAdmin(ModelView, model=DrugExternalIdentifier):
     page_size_options = [20, 50, 100]
 
 
-class DrugCalculatedPropertyAdmin(ModelView, model=DrugCalculatedProperty):
+class DrugCalculatedPropertyAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCalculatedProperty):
     name = "Calculated Property"
     name_plural = "Calculated Properties"
     icon = "fa-solid fa-flask"
@@ -953,7 +1022,7 @@ class DrugCalculatedPropertyAdmin(ModelView, model=DrugCalculatedProperty):
     }
 
 
-class DrugFoodInteractionAdmin(ModelView, model=DrugFoodInteraction):
+class DrugFoodInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugFoodInteraction):
     name = "Food Interaction"
     name_plural = "Food Interactions"
     icon = "fa-solid fa-utensils"
@@ -979,7 +1048,7 @@ class DrugFoodInteractionAdmin(ModelView, model=DrugFoodInteraction):
     }
 
 
-class DrugDosageAdmin(ModelView, model=DrugDosage):
+class DrugDosageAdmin(CacheInvalidatingAdmin, ModelView, model=DrugDosage):
     name = "Dosage"
     name_plural = "Dosages"
     icon = "fa-solid fa-prescription-bottle"
@@ -1009,7 +1078,7 @@ class DrugDosageAdmin(ModelView, model=DrugDosage):
     }
 
 
-class SystemMetadataAdmin(ModelView, model=SystemMetadata):
+class SystemMetadataAdmin(CacheInvalidatingAdmin, ModelView, model=SystemMetadata):
     """
     Admin view cho bảng system_metadata.
     Chỉ có 1 row (id=1) — admin chỉnh sửa phiên bản DrugBank tại đây.

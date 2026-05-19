@@ -38,7 +38,7 @@ function useTrendingDrugs(): string[] {
 // ──────────────────────────────────────────────
 // Hero Banner
 // ──────────────────────────────────────────────
-function HeroBanner() {
+function HeroBanner({ dataYear, drugbankVersion }: { dataYear: string; drugbankVersion: string }) {
   const navigate = useNavigate();
   const trending = useTrendingDrugs();
 
@@ -53,10 +53,12 @@ function HeroBanner() {
 
       <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
         <div className="max-w-3xl mx-auto text-center">
-          {/* Badge */}
+          {/* Badge — hiển thị data_year từ system_metadata */}
           <div className="inline-flex items-center gap-2 bg-primary-700/60 border border-primary-600 rounded-full px-4 py-1.5 mb-6">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-blue-200 text-sm font-medium">Latest System — DrugBank 2026 Data</span>
+            <span className="text-blue-200 text-sm font-medium">
+              Latest System — DrugBank {dataYear} Data {drugbankVersion && `(v${drugbankVersion})`}
+            </span>
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4">
@@ -370,6 +372,8 @@ export default function HomePage() {
   const [interactionCount, setInteractionCount] = useState('...');
   const [proteinCount, setProteinCount] = useState('...');
   const [dpiCount, setDpiCount] = useState('...');
+  const [dataYear, setDataYear] = useState('2026');
+  const [drugbankVersion, setDrugbankVersion] = useState('5.1.12');
 
   useEffect(() => {
     apiFetchSiteStats()
@@ -378,18 +382,22 @@ export default function HomePage() {
         setInteractionCount(s.interaction_count.toLocaleString() + '+');
         setProteinCount(s.protein_count.toLocaleString());
         setDpiCount(s.drug_protein_interaction_count.toLocaleString());
+        setDataYear(s.data_year || '2026');
+        setDrugbankVersion(s.drugbank_version || '5.1.12');
       })
       .catch(() => {
         setDrugCount('17,590');
         setInteractionCount('1,427,924+');
         setProteinCount('5,309');
         setDpiCount('33,227');
+        setDataYear('2026');
+        setDrugbankVersion('5.1.12');
       });
   }, []);
 
   return (
     <main>
-      <HeroBanner />
+      <HeroBanner dataYear={dataYear} drugbankVersion={drugbankVersion} />
       <StatsSection
         drugCount={drugCount}
         interactionCount={interactionCount}
