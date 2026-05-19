@@ -176,15 +176,43 @@
       white-space: normal !important;
       word-break: break-word;
       overflow-wrap: anywhere;
-      max-width: 720px;
+    }
+
+    /* ── Action column (cell thu 2 — chua icon view/edit/delete) ──────────
+       Bat buoc xep NGANG, khong duoc xuong dong, khong wrap.
+       Cell 1 la checkbox, cell 2 la action — chuan cua sqladmin. */
+    .table thead th:nth-child(2),
+    .table tbody td:nth-child(2) {
+      white-space: nowrap !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+      width: 1%;
+      min-width: 110px;
+      vertical-align: middle !important;
+    }
+
+    /* Buttons + form trong action cell phai inline ngang nhau */
+    .table tbody td:nth-child(2) > a,
+    .table tbody td:nth-child(2) > form,
+    .table tbody td:nth-child(2) > button {
+      display: inline-flex !important;
+      vertical-align: middle !important;
+      margin: 0 1px !important;
+      float: none !important;
+    }
+
+    .table tbody td:nth-child(2) > form {
+      display: inline-block !important;
+    }
+
+    .table tbody td:nth-child(2) > form > button {
+      display: inline-flex !important;
     }
 
     /* Cot ID/PK ngan giu nguyen 1 dong */
     .table tbody td.column-id,
-    .table tbody td.action-column,
     .table tbody td:first-child {
       white-space: nowrap !important;
-      max-width: none;
     }
 
     /* Striped rows */
@@ -347,13 +375,18 @@
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/flatpickr.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/main.js') }}"></script>
   <script>
-    /* ── Format so co dau cham phan cach ngan (kieu Viet Nam) ─────────────
-       Vi du: "Showing 1 to 25 of 17430 items" -> "Showing 1 to 25 of 17.430 items"
+    /* ── Format so co dau phay phan cach ngan (kieu en-US) ────────────────
+       Vi du:
+         "Showing 1 to 25 of 17430 items" -> "Showing 1 to 25 of 17,430 items"
+         "Showing 1 to 50 of 2356 items"  -> "Showing 1 to 50 of 2,356 items"
        Ap dung cho TAT CA cac trang admin (chan trang pagination, count badge, ...).
+       Dung dau phay (,) thay dau cham (.) vi:
+         - UI dang la English ("Showing X to Y of Z items")
+         - Tranh nham lan voi dau cham trong text khac
     */
     (function () {
-      function fmtVN(n) {
-        return Number(n).toLocaleString('vi-VN');
+      function fmt(n) {
+        return Number(n).toLocaleString('en-US');
       }
       function formatNumbersIn(root) {
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -370,7 +403,7 @@
         }
         nodes.forEach(function (n) {
           n.nodeValue = n.nodeValue.replace(/\b(\d{4,})\b/g, function (m) {
-            return fmtVN(m);
+            return fmt(m);
           });
         });
       }
@@ -380,6 +413,21 @@
       } else {
         run();
       }
+      /* Re-format khi DOM thay doi (e.g. sau khi search/filter AJAX) */
+      try {
+        var observer = new MutationObserver(function (mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var m = mutations[i];
+            if (m.addedNodes && m.addedNodes.length) {
+              for (var j = 0; j < m.addedNodes.length; j++) {
+                var n = m.addedNodes[j];
+                if (n.nodeType === 1) formatNumbersIn(n);
+              }
+            }
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      } catch (e) { /* ignore */ }
     })();
   </script>
   {% block tail %}
