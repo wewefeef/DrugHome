@@ -114,13 +114,16 @@ export function normalizeDrug(d: ApiDrug): Drug {
 
 /** Maps backend ProteinOut → frontend Protein interface */
 export function normalizeProtein(p: ApiProtein): Protein {
+  // Backend tra ve protein_type duoi dang string (target|enzyme|transporter|carrier)
+  // hoac null. Bao boc thanh mang de UI hien thi nhieu badge neu can.
+  const t = (p.protein_type ?? '').trim().toLowerCase();
   return {
     id: p.id,
     uniprot_id: p.uniprot_id ?? '',
     name: p.name,
     gene_name: p.gene_name ?? '',
     organism: p.organism ?? '',
-    types: p.protein_type ? [p.protein_type] : [],
+    types: t ? [t] : [],
     actions: p.actions ?? [],
     drug_count: p.drug_count ?? 0,
   };

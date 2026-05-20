@@ -88,35 +88,8 @@ export default function ProteinsPage() {
           setTotalPages(result.total_pages);
         }
       } catch {
-        // Fallback: load from local static JSON when backend is unavailable
-        try {
-          const res = await fetch(`${import.meta.env.BASE_URL}data/proteins.json`);
-          if (!res.ok) throw new Error();
-          const allProteins: Protein[] = await res.json();
-          let filtered = allProteins;
-          if (activeQuery) {
-            const q = activeQuery.toLowerCase();
-            filtered = filtered.filter(p =>
-              p.name.toLowerCase().includes(q) ||
-              (p.gene_name ?? '').toLowerCase().includes(q) ||
-              (p.uniprot_id ?? '').toLowerCase().includes(q)
-            );
-          }
-          if (typeFilter !== "All types") {
-            filtered = filtered.filter(p => p.types.includes(typeFilter));
-          }
-          const total = filtered.length;
-          const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-          const start = (page - 1) * PAGE_SIZE;
-          const items = filtered.slice(start, start + PAGE_SIZE);
-          if (!cancelled) {
-            setProteins(items);
-            setTotal(total);
-            setTotalPages(totalPages);
-          }
-        } catch {
-          if (!cancelled) { setProteins([]); setTotal(0); setTotalPages(0); }
-        }
+        // Khong fallback static JSON nua — JSON la snapshot cu, khong co data admin moi them
+        if (!cancelled) { setProteins([]); setTotal(0); setTotalPages(0); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -161,16 +134,15 @@ export default function ProteinsPage() {
 
           <div className="flex flex-wrap gap-2 mt-5 mb-6">
             {[
-              { key: "target",      color: "bg-emerald-400/20 border-emerald-400/40 text-emerald-200", dot: "bg-emerald-400" },
-              { key: "enzyme",      color: "bg-amber-400/20  border-amber-400/40  text-amber-200",   dot: "bg-amber-400" },
-              { key: "transporter", color: "bg-violet-400/20 border-violet-400/40 text-violet-200",  dot: "bg-violet-400" },
-              { key: "carrier",     color: "bg-sky-400/20    border-sky-400/40    text-sky-200",     dot: "bg-sky-400" },
+              { key: "target",      label: "Targets",      color: "bg-emerald-400/20 border-emerald-400/40 text-emerald-200", dot: "bg-emerald-400" },
+              { key: "enzyme",      label: "Enzymes",      color: "bg-amber-400/20  border-amber-400/40  text-amber-200",   dot: "bg-amber-400" },
+              { key: "transporter", label: "Transporters", color: "bg-violet-400/20 border-violet-400/40 text-violet-200",  dot: "bg-violet-400" },
+              { key: "carrier",     label: "Carriers",     color: "bg-sky-400/20    border-sky-400/40    text-sky-200",     dot: "bg-sky-400" },
             ].map(s => (
               <button key={s.key} onClick={() => { setTypeFilter(typeFilter === s.key ? "All types" : s.key); setPage(1); }}
-                className={"border rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1.5 transition-all " + s.color + (typeFilter === s.key ? " ring-2 ring-white/40" : " hover:ring-1 hover:ring-white/30")}>
+                className={"border rounded-full px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-all " + s.color + (typeFilter === s.key ? " ring-2 ring-white/40" : " hover:ring-1 hover:ring-white/30")}>
                 <span className={"w-1.5 h-1.5 rounded-full " + s.dot} />
-                {s.key.charAt(0).toUpperCase() + s.key.slice(1)}:
-                <span className="font-bold ml-0.5">{s.key}</span>
+                {s.label}
               </button>
             ))}
           </div>
@@ -179,7 +151,7 @@ export default function ProteinsPage() {
             <div className="flex-1 min-w-0 flex bg-white rounded-xl overflow-hidden shadow-lg ring-2 ring-white/20 focus-within:ring-emerald-300 transition-all">
               <div className="pl-4 flex items-center text-gray-400"><Search size={16} /></div>
               <input type="text" value={query} onChange={e => setQuery(e.target.value)}
-                placeholder="Search gene name, UniProt ID, action..."
+                placeholder="Search protein name, gene name, action..."
                 className="flex-1 px-3 py-3 text-gray-800 outline-none text-sm" />
               {query && (
                 <button type="button" className="px-3 text-gray-400 hover:text-gray-600"
@@ -240,9 +212,8 @@ export default function ProteinsPage() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[2fr_1fr_1fr_2fr_100px] gap-3 px-5 py-3 bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+            <div className="grid grid-cols-[2.2fr_1fr_2fr_110px] gap-3 px-5 py-3 bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
               <div>Protein (Gene)</div>
-              <div>UniProt ID</div>
               <div>Type</div>
               <div>Actions / Interactions</div>
               <div className="text-right">Drug Count</div>
@@ -250,35 +221,34 @@ export default function ProteinsPage() {
 
             {proteins.map((protein, idx) => (
               <div key={protein.id}
-                className={"grid grid-cols-[2fr_1fr_1fr_2fr_100px] gap-3 px-5 py-4 items-start transition-colors hover:bg-emerald-50/40 " + (idx < proteins.length - 1 ? "border-b border-gray-50" : "")}>  
+                className={"grid grid-cols-[2.2fr_1fr_2fr_110px] gap-3 px-5 py-4 items-start transition-colors hover:bg-emerald-50/40 " + (idx < proteins.length - 1 ? "border-b border-gray-50" : "")}>
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-sm text-emerald-700 truncate max-w-[180px]" title={protein.name}>
+                    <span className="font-bold text-sm text-emerald-700 truncate max-w-[220px]" title={protein.name}>
                       {protein.gene_name || protein.name.split(" ")[0]}
                     </span>
-                    <a href={"https://www.uniprot.org/uniprotkb?query=" + protein.uniprot_id}
-                      target="_blank" rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-emerald-500 transition-colors">
-                      <ExternalLink size={11} />
-                    </a>
+                    {protein.uniprot_id && (
+                      <a href={"https://www.uniprot.org/uniprotkb/" + protein.uniprot_id}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-emerald-500 transition-colors"
+                        title={"UniProt: " + protein.uniprot_id}>
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2 pr-2" title={protein.name}>{protein.name}</p>
                   <p className="text-[10px] text-gray-400 italic mt-1">{protein.organism}</p>
                 </div>
 
-                <div className="pt-0.5">
-                  <span className="font-mono text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200 break-all">
-                    {protein.uniprot_id}
-                  </span>
-                </div>
-
                 <div className="flex flex-wrap gap-1 pt-0.5">
-                  {protein.types.map(t => (
+                  {protein.types.length > 0 ? protein.types.map(t => (
                     <span key={t} className={"text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize " + (typeBadge[t] || "bg-gray-100 text-gray-500")}>
                       {t}
                     </span>
-                  ))}
+                  )) : (
+                    <span className="text-[10px] text-gray-300">—</span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-1 pt-0.5">
