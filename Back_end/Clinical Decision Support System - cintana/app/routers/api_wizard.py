@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, text
@@ -41,8 +41,10 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 # ── Wizard HTML page ──────────────────────────────────────────────────────────
+# NOTE: Không dùng prefix /admin/ vì sqladmin mount ở /admin và sẽ intercept
+# tất cả sub-path. Wizard phục vụ tại /drug-wizard/new (ngoài prefix sqladmin).
 
-@router.get("/admin/wizard/drug/new", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/drug-wizard/new", response_class=HTMLResponse, include_in_schema=False)
 def wizard_page(request: Request):
     """Serve the 3-step Add Drug Wizard UI."""
     return templates.TemplateResponse("wizard_drug.html", {"request": request})
@@ -115,7 +117,7 @@ def get_groups(db: Session = Depends(get_db)):
 # ── Save entire drug (atomic) ─────────────────────────────────────────────────
 
 @router.post("/api/v1/wizard/save-drug")
-def save_drug(request_data: dict, db: Session = Depends(get_db)):
+def save_drug(request_data: dict = Body(...), db: Session = Depends(get_db)):
     """
     Atomically insert Drug + all related rows from 3 wizard steps.
     request_data shape:
