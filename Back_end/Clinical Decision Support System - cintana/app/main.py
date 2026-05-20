@@ -312,6 +312,53 @@ def _repair_schema_if_needed():
                 ))
                 logger.info("Schema repair: backfilled drug_name for %d interaction rows", null_count)
 
+            # ── 8. Backfill proteins.protein_type from drug_protein_interactions ──
+            # Khi VPS seed proteins tu ndjson cu khong co protein_type (NULL),
+            # tu dong derive protein_type = most common interaction_type cho moi protein.
+            # Idempotent: chi update nhung row dang NULL hoac rong.
+            null_protein_type = conn.execute(_text(
+                "SELECT COUNT(*) FROM proteins "
+                "WHERE protein_type IS NULL OR protein_type = ''"
+            )).scalar() or 0
+            if null_protein_type > 0:
+                logger.info("Schema repair: %d proteins missing protein_type — backfilling from DPI…", null_protein_type)
+                conn.execute(_text("""
+                    UPDATE proteins p
+                    JOIN (
+                        SELECT protein_id,
+                               interaction_type,
+                               COUNT(*) AS cnt
+                        FROM drug_protein_interactions
+                        WHERE interaction_type IS NOT NULL
+                          AND interaction_type != ''
+                        GROUP BY protein_id, interaction_type
+                    ) ranked
+                    JOIN (
+                        SELECT protein_id, MAX(cnt) AS max_cnt
+                        FROM (
+                            SELECT protein_id,
+                                   interaction_type,
+                                   COUNT(*) AS cnt
+                            FROM drug_protein_interactions
+                            WHERE interaction_type IS NOT NULL
+                              AND interaction_type != ''
+                            GROUP BY protein_id, interaction_type
+                        ) sub
+                        GROUP BY protein_id
+                    ) top ON ranked.protein_id = top.protein_id
+                           AND ranked.cnt = top.max_cnt
+                    SET p.protein_type = ranked.interaction_type
+                    WHERE (p.protein_type IS NULL OR p.protein_type = '')
+                      AND p.id = ranked.protein_id
+                """))
+                updated_pt = conn.execute(_text(
+                    "SELECT COUNT(*) FROM proteins "
+                    "WHERE protein_type IS NOT NULL AND protein_type != ''"
+                )).scalar() or 0
+                logger.info("Schema repair: proteins.protein_type backfilled — %d proteins now have a type", updated_pt)
+            else:
+                logger.info("Schema repair: all proteins already have protein_type ✓")
+
     except Exception as exc:
         logger.error("Schema repair failed: %s", exc, exc_info=True)
 
