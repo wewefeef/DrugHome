@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thêm Thuốc Mới — AdminDrug</title>
+  <link rel="stylesheet" href="/admin/statics/css/tabler.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/tabler-icons.min.css">
+  <link rel="stylesheet" href="/admin/statics/css/fontawesome.min.css">
+  <style>
+    :root{--primary:#2563eb;--primary-dark:#1d4ed8;--success:#16a34a;--danger:#dc2626;--warn:#d97706;--radius:10px;}
+    *{box-sizing:border-box;}
+    body{background:#f0f4f8;font-family:'Inter','Segoe UI',sans-serif;margin:0;}
+    a.back-link{display:inline-flex;align-items:center;gap:6px;color:#64748b;font-size:.85rem;text-decoration:none;padding:12px 24px;border-bottom:1px solid #e2e8f0;background:#fff;}
+    a.back-link:hover{color:var(--primary);}
+
+    /* ── Stepper top bar ── */
+    .stepper{display:flex;align-items:center;justify-content:center;gap:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:18px 24px;}
+    .step{display:flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;font-size:.85rem;font-weight:600;color:#94a3b8;cursor:default;transition:.2s;}
+    .step.active{background:#eff6ff;color:var(--primary);}
+    .step.done{background:#f0fdf4;color:#15803d;}
+    .step .num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;background:#e2e8f0;color:#64748b;flex-shrink:0;}
+    .step.active .num{background:var(--primary);color:#fff;}
+    .step.done .num{background:#16a34a;color:#fff;}
+    .step-connector{width:40px;height:2px;background:#e2e8f0;flex-shrink:0;}
+    .step-connector.done{background:#16a34a;}
+
+    /* ── Main layout ── */
+    .wizard-body{max-width:860px;margin:24px auto;padding:0 16px 120px;}
+    .panel{background:#fff;border-radius:var(--radius);border:1px solid #e2e8f0;padding:28px 32px;margin-bottom:20px;}
+    .panel-title{font-size:1rem;font-weight:700;color:#0f172a;margin:0 0 4px;}
+    .panel-sub{font-size:.82rem;color:#64748b;margin:0 0 20px;}
+    label{display:block;font-size:.8rem;font-weight:600;color:#475569;margin-bottom:4px;}
+    input,textarea,select{width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.875rem;transition:.15s;background:#fff;color:#0f172a;outline:none;}
+    input:focus,textarea:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    input.error,textarea.error{border-color:var(--danger)!important;}
+    .field-err{font-size:.75rem;color:var(--danger);margin-top:3px;display:none;}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+    .mb{margin-bottom:16px;}
+
+    /* ── ID check badge ── */
+    .id-badge{display:none;font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:999px;margin-top:4px;}
+    .id-badge.ok{display:inline-block;background:#dcfce7;color:#166534;}
+    .id-badge.dupe{display:inline-block;background:#fee2e2;color:#991b1b;}
+
+    /* ── Tag input (Synonyms) ── */
+    .tag-wrap{border:1.5px solid #cbd5e1;border-radius:8px;padding:8px;min-height:44px;display:flex;flex-wrap:wrap;gap:6px;cursor:text;}
+    .tag-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+    .tag{display:inline-flex;align-items:center;gap:5px;background:#eff6ff;color:#1d4ed8;font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:999px;}
+    .tag-del{cursor:pointer;font-size:.9rem;line-height:1;color:#93c5fd;}
+    .tag-del:hover{color:#1d4ed8;}
+    .tag-input{border:none!important;outline:none!important;box-shadow:none!important;padding:3px 6px!important;min-width:140px;flex:1;background:transparent;font-size:.85rem;}
+
+    /* ── Dynamic table ── */
+    .dyn-table{width:100%;border-collapse:collapse;font-size:.84rem;}
+    .dyn-table th{background:#f8fafc;color:#475569;font-weight:700;font-size:.75rem;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:2px solid #e2e8f0;}
+    .dyn-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+    .dyn-table input,.dyn-table select{padding:6px 8px!important;font-size:.82rem!important;}
+    .dyn-table .del-btn{background:none;border:none;cursor:pointer;color:#fca5a5;font-size:1.1rem;transition:.15s;}
+    .dyn-table .del-btn:hover{color:var(--danger);}
+    .add-row-btn{display:flex;align-items:center;gap:6px;color:var(--primary);font-size:.82rem;font-weight:600;cursor:pointer;padding:8px 0 0;border:none;background:none;}
+    .add-row-btn:hover{color:var(--primary-dark);}
+
+    /* ── Tabs (step 2) ── */
+    .tabs{display:flex;gap:4px;border-bottom:2px solid #e2e8f0;margin-bottom:20px;}
+    .tab-btn{padding:8px 18px;font-size:.84rem;font-weight:600;border:none;background:none;cursor:pointer;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;}
+    .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+
+    /* ── Autocomplete ── */
+    .ac-wrap{position:relative;}
+    .ac-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:200;max-height:220px;overflow-y:auto;display:none;}
+    .ac-item{padding:9px 14px;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;}
+    .ac-item:hover,.ac-item.focused{background:#eff6ff;color:var(--primary);}
+    .ac-item small{color:#94a3b8;font-size:.75rem;}
+
+    /* ── Selected tags (groups/categories) ── */
+    .badge-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+    .sel-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:.78rem;font-weight:600;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+    .sel-badge .rm{cursor:pointer;font-size:.9rem;color:#93c5fd;}
+    .sel-badge .rm:hover{color:#1d4ed8;}
+
+    /* ── Sentence-style protein row ── */
+    .sentence-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;background:#fafafa;}
+    .sentence-row .word{font-size:.84rem;color:#374151;font-weight:500;white-space:nowrap;}
+    .sentence-row select,.sentence-row input{padding:5px 8px!important;font-size:.82rem!important;width:auto!important;min-width:100px;}
+    .sentence-row .ac-wrap{flex:1;min-width:180px;}
+    .sentence-row .ac-wrap input{width:100%!important;}
+    .sentence-row .del-btn{margin-left:auto;}
+
+    /* ── Bottom action bar ── */
+    .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.06);}
+    .bottom-bar .draft-info{font-size:.78rem;color:#94a3b8;}
+    .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 22px;border-radius:8px;font-weight:600;font-size:.875rem;cursor:pointer;border:none;transition:.15s;}
+    .btn-outline{background:#fff;border:1.5px solid #cbd5e1;color:#374151;}
+    .btn-outline:hover{background:#f8fafc;}
+    .btn-primary{background:var(--primary);color:#fff;}
+    .btn-primary:hover{background:var(--primary-dark);}
+    .btn-success{background:#16a34a;color:#fff;}
+    .btn-success:hover{background:#15803d;}
+    .btn-sm{padding:6px 14px;font-size:.8rem;}
+
+    /* ── Draft restore banner ── */
+    .draft-banner{background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:12px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;font-size:.85rem;}
+    .draft-banner button{margin-left:auto;font-size:.78rem;}
+
+    /* ── 3D Preview modal ── */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999;align-items:center;justify-content:center;}
+    .modal-overlay.open{display:flex;}
+    .modal-box{background:#fff;border-radius:16px;padding:28px;max-width:680px;width:95%;max-height:80vh;overflow-y:auto;}
+    .modal-title{font-size:1.1rem;font-weight:700;margin:0 0 16px;display:flex;align-items:center;gap:8px;}
+    #preview-canvas{width:100%;height:300px;background:#0f172a;border-radius:10px;position:relative;overflow:hidden;}
+
+    /* ── Step visibility ── */
+    .wizard-step{display:none;}
+    .wizard-step.active{display:block;}
+
+    /* ── Saving overlay ── */
+    #saving-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;align-items:center;justify-content:center;flex-direction:column;gap:16px;color:#fff;font-size:1rem;font-weight:600;}
+    #saving-overlay.show{display:flex;}
+    .spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+
+<!-- Back link -->
+<a class="back-link" href="/admin/drug/list">
+  <i class="fa-solid fa-arrow-left"></i> Quay lại danh sách Drugs
+</a>
+
+<!-- Draft restore banner (hidden until draft found) -->
+<div id="draft-banner" class="wizard-body" style="max-width:860px;margin:12px auto 0;padding:0 16px;display:none;">
+  <div class="draft-banner">
+    <i class="fa-solid fa-clock-rotate-left" style="color:#d97706"></i>
+    <span id="draft-msg">Phát hiện bản nháp đang soạn dở. Bạn có muốn tiếp tục?</span>
+    <button class="btn btn-outline btn-sm" onclick="loadDraft()">Tiếp tục soạn</button>
+    <button class="btn btn-outline btn-sm" style="margin-left:4px" onclick="clearDraft()">Bỏ qua</button>
+  </div>
+</div>
+
+<!-- Stepper -->
+<div class="stepper">
+  <div class="step active" id="step-pill-1">
+    <span class="num">1</span> Thông tin gốc
+  </div>
+  <div class="step-connector" id="conn-1"></div>
+  <div class="step" id="step-pill-2">
+    <span class="num">2</span> Dữ liệu chi tiết
+  </div>
+  <div class="step-connector" id="conn-2"></div>
+  <div class="step" id="step-pill-3">
+    <span class="num">3</span> Mạng lưới liên kết
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ STEP 1 -->
+<div class="wizard-body">
+
+  <div class="wizard-step active" id="wstep-1">
+    <!-- Định danh chính -->
+    <div class="panel">
+      <p class="panel-title">Định danh chính</p>
+      <p class="panel-sub">DrugBank ID và tên thuốc — hệ thống kiểm tra trùng lặp ngay khi nhập.</p>
+      <div class="row2 mb">
+        <div>
+          <label>DrugBank ID <span style="color:var(--danger)">*</span></label>
+          <input id="f-drugbank_id" type="text" placeholder="VD: DB12345" maxlength="20"
+                 style="text-transform:uppercase">
+          <span id="id-badge" class="id-badge"></span>
+          <div class="field-err" id="err-drugbank_id">Vui lòng nhập DrugBank ID hợp lệ (DBxxxxx)</div>
+        </div>
+        <div>
+          <label>Tên thuốc <span style="color:var(--danger)">*</span></label>
+          <input id="f-name" type="text" placeholder="VD: Aspirin">
+          <div class="field-err" id="err-name">Tên thuốc là bắt buộc</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thông số hóa lý -->
+    <div class="panel">
+      <p class="panel-title">Thông số hóa lý</p>
+      <div class="row3 mb">
+        <div>
+          <label>Khối lượng phân tử (Da)</label>
+          <input id="f-average_mass" type="number" step="0.0001" min="0" placeholder="VD: 180.1574">
+        </div>
+        <div>
+          <label>Loại thuốc</label>
+          <select id="f-drug_type">
+            <option value="">— Chọn loại —</option>
+            <option value="Small Molecule">Small Molecule</option>
+            <option value="Biotech">Biotech</option>
+          </select>
+        </div>
+        <div>
+          <label>Trạng thái</label>
+          <select id="f-state">
+            <option value="">— Chọn —</option>
+            <option value="solid">Rắn (Solid)</option>
+            <option value="liquid">Lỏng (Liquid)</option>
+            <option value="gas">Khí (Gas)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dược lý lâm sàng -->
+    <div class="panel">
+      <p class="panel-title">Dược lý lâm sàng</p>
+      <p class="panel-sub">Hỗ trợ Markdown cơ bản: **đậm**, _nghiêng_, xuống dòng = Enter.</p>
+      <div class="mb">
+        <label>Cơ chế tác động (Mechanism of Action)</label>
+        <textarea id="f-mechanism_of_action" rows="4" placeholder="Mô tả cơ chế tác động..."></textarea>
+      </div>
+      <div class="mb">
+        <label>Chỉ định (Indication)</label>
+        <textarea id="f-indication" rows="3" placeholder="Chỉ định điều trị..."></textarea>
+      </div>
+      <div>
+        <label>Độc tính (Toxicity)</label>
+        <textarea id="f-toxicity" rows="3" placeholder="Thông tin độc tính..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ STEP 2 -->
+  <div class="wizard-step" id="wstep-2">
+    <div class="panel">
+      <p class="panel-title">Dữ liệu chi tiết (1–N)</p>
+      <p class="panel-sub">Thêm không giới hạn bằng các bảng động bên dưới.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this,'tab-syn')">
+          <i class="fa-solid fa-tags"></i> Tên gọi khác
+        </button>
+        <button class="tab-btn" onclick="switchTab(this,'tab-prod')">
+          <i class="fa-solid fa-box"></i> Sản phẩm thương mại
+        </button>
+        <button class="tab-btn" onclick="switchTab(this,'tab-ext')">
+          <i class="fa-solid fa-link"></i> Liên kết quốc tế
+        </button>
+      </div>
+
+      <!-- Tab: Synonyms -->
+      <div class="tab-pane active" id="tab-syn">
+        <p style="font-size:.82rem;color:#64748b;margin-bottom:10px">Gõ tên phụ rồi nhấn <kbd>Enter</kbd> để thêm tag.</p>
+        <div class="tag-wrap" id="syn-tag-wrap" onclick="document.getElementById('syn-input').focus()">
+          <input id="syn-input" class="tag-input" type="text" placeholder="Nhập tên gọi khác...">
+        </div>
+      </div>
+
+      <!-- Tab: Products -->
+      <div class="tab-pane" id="tab-prod">
+        <table class="dyn-table">
+          <thead>
+            <tr>
+              <th>Tên biệt dược</th>
+              <th>Nhà sản xuất</th>
+              <th>Hàm lượng</th>
+              <th>Đường dùng</th>
+              <th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody id="prod-tbody"></tbody>
+        </table>
+        <button class="add-row-btn" onclick="addProductRow()">
+          <i class="fa-solid fa-plus"></i> Thêm sản phẩm
+        </button>
+      </div>
+
+      <!-- Tab: External IDs -->
+      <div class="tab-pane" id="tab-ext">
+        <table class="dyn-table">
+          <thead>
+            <tr>
+              <th>Nguồn (Resource)</th>
+              <th>Mã định danh (ID)</th>
+              <th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody id="ext-tbody"></tbody>
+        </table>
+        <button class="add-row-btn" onclick="addExtRow()">
+          <i class="fa-solid fa-plus"></i> Thêm liên kết
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ STEP 3 -->
+  <div class="wizard-step" id="wstep-3">
+
+    <!-- Groups & Categories -->
+    <div class="panel">
+      <p class="panel-title">Phân loại nhóm &amp; Danh mục</p>
+
+      <div class="row2 mb">
+        <div>
+          <label>Nhóm phê duyệt (Groups)</label>
+          <div class="badge-list" id="sel-groups"></div>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px" id="group-checkboxes">
+            <!-- filled by JS after fetch -->
+          </div>
+        </div>
+        <div>
+          <label>Danh mục bệnh (Categories)</label>
+          <div class="ac-wrap">
+            <input id="cat-search" type="text" placeholder="Gõ để tìm: Anti-..." autocomplete="off">
+            <div class="ac-list" id="cat-ac"></div>
+          </div>
+          <div class="badge-list" id="sel-categories"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Protein interactions -->
+    <div class="panel">
+      <p class="panel-title">Tương tác Thuốc – Đích sinh học (Protein)</p>
+      <p class="panel-sub">Thuốc này <strong>[tác động vào]</strong> → Kiểu tương tác → Hành động.</p>
+      <div id="pi-rows"></div>
+      <button class="add-row-btn" onclick="addProteinRow()">
+        <i class="fa-solid fa-plus"></i> Thêm protein target
+      </button>
+    </div>
+
+    <!-- Drug-Drug interactions -->
+    <div class="panel">
+      <p class="panel-title">Tương tác Thuốc – Thuốc</p>
+      <p class="panel-sub">Hệ thống tự đảo vị trí drug_id / interacting_drug_id theo thứ tự chữ cái — bạn không cần quan tâm.</p>
+      <table class="dyn-table">
+        <thead>
+          <tr>
+            <th>Thuốc tương tác</th>
+            <th style="width:130px">Mức độ</th>
+            <th>Mô tả hậu quả</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="di-tbody"></tbody>
+      </table>
+      <button class="add-row-btn" onclick="addDIRow()">
+        <i class="fa-solid fa-plus"></i> Thêm tương tác thuốc
+      </button>
+    </div>
+  </div>
+
+</div><!-- /wizard-body -->
+
+<!-- ── Bottom action bar ── -->
+<div class="bottom-bar">
+  <span class="draft-info" id="autosave-info">Chưa lưu nháp</span>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button class="btn btn-outline" id="btn-back" onclick="prevStep()" style="display:none">
+      <i class="fa-solid fa-arrow-left"></i> Quay lại
+    </button>
+    <button class="btn btn-outline" onclick="saveDraftManual()">
+      <i class="fa-regular fa-floppy-disk"></i> Lưu tạm
+    </button>
+    <button class="btn btn-primary" id="btn-next" onclick="nextStep()">
+      Tiếp tục <i class="fa-solid fa-arrow-right"></i>
+    </button>
+    <button class="btn btn-outline" id="btn-preview" onclick="openPreview()" style="display:none">
+      <i class="fa-solid fa-cube"></i> Xem trước 3D
+    </button>
+    <button class="btn btn-success" id="btn-save" onclick="saveDrug()" style="display:none">
+      <i class="fa-solid fa-network-wired"></i> Xác nhận hòa mạng thuốc
+    </button>
+  </div>
+</div>
+
+<!-- ── 3D Preview Modal ── -->
+<div class="modal-overlay" id="preview-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      <i class="fa-solid fa-cube" style="color:var(--primary)"></i>
+      Xem trước mạng lưới thuốc 3D
+    </div>
+    <div id="preview-canvas">
+      <canvas id="net-canvas" style="width:100%;height:100%"></canvas>
+    </div>
+    <p style="font-size:.8rem;color:#64748b;margin-top:10px;text-align:center">
+      Thuốc mới (đỏ) kết nối với các protein mục tiêu (xanh) và thuốc tương tác (cam) trong hệ thống.
+    </p>
+    <div style="text-align:right;margin-top:12px">
+      <button class="btn btn-outline" onclick="closePreview()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Saving overlay ── -->
+<div id="saving-overlay">
+  <div class="spinner"></div>
+  <span>Đang hòa mạng thuốc vào hệ thống...</span>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   State
+═══════════════════════════════════════════════════════════════ */
+let currentStep = 1;
+const DRAFT_KEY = 'wizard_drug_draft';
+let autoSaveTimer = null;
+const synonyms = [];      // [{synonym, language}]
+const selGroups = {};     // {id: name}
+const selCategories = {}; // {id: category}
+const proteinRows = [];   // [{protein_id, uniprot_id, name, interaction_type, known_action, actions:[]}]
+
+/* ═══════════════════════════════════════════════════════════════
+   Init
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  checkDraftExists();
+  loadGroupCheckboxes();
+  setupCategoryAC();
+  setupSynonymInput();
+  startAutoSave();
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Step navigation
+═══════════════════════════════════════════════════════════════ */
+function gotoStep(n) {
+  document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+  document.getElementById('wstep-' + n).classList.add('active');
+
+  // Stepper pills
+  for (let i = 1; i <= 3; i++) {
+    const pill = document.getElementById('step-pill-' + i);
+    pill.classList.remove('active', 'done');
+    if (i < n) pill.classList.add('done');
+    else if (i === n) pill.classList.add('active');
+    if (i < 3) {
+      const conn = document.getElementById('conn-' + i);
+      conn.classList.toggle('done', i < n);
+    }
+  }
+  currentStep = n;
+  document.getElementById('btn-back').style.display  = n > 1 ? '' : 'none';
+  document.getElementById('btn-next').style.display  = n < 3 ? '' : 'none';
+  document.getElementById('btn-save').style.display  = n === 3 ? '' : 'none';
+  document.getElementById('btn-preview').style.display = n === 3 ? '' : 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep() {
+  if (currentStep === 1 && !validateStep1()) return;
+  if (currentStep < 3) gotoStep(currentStep + 1);
+}
+function prevStep() {
+  if (currentStep > 1) gotoStep(currentStep - 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Step 1 validation
+═══════════════════════════════════════════════════════════════ */
+function validateStep1() {
+  let ok = true;
+  const id = document.getElementById('f-drugbank_id').value.trim().toUpperCase();
+  const badge = document.getElementById('id-badge');
+  if (!/^DB\d{5,}$/.test(id)) {
+    showErr('drugbank_id'); ok = false;
+  } else if (badge.classList.contains('dupe')) {
+    showErr('drugbank_id'); ok = false;
+  } else hideErr('drugbank_id');
+
+  if (!document.getElementById('f-name').value.trim()) {
+    showErr('name'); ok = false;
+  } else hideErr('name');
+  return ok;
+}
+function showErr(f) {
+  document.getElementById('f-' + f).classList.add('error');
+  document.getElementById('err-' + f).style.display = 'block';
+}
+function hideErr(f) {
+  document.getElementById('f-' + f)?.classList.remove('error');
+  const e = document.getElementById('err-' + f);
+  if (e) e.style.display = 'none';
+}
+
+/* DrugBank ID duplicate check */
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('f-drugbank_id');
+  let timer;
+  inp.addEventListener('input', () => {
+    inp.value = inp.value.toUpperCase();
+    clearTimeout(timer);
+    const badge = document.getElementById('id-badge');
+    badge.className = 'id-badge';
+    const val = inp.value.trim();
+    if (!/^DB\d{5,}$/.test(val)) return;
+    timer = setTimeout(async () => {
+      const r = await fetch('/api/v1/wizard/check-id?drugbank_id=' + encodeURIComponent(val)).then(r => r.json());
+      if (r.exists) {
+        badge.className = 'id-badge dupe';
+        badge.textContent = '⚠ Đã tồn tại: ' + r.name;
+      } else {
+        badge.className = 'id-badge ok';
+        badge.textContent = '✓ ID hợp lệ';
+      }
+    }, 600);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Synonym tags (Step 2)
+═══════════════════════════════════════════════════════════════ */
+function setupSynonymInput() {
+  const inp = document.getElementById('syn-input');
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const v = inp.value.trim().replace(/,$/, '');
+      if (v && !synonyms.find(s => s.synonym === v)) {
+        synonyms.push({ synonym: v, language: null });
+        renderTags();
+      }
+      inp.value = '';
+    } else if (e.key === 'Backspace' && !inp.value && synonyms.length) {
+      synonyms.pop();
+      renderTags();
+    }
+  });
+}
+function renderTags() {
+  const wrap = document.getElementById('syn-tag-wrap');
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  synonyms.forEach((s, i) => {
+    const span = document.createElement('span');
+    span.className = 'tag';
+    span.innerHTML = s.synonym + '<span class="tag-del" onclick="removeSyn(' + i + ')">×</span>';
+    wrap.insertBefore(span, document.getElementById('syn-input'));
+  });
+}
+function removeSyn(i) { synonyms.splice(i, 1); renderTags(); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Products dynamic table (Step 2)
+═══════════════════════════════════════════════════════════════ */
+function addProductRow(d) {
+  d = d || {};
+  const tbody = document.getElementById('prod-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" placeholder="Tên biệt dược" value="${esc(d.name||'')}"></td>
+    <td><input type="text" placeholder="Nhà SX" value="${esc(d.labeller||'')}"></td>
+    <td><input type="text" placeholder="Hàm lượng" value="${esc(d.strength||'')}"></td>
+    <td><select>
+      <option value="">—</option>
+      <option value="Oral" ${d.route==='Oral'?'selected':''}>Uống</option>
+      <option value="Intravenous" ${d.route==='Intravenous'?'selected':''}>Tiêm tĩnh mạch</option>
+      <option value="Intramuscular" ${d.route==='Intramuscular'?'selected':''}>Tiêm bắp</option>
+      <option value="Topical" ${d.route==='Topical'?'selected':''}>Ngoài da</option>
+      <option value="Inhalation" ${d.route==='Inhalation'?'selected':''}>Hít</option>
+      <option value="Subcutaneous" ${d.route==='Subcutaneous'?'selected':''}>Tiêm dưới da</option>
+    </select></td>
+    <td><button class="del-btn" type="button" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>`;
+  tbody.appendChild(tr);
+}
+function getProducts() {
+  return Array.from(document.querySelectorAll('#prod-tbody tr')).map(tr => {
+    const cells = tr.querySelectorAll('input,select');
+    return { name: cells[0].value.trim(), labeller: cells[1].value.trim(),
+             strength: cells[2].value.trim(), route: cells[3].value.trim() };
+  }).filter(p => p.name);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   External IDs dynamic table (Step 2)
+═══════════════════════════════════════════════════════════════ */
+function addExtRow(d) {
+  d = d || {};
+  const tbody = document.getElementById('ext-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select>
+      <option value="">— Chọn nguồn —</option>
+      <option value="PubChem Compound" ${d.resource==='PubChem Compound'?'selected':''}>PubChem</option>
+      <option value="ChEMBL" ${d.resource==='ChEMBL'?'selected':''}>ChEMBL</option>
+      <option value="Wikipedia" ${d.resource==='Wikipedia'?'selected':''}>Wikipedia</option>
+      <option value="KEGG Drug" ${d.resource==='KEGG Drug'?'selected':''}>KEGG Drug</option>
+      <option value="UniProtKB" ${d.resource==='UniProtKB'?'selected':''}>UniProtKB</option>
+    </select></td>
+    <td><input type="text" placeholder="VD: CID12345" value="${esc(d.identifier||'')}"></td>
+    <td><button class="del-btn" type="button" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>`;
+  tbody.appendChild(tr);
+}
+function getExtIds() {
+  return Array.from(document.querySelectorAll('#ext-tbody tr')).map(tr => {
+    const cells = tr.querySelectorAll('input,select');
+    return { resource: cells[0].value.trim(), identifier: cells[1].value.trim() };
+  }).filter(e => e.resource && e.identifier);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tab switching
+═══════════════════════════════════════════════════════════════ */
+function switchTab(btn, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Groups checkboxes (Step 3)
+═══════════════════════════════════════════════════════════════ */
+async function loadGroupCheckboxes() {
+  const r = await fetch('/api/v1/wizard/groups').then(r => r.json());
+  const wrap = document.getElementById('group-checkboxes');
+  r.items.forEach(g => {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;font-size:.8rem;font-weight:600;background:#fff;';
+    label.innerHTML = `<input type="checkbox" value="${g.id}" data-name="${esc(g.name)}" style="width:14px;height:14px" onchange="toggleGroup(this)"> ${g.name}`;
+    wrap.appendChild(label);
+  });
+}
+function toggleGroup(inp) {
+  if (inp.checked) {
+    selGroups[inp.value] = inp.dataset.name;
+    inp.closest('label').style.borderColor = 'var(--primary)';
+    inp.closest('label').style.background = '#eff6ff';
+  } else {
+    delete selGroups[inp.value];
+    inp.closest('label').style.borderColor = '#e2e8f0';
+    inp.closest('label').style.background = '#fff';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Categories autocomplete (Step 3)
+═══════════════════════════════════════════════════════════════ */
+function setupCategoryAC() {
+  const inp = document.getElementById('cat-search');
+  const list = document.getElementById('cat-ac');
+  let timer;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = inp.value.trim();
+    if (q.length < 2) { list.style.display = 'none'; return; }
+    timer = setTimeout(async () => {
+      const r = await fetch('/api/v1/wizard/search-categories?q=' + encodeURIComponent(q)).then(r => r.json());
+      list.innerHTML = '';
+      r.items.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'ac-item';
+        div.textContent = c.category;
+        div.onclick = () => {
+          if (!selCategories[c.id]) {
+            selCategories[c.id] = c.category;
+            renderCategoryBadges();
+          }
+          inp.value = '';
+          list.style.display = 'none';
+        };
+        list.appendChild(div);
+      });
+      list.style.display = r.items.length ? 'block' : 'none';
+    }, 300);
+  });
+  document.addEventListener('click', e => { if (!inp.contains(e.target)) list.style.display = 'none'; });
+}
+function renderCategoryBadges() {
+  const wrap = document.getElementById('sel-categories');
+  wrap.innerHTML = '';
+  Object.entries(selCategories).forEach(([id, cat]) => {
+    const span = document.createElement('span');
+    span.className = 'sel-badge';
+    span.innerHTML = esc(cat) + '<span class="rm" onclick="removeCat(' + id + ')">×</span>';
+    wrap.appendChild(span);
+  });
+}
+function removeCat(id) { delete selCategories[id]; renderCategoryBadges(); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Protein interaction rows — Sentence UI (Step 3)
+═══════════════════════════════════════════════════════════════ */
+function addProteinRow(d) {
+  d = d || {};
+  const rowIdx = proteinRows.length;
+  proteinRows.push({ protein_id: d.protein_id || null, protein_label: d.protein_label || '',
+                     interaction_type: d.interaction_type || 'target',
+                     known_action: d.known_action || 'unknown', actions: d.actions || [] });
+  renderProteinRows();
+}
+function renderProteinRows() {
+  const wrap = document.getElementById('pi-rows');
+  wrap.innerHTML = '';
+  proteinRows.forEach((row, i) => {
+    const div = document.createElement('div');
+    div.className = 'sentence-row';
+    div.dataset.idx = i;
+    div.innerHTML = `
+      <span class="word">Thuốc này tác động vào</span>
+      <div class="ac-wrap" style="min-width:200px">
+        <input type="text" placeholder="UniProt ID hoặc tên protein" value="${esc(row.protein_label)}"
+               oninput="searchProteinAC(this,${i})" autocomplete="off">
+        <div class="ac-list" id="pac-${i}"></div>
+        <input type="hidden" id="pid-${i}" value="${row.protein_id||''}">
+      </div>
+      <span class="word">— Kiểu:</span>
+      <select onchange="proteinRows[${i}].interaction_type=this.value">
+        ${['target','enzyme','transporter','carrier'].map(t => `<option value="${t}" ${row.interaction_type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <span class="word">— Hành động:</span>
+      <select onchange="proteinRows[${i}].known_action=this.value">
+        ${['unknown','yes','no'].map(v => `<option value="${v}" ${row.known_action===v?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <button class="del-btn" type="button" onclick="removeProteinRow(${i})"><i class="fa-solid fa-trash"></i></button>`;
+    wrap.appendChild(div);
+  });
+}
+function removeProteinRow(i) { proteinRows.splice(i, 1); renderProteinRows(); }
+async function searchProteinAC(inp, rowIdx) {
+  const q = inp.value.trim();
+  const list = document.getElementById('pac-' + rowIdx);
+  if (q.length < 2) { list.style.display = 'none'; return; }
+  const r = await fetch('/api/v1/wizard/search-proteins?q=' + encodeURIComponent(q)).then(r => r.json());
+  list.innerHTML = '';
+  r.items.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    div.innerHTML = `<strong>${esc(p.gene_name||p.uniprot_id)}</strong> <small>${esc(p.name.substring(0,50))}</small>`;
+    div.onclick = () => {
+      proteinRows[rowIdx].protein_id = p.id;
+      proteinRows[rowIdx].protein_label = p.uniprot_id + (p.gene_name ? ' (' + p.gene_name + ')' : '');
+      inp.value = proteinRows[rowIdx].protein_label;
+      document.getElementById('pid-' + rowIdx).value = p.id;
+      list.style.display = 'none';
+    };
+    list.appendChild(div);
+  });
+  list.style.display = r.items.length ? 'block' : 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Drug-Drug interaction rows (Step 3)
+═══════════════════════════════════════════════════════════════ */
+function addDIRow(d) {
+  d = d || {};
+  const tbody = document.getElementById('di-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="ac-wrap">
+        <input type="text" placeholder="Tìm tên/ID thuốc" value="${esc(d.drug_label||'')}"
+               oninput="searchDrugAC(this)" autocomplete="off" data-drug-id="${esc(d.interacting_drug_id||'')}">
+        <div class="ac-list di-ac"></div>
+      </div>
+    </td>
+    <td><select>
+      <option value="unknown" ${(!d.severity||d.severity==='unknown')?'selected':''}>Unknown</option>
+      <option value="minor"   ${d.severity==='minor'?'selected':''}>Minor</option>
+      <option value="moderate" ${d.severity==='moderate'?'selected':''}>Moderate</option>
+      <option value="major"   ${d.severity==='major'?'selected':''}>Major</option>
+    </select></td>
+    <td><input type="text" placeholder="Mô tả hậu quả..." value="${esc(d.description||'')}"></td>
+    <td><button class="del-btn" type="button" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>`;
+  tbody.appendChild(tr);
+}
+async function searchDrugAC(inp) {
+  const q = inp.value.trim();
+  const list = inp.nextElementSibling;
+  if (q.length < 2) { list.style.display = 'none'; return; }
+  const r = await fetch('/api/v1/wizard/search-drugs?q=' + encodeURIComponent(q)).then(r => r.json());
+  list.innerHTML = '';
+  r.items.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    div.innerHTML = `<strong>${esc(d.name)}</strong> <small>${d.id}</small>`;
+    div.onclick = () => {
+      inp.value = d.name + ' (' + d.id + ')';
+      inp.dataset.drugId = d.id;
+      list.style.display = 'none';
+    };
+    list.appendChild(div);
+  });
+  list.style.display = r.items.length ? 'block' : 'none';
+}
+function getDrugInteractions() {
+  return Array.from(document.querySelectorAll('#di-tbody tr')).map(tr => {
+    const inp = tr.querySelector('input[type=text]');
+    const sel = tr.querySelector('select');
+    const desc = tr.querySelectorAll('input[type=text]')[1];
+    const drugId = inp.dataset.drugId || '';
+    return { interacting_drug_id: drugId,
+             interacting_drug_name: inp.value.replace(/\s*\(.*\)$/, '').trim(),
+             severity: sel.value,
+             description: desc ? desc.value.trim() : '' };
+  }).filter(d => d.interacting_drug_id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Auto-save draft (localStorage, every 30s)
+═══════════════════════════════════════════════════════════════ */
+function collectDraft() {
+  return {
+    ts: Date.now(),
+    f: {
+      drugbank_id: document.getElementById('f-drugbank_id').value,
+      name:        document.getElementById('f-name').value,
+      drug_type:   document.getElementById('f-drug_type').value,
+      state:       document.getElementById('f-state').value,
+      average_mass:document.getElementById('f-average_mass').value,
+      mechanism_of_action: document.getElementById('f-mechanism_of_action').value,
+      indication:  document.getElementById('f-indication').value,
+      toxicity:    document.getElementById('f-toxicity').value,
+    },
+    synonyms: [...synonyms],
+    products: getProducts(),
+    ext_ids:  getExtIds(),
+    selGroups: {...selGroups},
+    selCategories: {...selCategories},
+    proteinRows: proteinRows.map(r => ({...r})),
+    drugInts: getDrugInteractions(),
+  };
+}
+function applyDraft(draft) {
+  const f = draft.f || {};
+  ['drugbank_id','name','drug_type','state','average_mass',
+   'mechanism_of_action','indication','toxicity'].forEach(k => {
+    const el = document.getElementById('f-' + k);
+    if (el && f[k] !== undefined) el.value = f[k];
+  });
+  synonyms.length = 0;
+  (draft.synonyms || []).forEach(s => synonyms.push(s));
+  renderTags();
+  (draft.products || []).forEach(addProductRow);
+  (draft.ext_ids || []).forEach(addExtRow);
+  // Groups
+  if (draft.selGroups) {
+    Object.entries(draft.selGroups).forEach(([id, name]) => {
+      selGroups[id] = name;
+      const cb = document.querySelector(`#group-checkboxes input[value="${id}"]`);
+      if (cb) { cb.checked = true; toggleGroup(cb); }
+    });
+  }
+  // Categories
+  if (draft.selCategories) {
+    Object.entries(draft.selCategories).forEach(([id, cat]) => { selCategories[id] = cat; });
+    renderCategoryBadges();
+  }
+  proteinRows.length = 0;
+  (draft.proteinRows || []).forEach(r => { proteinRows.push(r); });
+  renderProteinRows();
+  (draft.drugInts || []).forEach(addDIRow);
+}
+function saveDraftManual() {
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft()));
+  const el = document.getElementById('autosave-info');
+  el.textContent = 'Đã lưu nháp ' + new Date().toLocaleTimeString('vi-VN');
+}
+function startAutoSave() {
+  autoSaveTimer = setInterval(() => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft()));
+    const el = document.getElementById('autosave-info');
+    el.textContent = 'Tự động lưu ' + new Date().toLocaleTimeString('vi-VN');
+  }, 30000);
+}
+function checkDraftExists() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    if (!d.f || !d.f.drugbank_id) return;
+    const mins = Math.round((Date.now() - d.ts) / 60000);
+    document.getElementById('draft-msg').textContent =
+      `Phát hiện bản nháp "${d.f.name || d.f.drugbank_id}" (${mins} phút trước). Tiếp tục?`;
+    document.getElementById('draft-banner').style.display = 'block';
+  } catch { clearDraft(); }
+}
+function loadDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try { applyDraft(JSON.parse(raw)); }
+  catch { clearDraft(); }
+  document.getElementById('draft-banner').style.display = 'none';
+}
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+  document.getElementById('draft-banner').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3D Preview
+═══════════════════════════════════════════════════════════════ */
+function openPreview() {
+  document.getElementById('preview-modal').classList.add('open');
+  draw3DPreview();
+}
+function closePreview() {
+  document.getElementById('preview-modal').classList.remove('open');
+}
+function draw3DPreview() {
+  const canvas = document.getElementById('net-canvas');
+  const W = canvas.parentElement.clientWidth || 620;
+  const H = 300;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  const proteinCount = proteinRows.filter(r => r.protein_id).length;
+  const diCount = getDrugInteractions().length;
+  const nodes = [];
+
+  // Drug node center
+  nodes.push({ x: cx, y: cy, label: document.getElementById('f-name').value || 'New Drug',
+               color: '#ef4444', r: 22 });
+
+  // Protein nodes
+  const pAngStep = proteinCount > 0 ? (Math.PI * 1.2) / proteinCount : 0;
+  proteinRows.filter(r => r.protein_id).forEach((r, i) => {
+    const angle = -Math.PI * 0.6 + pAngStep * i + pAngStep / 2;
+    nodes.push({ x: cx + Math.cos(angle) * 120, y: cy + Math.sin(angle) * 90,
+                 label: r.protein_label.substring(0, 10), color: '#3b82f6', r: 14 });
+  });
+
+  // Drug nodes
+  const dAngStep = diCount > 0 ? (Math.PI * 1.2) / diCount : 0;
+  getDrugInteractions().forEach((d, i) => {
+    const angle = Math.PI * 0.2 + dAngStep * i + dAngStep / 2;
+    nodes.push({ x: cx + Math.cos(angle) * 110, y: cy + Math.sin(angle) * 80,
+                 label: d.interacting_drug_id.substring(0, 8), color: '#f59e0b', r: 13 });
+  });
+
+  // Draw edges
+  ctx.lineWidth = 1.5;
+  nodes.slice(1).forEach(n => {
+    ctx.beginPath();
+    ctx.strokeStyle = n.color + '88';
+    ctx.moveTo(nodes[0].x, nodes[0].y);
+    ctx.lineTo(n.x, n.y);
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = n.color;
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 10px Inter,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.label.substring(0, 9), n.x, n.y);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Final save
+═══════════════════════════════════════════════════════════════ */
+async function saveDrug() {
+  if (!validateStep1()) { gotoStep(1); return; }
+
+  const payload = {
+    ...collectDraft().f,
+    synonyms: [...synonyms],
+    products: getProducts(),
+    ext_ids: getExtIds(),
+    group_ids: Object.keys(selGroups).map(Number),
+    category_ids: Object.keys(selCategories).map(Number),
+    protein_interactions: proteinRows.filter(r => r.protein_id).map(r => ({
+      protein_id: r.protein_id,
+      interaction_type: r.interaction_type,
+      known_action: r.known_action,
+      actions: r.actions || [],
+    })),
+    drug_interactions: getDrugInteractions(),
+  };
+
+  document.getElementById('saving-overlay').classList.add('show');
+  try {
+    const resp = await fetch('/api/v1/wizard/save-drug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Lỗi server');
+    clearDraft();
+    clearInterval(autoSaveTimer);
+    // Redirect sang trang detail của thuốc vừa thêm
+    window.location.href = '/admin/drug/details/' + encodeURIComponent(data.drugbank_id);
+  } catch (e) {
+    document.getElementById('saving-overlay').classList.remove('show');
+    alert('Lỗi khi lưu: ' + e.message);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Util
+═══════════════════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+</script>
+</body>
+</html>

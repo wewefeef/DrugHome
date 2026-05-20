@@ -40,6 +40,7 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.routers import drugs as drugs_router
 from app.routers import api_drugs, api_substances, api_interactions, api_analysis, api_sessions, api_auth, api_export
+from app.routers import api_wizard
 from app.routers.api_analysis import stats_router
 
 settings = get_settings()
@@ -731,6 +732,7 @@ app.include_router(stats_router)          # GET /api/v1/stats
 app.include_router(api_export.router)     # GET /api/v1/export/*
 app.include_router(api_sessions.router)
 app.include_router(api_auth.router)
+app.include_router(api_wizard.router)   # GET /admin/wizard/drug/new + POST /api/v1/wizard/*
 
 
 # ── Debug endpoint ────────────────────────────────────────────────────────────
