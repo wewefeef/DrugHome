@@ -265,3 +265,94 @@ def clear_all_caches() -> dict:
         "message": "Cache cleared successfully",
         "cleared_prefixes": cleared_prefixes + ["system:stats"],
     }
+
+
+# ── 6. Fix protein_type NULL (chạy 1 lần sau khi deploy lên VPS cũ) ──────────
+
+@stats_router.post(
+    "/admin/fix-protein-types",
+    summary="Backfill proteins.protein_type from drug_protein_interactions",
+    tags=["Statistics"],
+)
+def fix_protein_types(db: Session = Depends(get_db)) -> dict:
+    """
+    Derive protein_type cho mọi protein có type=NULL từ interaction_type
+    trong bảng drug_protein_interactions.
+    Idempotent — an toàn gọi nhiều lần.
+    """
+    from sqlalchemy import text as _text
+
+    # Đếm trước
+    null_before = db.execute(_text(
+        "SELECT COUNT(*) FROM proteins WHERE protein_type IS NULL OR protein_type = ''"
+    )).scalar() or 0
+
+    if null_before == 0:
+        # Clear cache để trang proteins dùng data mới
+        from app.core.simple_cache import cache_delete_prefix
+        cache_delete_prefix("proteins:list:")
+        cache_delete_prefix("proteins:detail:")
+        dist = dict(db.execute(_text(
+            "SELECT protein_type, COUNT(*) FROM proteins GROUP BY protein_type"
+        )).all())
+        return {
+            "success": True,
+            "message": "All proteins already have protein_type — nothing to fix",
+            "null_before": 0,
+            "updated": 0,
+            "distribution": dist,
+        }
+
+    # Bước 1: tính most-common interaction_type mỗi protein (tương thích MySQL 5.7+)
+    # Dùng biến session thay vì subquery phức tạp để tránh lỗi "can't reopen table"
+    db.execute(_text("DROP TEMPORARY TABLE IF EXISTS _pt_tmp"))
+    db.execute(_text("""
+        CREATE TEMPORARY TABLE _pt_tmp AS
+        SELECT protein_id, interaction_type,
+               COUNT(*) AS cnt
+        FROM drug_protein_interactions
+        WHERE interaction_type IS NOT NULL AND interaction_type != ''
+        GROUP BY protein_id, interaction_type
+    """))
+    db.execute(_text("DROP TEMPORARY TABLE IF EXISTS _pt_max"))
+    db.execute(_text("""
+        CREATE TEMPORARY TABLE _pt_max AS
+        SELECT protein_id, MAX(cnt) AS max_cnt
+        FROM _pt_tmp
+        GROUP BY protein_id
+    """))
+    db.execute(_text("""
+        UPDATE proteins p
+        INNER JOIN _pt_tmp t  ON t.protein_id = p.id
+        INNER JOIN _pt_max m  ON m.protein_id = t.protein_id
+                              AND m.max_cnt   = t.cnt
+        SET p.protein_type = t.interaction_type
+        WHERE (p.protein_type IS NULL OR p.protein_type = '')
+    """))
+    db.commit()
+    db.execute(_text("DROP TEMPORARY TABLE IF EXISTS _pt_tmp"))
+    db.execute(_text("DROP TEMPORARY TABLE IF EXISTS _pt_max"))
+
+    null_after = db.execute(_text(
+        "SELECT COUNT(*) FROM proteins WHERE protein_type IS NULL OR protein_type = ''"
+    )).scalar() or 0
+    updated = null_before - null_after
+
+    dist_rows = db.execute(_text(
+        "SELECT protein_type, COUNT(*) as cnt FROM proteins GROUP BY protein_type ORDER BY cnt DESC"
+    )).all()
+    distribution = {row[0] or "NULL": row[1] for row in dist_rows}
+
+    # Clear protein cache
+    from app.core.simple_cache import cache_delete_prefix
+    cache_delete_prefix("proteins:list:")
+    cache_delete_prefix("proteins:detail:")
+
+    return {
+        "success": True,
+        "message": f"Updated {updated} proteins",
+        "null_before": null_before,
+        "null_after": null_after,
+        "updated": updated,
+        "distribution": distribution,
+    }
