@@ -20,9 +20,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
@@ -36,18 +35,18 @@ from app.core.simple_cache import cache_delete_prefix, cache_delete
 
 router = APIRouter(tags=["Drug Wizard"])
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+WIZARD_HTML = Path(__file__).resolve().parent.parent / "templates" / "wizard_drug.html"
 
 
 # ── Wizard HTML page ──────────────────────────────────────────────────────────
-# NOTE: Không dùng prefix /admin/ vì sqladmin mount ở /admin và sẽ intercept
-# tất cả sub-path. Wizard phục vụ tại /drug-wizard/new (ngoài prefix sqladmin).
+# Đọc file HTML trực tiếp thay vì dùng Jinja2Templates để tránh lỗi Jinja2
+# parse JS curly-brace syntax trong template.
 
 @router.get("/drug-wizard/new", response_class=HTMLResponse, include_in_schema=False)
-def wizard_page(request: Request):
-    """Serve the 3-step Add Drug Wizard UI."""
-    return templates.TemplateResponse("wizard_drug.html", {"request": request})
+def wizard_page():
+    """Serve the 3-step Add Drug Wizard UI — raw HTML, no Jinja2."""
+    html = WIZARD_HTML.read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
 
 
 # ── Validation & autocomplete APIs ───────────────────────────────────────────
