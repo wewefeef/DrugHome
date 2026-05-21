@@ -381,29 +381,29 @@
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/main.js') }}"></script>
   <script>
     /* ── Inject Wizard button on Drug list page ────────────────────────────
-       Trang /admin/drug/list: thêm nút "+ Thêm thuốc (Wizard)" cạnh nút "+ New Drug"
+       Dùng container ms-auto (luon ton tai du can_create=True/False)
     */
     (function () {
       function injectWizardBtn() {
-        var url = window.location.pathname;
-        if (url.indexOf('/admin/drug/list') === -1 && url !== '/admin/drug/list') return;
-        var newBtn = document.querySelector('a[href*="/admin/drug/create"]');
-        if (!newBtn || document.getElementById('wizard-drug-btn')) return;
+        if (window.location.pathname.indexOf('/admin/drug/list') === -1) return;
+        if (document.getElementById('wizard-drug-btn')) return;
+
+        /* Container chứa các nút trong page header của sqladmin/Tabler */
+        var container = document.querySelector('.page-header .ms-auto')
+                     || document.querySelector('.page-header .col-auto')
+                     || document.querySelector('.page-header');
+        if (!container) return;
+
         var btn = document.createElement('a');
-        btn.id = 'wizard-drug-btn';
+        btn.id   = 'wizard-drug-btn';
         btn.href = '/drug-wizard/new';
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Thêm thuốc (Wizard)';
-        btn.style.cssText = [
-          'display:inline-flex','align-items:center','gap:7px',
-          'padding:8px 18px','border-radius:8px','font-weight:700','font-size:.875rem',
-          'background:linear-gradient(135deg,#7c3aed,#4f46e5)',
-          'color:#fff','text-decoration:none','margin-right:8px',
-          'box-shadow:0 2px 8px rgba(124,58,237,.35)',
-          'transition:all .18s',
-        ].join(';');
-        btn.onmouseover = function(){ this.style.opacity='0.88'; };
-        btn.onmouseout  = function(){ this.style.opacity='1'; };
-        newBtn.parentNode.insertBefore(btn, newBtn);
+        btn.innerHTML = '\u2728 Th\u00eam thu\u1ed1c (Wizard)';
+        btn.style.cssText = 'display:inline-flex;align-items:center;padding:8px 18px;'
+          + 'border-radius:8px;font-weight:700;font-size:.875rem;'
+          + 'background:linear-gradient(135deg,#7c3aed,#4f46e5);'
+          + 'color:#fff;text-decoration:none;margin-left:8px;'
+          + 'box-shadow:0 2px 8px rgba(124,58,237,.35);cursor:pointer;';
+        container.appendChild(btn);
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectWizardBtn);
       else injectWizardBtn();
