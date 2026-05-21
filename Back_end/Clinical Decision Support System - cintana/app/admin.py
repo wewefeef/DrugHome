@@ -341,17 +341,10 @@ class DrugAdmin(CacheInvalidatingAdmin, ModelView, model=Drug):
     name_plural = "Drugs"
     icon = "fa-solid fa-capsules"
 
+    can_create = False   # Dùng Wizard thay thế — nút "Thêm thuốc (Wizard)" ở header
     can_export = True
     export_types = ["csv", "json"]
     export_max_rows = 0   # không giới hạn (17k rows — OK)
-
-    # Link wizard hiển thị ở header của list page
-    # Nút "＋ Thêm thuốc (Wizard)" sẽ được inject vào via custom_column_list_actions
-    column_extra_row_actions = []  # không dùng
-
-    # Custom header action — link đến wizard
-    def _get_add_url(self):
-        return "/admin/wizard/drug/new"
 
     # ── List view ─────────────────────────────────────────────────────────────
     column_list = [
