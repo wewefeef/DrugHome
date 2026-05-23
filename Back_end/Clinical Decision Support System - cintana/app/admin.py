@@ -1227,39 +1227,17 @@ class DrugGroupMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugGroupMap):
     page_size = 50
 
     column_labels = {
-        DrugGroupMap.drug_id:  "Thuốc (DrugBank ID — Tên)",
-        DrugGroupMap.group_id: "Nhóm phê duyệt (ID — Tên)",
+        DrugGroupMap.drug_id:  "DrugBank ID",
+        DrugGroupMap.group_id: "Group ID",
     }
 
-    def get_query(self):
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-        return select(DrugGroupMap).options(
-            selectinload(DrugGroupMap.group),
-            selectinload(DrugGroupMap.drug),
-        )
-
-    def get_count_query(self):
-        from sqlalchemy import select, func
-        return select(func.count()).select_from(DrugGroupMap)
-
+    # Formatter chỉ dùng scalar, không access relationship → tránh DetachedInstanceError
     column_formatters = {
         DrugGroupMap.drug_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.82em">{m.drug_id}</span>'
-            + (f'<br><span style="font-size:.8em;color:#475569">{m.drug.name[:50]}</span>' if m.drug else '')
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.85em">{m.drug_id}</span>'
         ),
         DrugGroupMap.group_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-size:.78em;color:#94a3b8">{m.group_id}</span> '
-            + (
-                f'<span style="padding:2px 10px;border-radius:12px;font-size:.78em;font-weight:700;'
-                + ("background:#dcfce7;color:#166534" if m.group and m.group.name == "approved"
-                   else "background:#fee2e2;color:#991b1b" if m.group and m.group.name == "withdrawn"
-                   else "background:#dbeafe;color:#1e40af" if m.group and m.group.name in ("investigational","experimental")
-                   else "background:#fef3c7;color:#92400e" if m.group and m.group.name == "illicit"
-                   else "background:#ede9fe;color:#5b21b6")
-                + f'">{m.group.name}</span>'
-                if m.group else ''
-            )
+            f'<span style="font-family:monospace;color:#64748b;font-size:.85em">{m.group_id}</span>'
         ),
     }
 
@@ -1314,30 +1292,16 @@ class DrugCategoryMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategory
     page_size = 50
 
     column_labels = {
-        DrugCategoryMap.drug_id:     "Thuốc (DrugBank ID — Tên)",
-        DrugCategoryMap.category_id: "Danh mục (ID — Tên MeSH)",
+        DrugCategoryMap.drug_id:     "DrugBank ID",
+        DrugCategoryMap.category_id: "Category ID",
     }
-
-    def get_query(self):
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-        return select(DrugCategoryMap).options(
-            selectinload(DrugCategoryMap.category),
-            selectinload(DrugCategoryMap.drug),
-        )
-
-    def get_count_query(self):
-        from sqlalchemy import select, func
-        return select(func.count()).select_from(DrugCategoryMap)
 
     column_formatters = {
         DrugCategoryMap.drug_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.82em">{m.drug_id}</span>'
-            + (f'<br><span style="font-size:.8em;color:#475569">{m.drug.name[:50]}</span>' if m.drug else '')
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.85em">{m.drug_id}</span>'
         ),
         DrugCategoryMap.category_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-size:.78em;color:#94a3b8">{m.category_id}</span>'
-            + (f'<br><span style="font-size:.8em;color:#1e293b">{m.category.category[:60]}</span>' if m.category else '')
+            f'<span style="font-family:monospace;color:#64748b;font-size:.85em">{m.category_id}</span>'
         ),
     }
 
@@ -1360,6 +1324,7 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
     column_list = [
         DrugProteinInteraction.drug_id,
         DrugProteinInteraction.protein_id,
+        DrugProteinInteraction.uniprot_id,
         DrugProteinInteraction.interaction_type,
         DrugProteinInteraction.known_action,
     ]
@@ -1384,32 +1349,17 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
     page_size_options = [25, 50, 100]
 
     column_labels = {
-        DrugProteinInteraction.drug_id:          "Thuốc (ID — Tên)",
-        DrugProteinInteraction.protein_id:       "Protein (ID — Tên)",
+        DrugProteinInteraction.drug_id:          "DrugBank ID",
+        DrugProteinInteraction.protein_id:       "Protein ID",
+        DrugProteinInteraction.uniprot_id:       "UniProt ID",
         DrugProteinInteraction.interaction_type: "Loại tương tác",
         DrugProteinInteraction.known_action:     "Known Action",
     }
 
-    def get_query(self):
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-        return select(DrugProteinInteraction).options(
-            selectinload(DrugProteinInteraction.drug),
-            selectinload(DrugProteinInteraction.protein),
-        )
-
-    def get_count_query(self):
-        from sqlalchemy import select, func
-        return select(func.count()).select_from(DrugProteinInteraction)
-
+    # Chỉ dùng scalar attributes — không access lazy relationship
     column_formatters = {
         DrugProteinInteraction.drug_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.82em">{m.drug_id}</span>'
-            + (f'<br><span style="font-size:.8em;color:#475569">{m.drug.name[:45]}</span>' if m.drug else '')
-        ),
-        DrugProteinInteraction.protein_id: lambda m, a: Markup(
-            f'<span style="font-family:monospace;font-size:.78em;color:#94a3b8">{m.uniprot_id or m.protein_id}</span>'
-            + (f'<br><span style="font-size:.8em;color:#475569">{m.protein.name[:45]}</span>' if m.protein else '')
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.85em">{m.drug_id}</span>'
         ),
         DrugProteinInteraction.interaction_type: lambda m, a: Markup(
             f'<span style="padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:600;'
