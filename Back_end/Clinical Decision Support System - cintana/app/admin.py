@@ -1214,39 +1214,65 @@ class DrugGroupAdmin(CacheInvalidatingAdmin, ModelView, model=DrugGroup):
 
 class DrugGroupMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugGroupMap):
     """
-    Junction table gán thuốc vào nhóm phê duyệt.
-    Nhập drug_id (DrugBank ID, e.g. DB00001) và group_id (từ bảng Drug Groups).
-    Hệ thống sẽ tự tra tên nhóm qua group_id.
+    Junction table — gán thuốc vào nhóm phê duyệt.
+    Hiển thị: DrugBank ID + Tên thuốc + Group ID + Tên nhóm.
+    Thay đổi ở đây cập nhật ngay Drug list + trang chính.
     """
     name = "Drug Group Map"
     name_plural = "Drug Group Maps"
     icon = "fa-solid fa-sitemap"
 
     can_create = True
-    can_edit   = False   # junction table — PK là (drug_id, group_id)
+    can_edit   = False
     can_delete = True
 
-    column_list = [
-        DrugGroupMap.drug_id,
-        DrugGroupMap.group_id,
-        "group",
-    ]
+    column_list = ["drug_id", "drug_name", "group_id", "group_name"]
     column_searchable_list = [DrugGroupMap.drug_id]
     column_sortable_list   = [DrugGroupMap.drug_id, DrugGroupMap.group_id]
     form_columns = [DrugGroupMap.drug_id, DrugGroupMap.group_id]
     page_size = 50
 
     column_labels = {
-        DrugGroupMap.drug_id:  "DrugBank ID (e.g. DB00001)",
-        DrugGroupMap.group_id: "Group ID (tra trong Drug Groups)",
-        "group":               "Tên nhóm",
+        "drug_id":   "DrugBank ID",
+        "drug_name": "Tên thuốc",
+        "group_id":  "Group ID",
+        "group_name":"Nhóm phê duyệt",
     }
 
+    def get_query(self):
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        return (
+            select(DrugGroupMap)
+            .options(
+                selectinload(DrugGroupMap.group),
+                selectinload(DrugGroupMap.drug),
+            )
+        )
+
+    def get_count_query(self):
+        from sqlalchemy import select, func
+        return select(func.count()).select_from(DrugGroupMap)
+
     column_formatters = {
-        "group": lambda m, a: Markup(
-            f'<span style="padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600;background:#eff6ff;color:#1e40af">'
-            + (m.group.name if m.group else "—")
-            + '</span>'
+        "drug_id": lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.82em">{m.drug_id}</span>'
+        ),
+        "drug_name": lambda m, a: Markup(
+            f'<span style="font-size:.85em;color:#0f172a">{m.drug.name[:50] if m.drug else "—"}</span>'
+        ),
+        "group_id": lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-size:.82em;color:#64748b">{m.group_id}</span>'
+        ),
+        "group_name": lambda m, a: Markup(
+            f'<span style="padding:2px 10px;border-radius:12px;font-size:.78em;font-weight:700;'
+            + ("background:#dcfce7;color:#166534" if (m.group and m.group.name == "approved")
+               else "background:#fee2e2;color:#991b1b" if (m.group and m.group.name == "withdrawn")
+               else "background:#dbeafe;color:#1e40af" if (m.group and m.group.name in ("investigational","experimental"))
+               else "background:#fef3c7;color:#92400e" if (m.group and m.group.name == "illicit")
+               else "background:#ede9fe;color:#5b21b6" if (m.group and m.group.name == "nutraceutical")
+               else "background:#f3f4f6;color:#374151")
+            + f'">{m.group.name if m.group else "—"}</span>'
         ),
     }
 
@@ -1288,8 +1314,8 @@ class DrugCategoryAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategory):
 
 class DrugCategoryMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategoryMap):
     """
-    Junction table gán thuốc vào danh mục bệnh.
-    Nhập drug_id và category_id (từ bảng Drug Categories).
+    Junction table — gán thuốc vào danh mục bệnh MeSH.
+    Hiển thị: DrugBank ID + Tên thuốc + Category ID + Tên danh mục.
     """
     name = "Drug Category Map"
     name_plural = "Drug Category Maps"
@@ -1299,25 +1325,46 @@ class DrugCategoryMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategory
     can_edit   = False
     can_delete = True
 
-    column_list = [
-        DrugCategoryMap.drug_id,
-        DrugCategoryMap.category_id,
-        "category",
-    ]
+    column_list = ["drug_id", "drug_name", "category_id", "category_name"]
     column_searchable_list = [DrugCategoryMap.drug_id]
     column_sortable_list   = [DrugCategoryMap.drug_id, DrugCategoryMap.category_id]
     form_columns = [DrugCategoryMap.drug_id, DrugCategoryMap.category_id]
     page_size = 50
 
     column_labels = {
-        DrugCategoryMap.drug_id:     "DrugBank ID (e.g. DB00001)",
-        DrugCategoryMap.category_id: "Category ID (tra trong Drug Categories)",
-        "category":                  "Tên danh mục",
+        "drug_id":      "DrugBank ID",
+        "drug_name":    "Tên thuốc",
+        "category_id":  "Category ID",
+        "category_name":"Danh mục bệnh",
     }
 
+    def get_query(self):
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        return (
+            select(DrugCategoryMap)
+            .options(
+                selectinload(DrugCategoryMap.category),
+                selectinload(DrugCategoryMap.drug),
+            )
+        )
+
+    def get_count_query(self):
+        from sqlalchemy import select, func
+        return select(func.count()).select_from(DrugCategoryMap)
+
     column_formatters = {
-        "category": lambda m, a: Markup(
-            '<span style="font-size:0.82em;color:#1e293b">'
+        "drug_id": lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-weight:700;color:#1d4ed8;font-size:.82em">{m.drug_id}</span>'
+        ),
+        "drug_name": lambda m, a: Markup(
+            f'<span style="font-size:.85em;color:#0f172a">{m.drug.name[:50] if m.drug else "—"}</span>'
+        ),
+        "category_id": lambda m, a: Markup(
+            f'<span style="font-family:monospace;font-size:.82em;color:#64748b">{m.category_id}</span>'
+        ),
+        "category_name": lambda m, a: Markup(
+            f'<span style="font-size:.82em;color:#1e293b">'
             + (m.category.category[:60] if m.category else "—")
             + '</span>'
         ),
@@ -1330,8 +1377,9 @@ class DrugCategoryMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategory
 
 class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugProteinInteraction):
     """
-    Quản lý bảng `drug_protein_interactions` — liên kết thuốc ↔ protein.
-    Loại tương tác: target | enzyme | transporter | carrier.
+    Quản lý bảng `drug_protein_interactions`.
+    Hiển thị: Tên thuốc + Tên protein + Loại tương tác + Known Action.
+    Thay đổi cập nhật ngay vào trang Proteins và DrugDetail.
     """
     name = "Drug-Protein Interaction"
     name_plural = "Drug-Protein Interactions"
@@ -1345,10 +1393,8 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
     export_max_rows = 0
 
     column_list = [
-        DrugProteinInteraction.id,
-        DrugProteinInteraction.drug_id,
-        DrugProteinInteraction.protein_id,
-        DrugProteinInteraction.uniprot_id,
+        "drug_label",
+        "protein_label",
         DrugProteinInteraction.interaction_type,
         DrugProteinInteraction.known_action,
     ]
@@ -1358,7 +1404,6 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
         DrugProteinInteraction.interaction_type,
     ]
     column_sortable_list = [
-        DrugProteinInteraction.id,
         DrugProteinInteraction.drug_id,
         DrugProteinInteraction.interaction_type,
     ]
@@ -1374,17 +1419,42 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
     page_size_options = [25, 50, 100]
 
     column_labels = {
-        DrugProteinInteraction.drug_id:          "DrugBank ID",
-        DrugProteinInteraction.protein_id:       "Protein ID (so nguyen)",
-        DrugProteinInteraction.uniprot_id:       "UniProt ID",
-        DrugProteinInteraction.interaction_type: "Loai tuong tac",
+        "drug_label":   "Thuốc (ID — Tên)",
+        "protein_label":"Protein (UniProt — Tên)",
+        DrugProteinInteraction.interaction_type: "Loại tương tác",
         DrugProteinInteraction.known_action:     "Known Action",
-        DrugProteinInteraction.actions:          "Actions (JSON array)",
+        DrugProteinInteraction.drug_id:          "DrugBank ID",
+        DrugProteinInteraction.uniprot_id:       "UniProt ID",
+        DrugProteinInteraction.protein_id:       "Protein ID",
+        DrugProteinInteraction.actions:          "Actions (JSON)",
     }
 
+    def get_query(self):
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        return (
+            select(DrugProteinInteraction)
+            .options(
+                selectinload(DrugProteinInteraction.drug),
+                selectinload(DrugProteinInteraction.protein),
+            )
+        )
+
+    def get_count_query(self):
+        from sqlalchemy import select, func
+        return select(func.count()).select_from(DrugProteinInteraction)
+
     column_formatters = {
+        "drug_label": lambda m, a: Markup(
+            f'<span style="font-family:monospace;color:#1d4ed8;font-weight:700;font-size:.78em">{m.drug_id}</span>'
+            + (f'<br><span style="font-size:.82em;color:#334155">{m.drug.name[:45]}</span>' if m.drug else '')
+        ),
+        "protein_label": lambda m, a: Markup(
+            (f'<span style="font-size:.78em;color:#0891b2;font-weight:600">{m.uniprot_id or ""}</span>' if m.uniprot_id else '')
+            + (f'<br><span style="font-size:.82em;color:#334155">{m.protein.name[:45]}</span>' if m.protein else '')
+        ),
         DrugProteinInteraction.interaction_type: lambda m, a: Markup(
-            f'<span style="padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:600;'
+            f'<span style="padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:600;'
             + ("background:#dbeafe;color:#1e40af" if m.interaction_type == "target"
                else "background:#dcfce7;color:#166534" if m.interaction_type == "enzyme"
                else "background:#ede9fe;color:#5b21b6" if m.interaction_type == "transporter"
@@ -1393,8 +1463,7 @@ class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugP
             + f'">{m.interaction_type or "—"}</span>'
         ),
         DrugProteinInteraction.known_action: lambda m, a: Markup(
-            f'<span style="font-size:0.82em;color:#{"166534" if m.known_action=="yes" else "991b1b" if m.known_action=="no" else "64748b"}">'
-            + (m.known_action or "unknown")
-            + '</span>'
+            f'<span style="font-size:.82em;font-weight:600;color:#{"166534" if m.known_action=="yes" else "991b1b" if m.known_action=="no" else "64748b"}">'
+            + (m.known_action or "unknown") + '</span>'
         ),
     }
