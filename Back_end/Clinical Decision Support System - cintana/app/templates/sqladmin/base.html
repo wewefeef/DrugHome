@@ -89,26 +89,14 @@
       background: #f0f4f8;
     }
 
-    /* ── Page header ─────────────────────────────────────────────────────── */
-    .page-header {
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-      padding: 18px 24px !important;
-      border-bottom: none;
-      box-shadow: 0 2px 12px rgba(37,99,235,0.18);
+    /* ── Page header — ẩn khi trống (drug list không có page-title) ── */
+    .page-header:empty,
+    .page-header .page-header-main:empty {
+      display: none !important;
     }
-
-    .page-header .page-title {
-      color: #fff !important;
-      font-weight: 700;
-      font-size: 1.3rem;
-      margin: 0;
-    }
-
-    .page-header .page-pretitle {
-      color: rgba(191,219,254,0.85) !important;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+    /* Ẩn page-header xanh thừa trên drug/list (can_create=False nên trống) */
+    .page-wrapper > .container-xl > .page-header {
+      display: none !important;
     }
 
     /* ── Cards ───────────────────────────────────────────────────────────── */
@@ -380,33 +368,26 @@
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/flatpickr.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('admin:statics', path='js/main.js') }}"></script>
   <script>
-    /* ── Inject Wizard button on Drug list page ────────────────────────────
-       Dùng container ms-auto (luon ton tai du can_create=True/False)
-    */
-    (function () {
-      function injectWizardBtn() {
-        if (window.location.pathname.indexOf('/admin/drug/list') === -1) return;
-        if (document.getElementById('wizard-drug-btn')) return;
-
-        /* Container chứa các nút trong page header của sqladmin/Tabler */
-        var container = document.querySelector('.page-header .ms-auto')
-                     || document.querySelector('.page-header .col-auto')
-                     || document.querySelector('.page-header');
-        if (!container) return;
-
-        var btn = document.createElement('a');
-        btn.id   = 'wizard-drug-btn';
-        btn.href = '/drug-wizard/new';
-        btn.innerHTML = '\u2728 Th\u00eam thu\u1ed1c (Wizard)';
-        btn.style.cssText = 'display:inline-flex;align-items:center;padding:8px 18px;'
-          + 'border-radius:8px;font-weight:700;font-size:.875rem;'
-          + 'background:linear-gradient(135deg,#7c3aed,#4f46e5);'
-          + 'color:#fff;text-decoration:none;margin-left:8px;'
-          + 'box-shadow:0 2px 8px rgba(124,58,237,.35);cursor:pointer;';
-        container.appendChild(btn);
+    /* ── Wizard button trước Export (Drug list) ── */
+    (function(){
+      function inject(){
+        if(window.location.pathname.indexOf('/admin/drug/list')===-1)return;
+        if(document.getElementById('wiz-btn'))return;
+        var exp=document.querySelector('.card-header .dropdown,\
+.card-header [data-bs-toggle="dropdown"]');
+        if(!exp)return;
+        var a=document.createElement('a');
+        a.id='wiz-btn';a.href='/drug-wizard/new';
+        a.textContent='\u2728 Th\u00eam thu\u1ed1c';
+        a.style='display:inline-flex;align-items:center;padding:5px 12px;'
+          +'border-radius:6px;font-weight:600;font-size:.82rem;'
+          +'background:linear-gradient(135deg,#7c3aed,#4f46e5);'
+          +'color:#fff;text-decoration:none;margin-right:6px;'
+          +'box-shadow:0 1px 4px rgba(100,50,200,.4);white-space:nowrap;';
+        exp.parentNode.insertBefore(a,exp);
       }
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectWizardBtn);
-      else injectWizardBtn();
+      if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',inject);
+      else inject();
     })();
   </script>
   <script>
