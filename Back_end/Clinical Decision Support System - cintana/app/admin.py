@@ -1163,3 +1163,238 @@ class SystemMetadataAdmin(CacheInvalidatingAdmin, ModelView, model=SystemMetadat
     }
 
     page_size = 10
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug Groups  (bảng `groups` — 7 nhóm phê duyệt)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugGroupAdmin(CacheInvalidatingAdmin, ModelView, model=DrugGroup):
+    """
+    Quản lý bảng `groups`.
+    Mỗi nhóm là 1 trạng thái phê duyệt của thuốc (approved, experimental, withdrawn, …).
+    Sau khi thêm/sửa tên nhóm ở đây, bảng drug_group_map dùng group_id để gán thuốc vào nhóm.
+    """
+    name = "Drug Group"
+    name_plural = "Drug Groups"
+    icon = "fa-solid fa-layer-group"
+
+    can_create = True
+    can_edit   = True
+    can_delete = False   # xóa group ảnh hưởng cascade tới drug_group_map
+
+    column_list = [DrugGroup.id, DrugGroup.name]
+    column_sortable_list = [DrugGroup.id, DrugGroup.name]
+    column_searchable_list = [DrugGroup.name]
+    form_columns = [DrugGroup.name]
+    page_size = 20
+
+    column_labels = {
+        DrugGroup.id:   "ID (dùng trong drug_group_map)",
+        DrugGroup.name: "Tên nhóm (approved / experimental / withdrawn / …)",
+    }
+
+    column_formatters = {
+        DrugGroup.name: lambda m, a: Markup(
+            f'<span style="padding:2px 10px;border-radius:12px;font-size:0.82em;font-weight:700;'
+            + ("background:#dcfce7;color:#166534" if m.name == "approved"
+               else "background:#fee2e2;color:#991b1b" if m.name == "withdrawn"
+               else "background:#dbeafe;color:#1e40af" if m.name in ("investigational","experimental")
+               else "background:#fef3c7;color:#92400e" if m.name == "illicit"
+               else "background:#ede9fe;color:#5b21b6" if m.name == "nutraceutical"
+               else "background:#f3f4f6;color:#374151")
+            + f'">{m.name}</span>'
+        ),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug Group Map  (bảng `drug_group_map` — junction N-N: drugs ↔ groups)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugGroupMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugGroupMap):
+    """
+    Junction table gán thuốc vào nhóm phê duyệt.
+    Nhập drug_id (DrugBank ID, e.g. DB00001) và group_id (từ bảng Drug Groups).
+    Hệ thống sẽ tự tra tên nhóm qua group_id.
+    """
+    name = "Drug Group Map"
+    name_plural = "Drug Group Maps"
+    icon = "fa-solid fa-sitemap"
+
+    can_create = True
+    can_edit   = False   # junction table — PK là (drug_id, group_id)
+    can_delete = True
+
+    column_list = [
+        DrugGroupMap.drug_id,
+        DrugGroupMap.group_id,
+        "group",
+    ]
+    column_searchable_list = [DrugGroupMap.drug_id]
+    column_sortable_list   = [DrugGroupMap.drug_id, DrugGroupMap.group_id]
+    form_columns = [DrugGroupMap.drug_id, DrugGroupMap.group_id]
+    page_size = 50
+
+    column_labels = {
+        DrugGroupMap.drug_id:  "DrugBank ID (e.g. DB00001)",
+        DrugGroupMap.group_id: "Group ID (tra trong Drug Groups)",
+        "group":               "Tên nhóm",
+    }
+
+    column_formatters = {
+        "group": lambda m, a: Markup(
+            f'<span style="padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600;background:#eff6ff;color:#1e40af">'
+            + (m.group.name if m.group else "—")
+            + '</span>'
+        ),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug Categories  (bảng `categories` — ~5,000 nhóm bệnh MeSH)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugCategoryAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategory):
+    """
+    Quản lý bảng `categories`.
+    Mỗi category là một nhóm bệnh lý / dược lý theo chuẩn MeSH.
+    ID của category được dùng trong drug_category_map để gán thuốc vào nhóm bệnh.
+    """
+    name = "Drug Category"
+    name_plural = "Drug Categories"
+    icon = "fa-solid fa-tags"
+
+    can_create = True
+    can_edit   = True
+    can_delete = False
+
+    column_list = [DrugCategory.id, DrugCategory.category, DrugCategory.mesh_id]
+    column_searchable_list = [DrugCategory.category, DrugCategory.mesh_id]
+    column_sortable_list   = [DrugCategory.id, DrugCategory.category]
+    form_columns = [DrugCategory.category, DrugCategory.mesh_id]
+    page_size = 50
+
+    column_labels = {
+        DrugCategory.id:       "ID (dùng trong drug_category_map)",
+        DrugCategory.category: "Tên danh mục bệnh",
+        DrugCategory.mesh_id:  "MeSH ID",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug Category Map  (bảng `drug_category_map` — junction N-N: drugs ↔ categories)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugCategoryMapAdmin(CacheInvalidatingAdmin, ModelView, model=DrugCategoryMap):
+    """
+    Junction table gán thuốc vào danh mục bệnh.
+    Nhập drug_id và category_id (từ bảng Drug Categories).
+    """
+    name = "Drug Category Map"
+    name_plural = "Drug Category Maps"
+    icon = "fa-solid fa-diagram-project"
+
+    can_create = True
+    can_edit   = False
+    can_delete = True
+
+    column_list = [
+        DrugCategoryMap.drug_id,
+        DrugCategoryMap.category_id,
+        "category",
+    ]
+    column_searchable_list = [DrugCategoryMap.drug_id]
+    column_sortable_list   = [DrugCategoryMap.drug_id, DrugCategoryMap.category_id]
+    form_columns = [DrugCategoryMap.drug_id, DrugCategoryMap.category_id]
+    page_size = 50
+
+    column_labels = {
+        DrugCategoryMap.drug_id:     "DrugBank ID (e.g. DB00001)",
+        DrugCategoryMap.category_id: "Category ID (tra trong Drug Categories)",
+        "category":                  "Tên danh mục",
+    }
+
+    column_formatters = {
+        "category": lambda m, a: Markup(
+            '<span style="font-size:0.82em;color:#1e293b">'
+            + (m.category.category[:60] if m.category else "—")
+            + '</span>'
+        ),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug Protein Interactions  (bảng `drug_protein_interactions`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DrugProteinInteractionAdmin(CacheInvalidatingAdmin, ModelView, model=DrugProteinInteraction):
+    """
+    Quản lý bảng `drug_protein_interactions` — liên kết thuốc ↔ protein.
+    Loại tương tác: target | enzyme | transporter | carrier.
+    """
+    name = "Drug-Protein Interaction"
+    name_plural = "Drug-Protein Interactions"
+    icon = "fa-solid fa-dna"
+
+    can_create = True
+    can_edit   = True
+    can_delete = True
+    can_export = True
+    export_types = ["csv"]
+    export_max_rows = 0
+
+    column_list = [
+        DrugProteinInteraction.id,
+        DrugProteinInteraction.drug_id,
+        DrugProteinInteraction.protein_id,
+        DrugProteinInteraction.uniprot_id,
+        DrugProteinInteraction.interaction_type,
+        DrugProteinInteraction.known_action,
+    ]
+    column_searchable_list = [
+        DrugProteinInteraction.drug_id,
+        DrugProteinInteraction.uniprot_id,
+        DrugProteinInteraction.interaction_type,
+    ]
+    column_sortable_list = [
+        DrugProteinInteraction.id,
+        DrugProteinInteraction.drug_id,
+        DrugProteinInteraction.interaction_type,
+    ]
+    form_columns = [
+        DrugProteinInteraction.drug_id,
+        DrugProteinInteraction.protein_id,
+        DrugProteinInteraction.uniprot_id,
+        DrugProteinInteraction.interaction_type,
+        DrugProteinInteraction.known_action,
+        DrugProteinInteraction.actions,
+    ]
+    page_size = 50
+    page_size_options = [25, 50, 100]
+
+    column_labels = {
+        DrugProteinInteraction.drug_id:          "DrugBank ID",
+        DrugProteinInteraction.protein_id:       "Protein ID (so nguyen)",
+        DrugProteinInteraction.uniprot_id:       "UniProt ID",
+        DrugProteinInteraction.interaction_type: "Loai tuong tac",
+        DrugProteinInteraction.known_action:     "Known Action",
+        DrugProteinInteraction.actions:          "Actions (JSON array)",
+    }
+
+    column_formatters = {
+        DrugProteinInteraction.interaction_type: lambda m, a: Markup(
+            f'<span style="padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:600;'
+            + ("background:#dbeafe;color:#1e40af" if m.interaction_type == "target"
+               else "background:#dcfce7;color:#166534" if m.interaction_type == "enzyme"
+               else "background:#ede9fe;color:#5b21b6" if m.interaction_type == "transporter"
+               else "background:#fef3c7;color:#92400e" if m.interaction_type == "carrier"
+               else "background:#f3f4f6;color:#374151")
+            + f'">{m.interaction_type or "—"}</span>'
+        ),
+        DrugProteinInteraction.known_action: lambda m, a: Markup(
+            f'<span style="font-size:0.82em;color:#{"166534" if m.known_action=="yes" else "991b1b" if m.known_action=="no" else "64748b"}">'
+            + (m.known_action or "unknown")
+            + '</span>'
+        ),
+    }

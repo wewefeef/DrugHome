@@ -35,6 +35,11 @@ from app.admin import (
     DrugFoodInteractionAdmin,
     DrugDosageAdmin,
     SystemMetadataAdmin,
+    DrugGroupAdmin,
+    DrugGroupMapAdmin,
+    DrugCategoryAdmin,
+    DrugCategoryMapAdmin,
+    DrugProteinInteractionAdmin,
 )
 from app.config import get_settings
 from app.database import Base, engine
@@ -717,6 +722,12 @@ admin.add_view(DrugCalculatedPropertyAdmin)
 admin.add_view(DrugFoodInteractionAdmin)
 admin.add_view(DrugDosageAdmin)
 admin.add_view(SystemMetadataAdmin)
+# ── 5 bảng mới — Groups, Categories, junction maps, Drug-Protein ──
+admin.add_view(DrugGroupAdmin)
+admin.add_view(DrugGroupMapAdmin)
+admin.add_view(DrugCategoryAdmin)
+admin.add_view(DrugCategoryMapAdmin)
+admin.add_view(DrugProteinInteractionAdmin)
 
 # ── Template-based HTML routers (existing) ────────────────────────────────────
 
