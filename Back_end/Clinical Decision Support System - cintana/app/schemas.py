@@ -206,10 +206,28 @@ class DrugProductOut(BaseModel):
     source: Optional[str] = None
 
 
+class DrugFoodInteractionOut(BaseModel):
+    """Food / drink interaction warning for a drug."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    interaction: str
+
+
+class DrugDosageOut(BaseModel):
+    """Approved dosage form / route / strength for a drug."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    form: Optional[str] = None
+    route: Optional[str] = None
+    strength: Optional[str] = None
+
+
 class DrugDetailOut(DrugOut):
-    """Extended schema for single-drug endpoint — includes brand names.
+    """Extended schema for single-drug endpoint — includes brand names, food interactions, dosages.
     Only used for GET /drugs/{id} to avoid N+1 in list views."""
-    products: List[DrugProductOut] = []
+    products:          List[DrugProductOut] = []
+    food_interactions: List[DrugFoodInteractionOut] = []
+    dosages:           List[DrugDosageOut] = []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -21,6 +21,18 @@ export interface ApiDrugProduct {
   source: string | null;
 }
 
+export interface ApiDrugFoodInteraction {
+  id: number;
+  interaction: string;
+}
+
+export interface ApiDrugDosage {
+  id: number;
+  form: string | null;
+  route: string | null;
+  strength: string | null;
+}
+
 export interface ApiDrug {
   drugbank_id: string;
   name: string;
@@ -50,6 +62,8 @@ export interface ApiDrug {
   enzyme_count: number;
   transporter_count: number;
   products: ApiDrugProduct[];
+  food_interactions: ApiDrugFoodInteraction[];
+  dosages: ApiDrugDosage[];
 }
 
 export interface ApiProtein {
@@ -109,6 +123,8 @@ export function normalizeDrug(d: ApiDrug): Drug {
     enzymes: d.enzyme_count ?? 0,
     transporters: d.transporter_count ?? 0,
     products: d.products ?? [],
+    food_interactions: d.food_interactions ?? [],
+    dosages: d.dosages ?? [],
   };
 }
 

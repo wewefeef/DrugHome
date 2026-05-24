@@ -9,6 +9,18 @@ export interface DrugProduct {
   source: string | null;
 }
 
+export interface DrugFoodInteraction {
+  id: number;
+  interaction: string;
+}
+
+export interface DrugDosage {
+  id: number;
+  form: string | null;
+  route: string | null;
+  strength: string | null;
+}
+
 export interface Drug {
   id: string;
   drug_code: string;
@@ -38,4 +50,6 @@ export interface Drug {
   enzymes: number;
   transporters: number;
   products: DrugProduct[];
+  food_interactions: DrugFoodInteraction[];
+  dosages: DrugDosage[];
 }

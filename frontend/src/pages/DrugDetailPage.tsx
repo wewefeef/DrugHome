@@ -675,7 +675,7 @@ export default function DrugDetailPage() {
             {drug.products.length > 0 && (
               <div className="card p-5">
                 <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
-                  <Package size={15} className="text-indigo-500" /> Brand Names
+                  <Package size={15} className="text-indigo-500" /> Brand Names ({drug.products.length.toLocaleString()})
                 </h3>
                 <div className="space-y-2">
                   {drug.products.slice(0, 8).map(p => (
@@ -701,6 +701,44 @@ export default function DrugDetailPage() {
                     <p className="text-xs text-gray-400 italic text-center pt-1">
                       +{drug.products.length - 8} more brand names
                     </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Food & Drink Interactions */}
+            {drug.food_interactions && drug.food_interactions.length > 0 && (
+              <div className="card p-5">
+                <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                  <span className="text-lg">🍽</span> Food &amp; Drink Interactions ({drug.food_interactions.length})
+                </h3>
+                <ul className="space-y-2">
+                  {drug.food_interactions.map(fi => (
+                    <li key={fi.id} className="flex gap-2 text-xs text-gray-700 leading-relaxed bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                      <span className="text-orange-500 shrink-0 mt-0.5">⚠</span>
+                      <span>{fi.interaction}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Dosages */}
+            {drug.dosages && drug.dosages.length > 0 && (
+              <div className="card p-5">
+                <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                  <span className="text-lg">💊</span> Dosage Forms ({drug.dosages.length})
+                </h3>
+                <div className="space-y-1.5">
+                  {drug.dosages.slice(0, 10).map(d => (
+                    <div key={d.id} className="flex flex-wrap gap-1 text-[11px]">
+                      {d.form && <span className="bg-violet-50 text-violet-700 border border-violet-100 px-2 py-0.5 rounded font-medium">{d.form}</span>}
+                      {d.route && <span className="bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 rounded">{d.route}</span>}
+                      {d.strength && <span className="bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-mono">{d.strength}</span>}
+                    </div>
+                  ))}
+                  {drug.dosages.length > 10 && (
+                    <p className="text-xs text-gray-400 italic pt-1">+{drug.dosages.length - 10} more dosage forms</p>
                   )}
                 </div>
               </div>

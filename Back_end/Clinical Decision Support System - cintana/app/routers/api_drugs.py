@@ -447,6 +447,21 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
              "route": p.route, "country": p.country, "source": p.source}
         )
     result.products = products_out
+    # Load food interactions
+    result.food_interactions = [
+        {"id": fi.id, "interaction": fi.interaction}
+        for fi in drug.food_interactions_rel
+    ]
+    # Load dosages — deduplicated by (form, route, strength)
+    seen_dos: set = set()
+    dosages_out = []
+    for dos in drug.dosages_rel:
+        key = ((dos.form or "").lower(), (dos.route or "").lower(), (dos.strength or "").lower())
+        if key in seen_dos:
+            continue
+        seen_dos.add(key)
+        dosages_out.append({"id": dos.id, "form": dos.form, "route": dos.route, "strength": dos.strength})
+    result.dosages = dosages_out
     cache_set(detail_key, result, ttl=600)
     return result
 
