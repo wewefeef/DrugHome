@@ -349,18 +349,18 @@ function InteractionAnalysisPanel({
         style={{
           width: "min(900px, 96vw)",
           maxHeight: "88vh",
-          background: "#060d1a",
-          border: "1px solid #1e3a5f",
+          background: "#0f1e38",
+          border: "1px solid #2d4a6e",
         }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: "#1e3a5f", background: "#080e1c" }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: "#2d4a6e", background: "#162440" }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#1d4ed820", border: "1px solid #1d4ed840" }}>
               <FlaskConical size={18} className="text-blue-400" />
             </div>
             <div>
               <div className="font-extrabold text-base text-white">Drug Interaction Analysis</div>
-              <div className="text-[11px] flex items-center gap-1.5" style={{ color: "#475569" }}>
+              <div className="text-[11px] flex items-center gap-1.5" style={{ color: "#94a3b8" }}>
                 {apiLoading
                   ? <><Loader2 size={10} className="animate-spin" /> Analyzing interactions…</>
                   : <>{networkDrugs.length} drugs · {networkDrugs.length * (networkDrugs.length - 1) / 2} possible pairs</>
@@ -397,21 +397,21 @@ function InteractionAnalysisPanel({
             const isExpanded = expandedDrug === report.drug.id;
             const hasInteractions = report.pairs.some(p => p.severity !== null);
             return (
-              <div key={report.drug.id} className="rounded-2xl overflow-hidden" style={{ border: "1px solid #1e3a5f" }}>
+              <div key={report.drug.id} className="rounded-2xl overflow-hidden" style={{ border: "1px solid #2d4a6e" }}>
                 {/* Drug header row */}
                 <button
                   className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:brightness-110"
-                  style={{ background: "#0b1628" }}
+                  style={{ background: "#1a2d4a" }}
                   onClick={() => setExpandedDrug(isExpanded ? null : report.drug.id)}>
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#1d4ed8" }} />
                   <div className="flex-1 min-w-0">
                     <div className="font-extrabold text-sm text-white truncate">{report.drug.name}</div>
-                    <div className="text-[10px] font-mono mt-0.5" style={{ color: "#334155" }}>{report.drug.id}</div>
+                    <div className="text-[11px] font-mono mt-0.5" style={{ color: "#64748b" }}>{report.drug.id}</div>
                   </div>
                   {/* Groups */}
                   <div className="flex gap-1 mr-2">
                     {report.drug.groups.slice(0, 3).map(g => (
-                      <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: "#1e3a5f80", color: "#64748b" }}>{g}</span>
+                      <span key={g} className="text-[9px] px-1.5 py-0.5 rounded-full capitalize" style={{ background: "#2d4a6e80", color: "#94a3b8" }}>{g}</span>
                     ))}
                   </div>
                   {/* Interaction badge */}
@@ -426,46 +426,46 @@ function InteractionAnalysisPanel({
 
                 {/* Expanded content */}
                 {isExpanded && (
-                  <div className="px-5 pb-5 pt-1 space-y-4" style={{ background: "#070d1b" }}>
+                  <div className="px-5 pb-5 pt-1 space-y-4" style={{ background: "#0f1e38" }}>
                     {/* Drug description + mechanism */}
                     <div className="grid md:grid-cols-2 gap-3 pt-2">
                       {report.drug.description && (
-                        <div className="rounded-xl p-3.5" style={{ background: "#0b1628", border: "1px solid #1e3a5f" }}>
+                        <div className="rounded-xl p-3.5" style={{ background: "#1a2d4a", border: "1px solid #2d4a6e" }}>
                           <div className="flex items-center gap-1.5 mb-2">
                             <Info size={11} style={{ color: "#60a5fa" }} />
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>Description</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7dd3fc" }}>Description</span>
                           </div>
-                          <p className="text-[11px] leading-relaxed line-clamp-4" style={{ color: "#94a3b8" }}>{report.drug.description}</p>
+                          <p className="text-[12px] leading-relaxed line-clamp-4" style={{ color: "#cbd5e1" }}>{report.drug.description}</p>
                         </div>
                       )}
                       {report.drug.mechanism && (
-                        <div className="rounded-xl p-3.5" style={{ background: "#0b1628", border: "1px solid #1e3a5f" }}>
+                        <div className="rounded-xl p-3.5" style={{ background: "#1a2d4a", border: "1px solid #2d4a6e" }}>
                           <div className="flex items-center gap-1.5 mb-2">
-                            <Activity size={11} style={{ color: "#8b5cf6" }} />
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>Mechanism of Action</span>
+                            <Activity size={11} style={{ color: "#a78bfa" }} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#c4b5fd" }}>Mechanism of Action</span>
                           </div>
-                          <p className="text-[11px] leading-relaxed line-clamp-4" style={{ color: "#94a3b8" }}>{report.drug.mechanism}</p>
+                          <p className="text-[12px] leading-relaxed line-clamp-4" style={{ color: "#cbd5e1" }}>{report.drug.mechanism}</p>
                         </div>
                       )}
                     </div>
 
                     {/* Pair interactions */}
                     <div className="space-y-2.5">
-                      <div className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>
+                      <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7dd3fc" }}>
                         Interactions with Other Selected Drugs
                       </div>
                       {report.pairs.map(pair => {
                         const norm = getNorm(pair.severity);
                         const si = norm !== "none" ? SEV_INFO[norm] : null;
                         return (
-                          <div key={pair.drugB.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${si ? si.border : "#1e3a5f"}` }}>
+                          <div key={pair.drugB.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${si ? si.border : "#2d4a6e"}` }}>
                             {/* Pair header */}
-                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: si ? si.bg : "#0b162888" }}>
-                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#475569" }}>
+                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: si ? si.bg : "#1a2d4a" }}>
+                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#93c5fd" }}>
                                 {report.drug.name}
                               </span>
-                              <span className="text-[10px]" style={{ color: "#334155" }}>⟷</span>
-                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#475569" }}>
+                              <span className="text-[10px]" style={{ color: "#7dd3fc" }}>⟷</span>
+                              <span className="font-extrabold text-xs" style={{ color: si ? si.text : "#93c5fd" }}>
                                 {pair.drugB.name}
                               </span>
                               <div className="ml-auto flex items-center gap-1.5">
@@ -475,43 +475,43 @@ function InteractionAnalysisPanel({
                                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full" style={{ background: si.badge, color: si.text }}>{si.label}</span>
                                   </>
                                 ) : (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#22c55e15", color: "#86efac" }}>NO KNOWN INTERACTION</span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#22c55e20", color: "#86efac", border: "1px solid #22c55e40" }}>NO KNOWN INTERACTION</span>
                                 )}
                               </div>
                             </div>
 
                             {/* Detail body */}
                             {si ? (
-                              <div className="px-4 py-3 space-y-2.5" style={{ background: "#070d1b" }}>
+                              <div className="px-4 py-3 space-y-2.5" style={{ background: "#0f1e38" }}>
                                 {/* Interaction description */}
                                 {pair.description && (
                                   <div>
-                                    <span className="text-[9px] font-extrabold uppercase tracking-widest block mb-1" style={{ color: "#334155" }}>Interaction Description</span>
-                                    <p className="text-[11px] leading-relaxed" style={{ color: "#94a3b8" }}>{pair.description}</p>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest block mb-1.5" style={{ color: "#94a3b8" }}>Interaction Description</span>
+                                    <p className="text-[12px] leading-relaxed" style={{ color: "#e2e8f0" }}>{pair.description}</p>
                                   </div>
                                 )}
                                 {/* 3-column: route, pharmacology, warning */}
                                 <div className="grid md:grid-cols-3 gap-2">
-                                  <div className="rounded-lg p-2.5" style={{ background: "#0b162888", border: "1px solid #1e3a5f55" }}>
-                                    <div className="text-[9px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: "#334155" }}>Interaction Route</div>
-                                    <p className="text-[10px] leading-relaxed" style={{ color: "#64748b" }}>{si.route}</p>
+                                  <div className="rounded-lg p-2.5" style={{ background: "#1a2d4a", border: "1px solid #2d4a6e" }}>
+                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#7dd3fc" }}>Interaction Route</div>
+                                    <p className="text-[11px] leading-relaxed" style={{ color: "#cbd5e1" }}>{si.route}</p>
                                   </div>
-                                  <div className="rounded-lg p-2.5" style={{ background: "#0b162888", border: "1px solid #1e3a5f55" }}>
-                                    <div className="text-[9px] font-extrabold uppercase tracking-widest mb-1.5" style={{ color: "#334155" }}>Pharmacological Analysis</div>
-                                    <p className="text-[10px] leading-relaxed" style={{ color: "#64748b" }}>{si.pharmacology}</p>
+                                  <div className="rounded-lg p-2.5" style={{ background: "#1a2d4a", border: "1px solid #2d4a6e" }}>
+                                    <div className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#7dd3fc" }}>Pharmacological Analysis</div>
+                                    <p className="text-[11px] leading-relaxed" style={{ color: "#cbd5e1" }}>{si.pharmacology}</p>
                                   </div>
                                   <div className="rounded-lg p-2.5" style={{ background: si.bg, border: `1px solid ${si.border}` }}>
                                     <div className="flex items-center gap-1 mb-1.5">
                                       <ShieldAlert size={10} style={{ color: si.text }} />
-                                      <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: si.text }}>Clinical Warning</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: si.text }}>Clinical Warning</span>
                                     </div>
-                                    <p className="text-[10px] leading-relaxed" style={{ color: si.text + "cc" }}>{si.warning}</p>
+                                    <p className="text-[11px] leading-relaxed" style={{ color: si.text }}>{si.warning}</p>
                                   </div>
                                 </div>
                               </div>
                             ) : (
-                              <div className="px-4 py-3" style={{ background: "#070d1b" }}>
-                                <p className="text-[11px] leading-relaxed" style={{ color: "#334155" }}>
+                              <div className="px-4 py-3" style={{ background: "#0f1e38" }}>
+                                <p className="text-[12px] leading-relaxed" style={{ color: "#94a3b8" }}>
                                   No known clinically significant drug-drug interaction recorded in the DrugBank database for this pair. Standard prescribing monitoring is sufficient.
                                 </p>
                               </div>
@@ -525,7 +525,7 @@ function InteractionAnalysisPanel({
                     <Link
                       to={`/drugs/${report.drug.id}`}
                       className="flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all hover:brightness-125"
-                      style={{ background: "#1e3a5f", color: "#60a5fa", border: "1px solid #1e4a70" }}>
+                      style={{ background: "#1e3a5f", color: "#93c5fd", border: "1px solid #2d4a6e" }}>
                       <ExternalLink size={11} /> View Full Profile — {report.drug.name}
                     </Link>
                   </div>
@@ -1113,10 +1113,10 @@ export default function InteractionsPage() {
 
   /* ─────────── RENDER ─────────── */
   return (
-    <div className="min-h-screen" style={{ background: "#070e1a" }}>
+    <div className="min-h-screen" style={{ background: "#0f172a" }}>
 
       {/* PAGE HEADER */}
-      <div className="text-white pt-8 pb-10" style={{ background: "linear-gradient(135deg,#0a1628 0%,#0d1e38 40%,#0e1f3a 100%)" }}>
+      <div className="text-white pt-8 pb-10" style={{ background: "linear-gradient(135deg,#0f1e38 0%,#162040 40%,#1a2847 100%)" }}>
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center gap-2 text-blue-400 text-sm mb-4">
             <Link to="/" className="hover:text-white transition-colors">Home</Link>
@@ -1141,14 +1141,14 @@ export default function InteractionsPage() {
           {/* Stats bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "DRUGS IN NETWORK", val: stats.drugs,           col: "#1d4ed8" },
-              { label: "TOTAL NODES",      val: graphData.nodes.length, col: "#8b5cf6" },
-              { label: "CONNECTIONS",      val: graphData.links.length, col: "#f59e0b" },
-              { label: "PROTEIN TARGETS",  val: stats.targets,          col: "#ef4444" },
+              { label: "DRUGS IN NETWORK", val: stats.drugs,            col: "#60a5fa" },
+              { label: "TOTAL NODES",      val: graphData.nodes.length, col: "#a78bfa" },
+              { label: "CONNECTIONS",      val: graphData.links.length, col: "#fbbf24" },
+              { label: "PROTEIN TARGETS",  val: stats.targets,          col: "#f87171" },
             ].map(s => (
-              <div key={s.label} className="rounded-2xl p-4" style={{ background: s.col + "18", border: `1px solid ${s.col}30` }}>
-                <div className="text-[9px] font-extrabold tracking-widest mb-1" style={{ color: s.col + "bb" }}>{s.label}</div>
-                <div className="text-4xl font-extrabold" style={{ color: s.col }}>{s.val}</div>
+              <div key={s.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${s.col}40`, backdropFilter: "blur(4px)" }}>
+                <div className="text-[10px] font-bold tracking-widest mb-1.5 uppercase" style={{ color: s.col }}>{s.label}</div>
+                <div className="text-4xl font-extrabold" style={{ color: "#f1f5f9" }}>{s.val}</div>
               </div>
             ))}
           </div>
@@ -1156,14 +1156,14 @@ export default function InteractionsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="rounded-3xl overflow-hidden" style={{ background: "#0b1628", border: "1px solid #1e3a5f" }}>
+        <div className="rounded-3xl overflow-hidden" style={{ background: "#1e2d47", border: "1px solid #2d4a6e" }}>
 
           {/* ── Filter Tampilan bar ── */}
-          <div className="px-5 py-3 border-b" style={{ borderColor: "#1e3a5f", background: "#080e1c" }}>
+          <div className="px-5 py-3 border-b" style={{ borderColor: "#2d4a6e", background: "#162440" }}>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5 shrink-0">
-                <div className="w-1 h-5 rounded-full" style={{ background: "#1d4ed8" }} />
-                <span className="text-xs font-extrabold tracking-wide" style={{ color: "#94a3b8" }}>Filter Tampilan</span>
+                <div className="w-1 h-5 rounded-full" style={{ background: "#3b82f6" }} />
+                <span className="text-xs font-extrabold tracking-wide" style={{ color: "#93c5fd" }}>Filter Tampilan</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {FILTER_TYPES.map(({ key, label }) => {
@@ -1196,7 +1196,7 @@ export default function InteractionsPage() {
           </div>
 
           {/* ── Graph top bar ── */}
-          <div className="px-5 py-2 border-b flex items-center justify-between flex-wrap gap-2" style={{ borderColor: "#1e3a5f44" }}>
+          <div className="px-5 py-2 border-b flex items-center justify-between flex-wrap gap-2" style={{ borderColor: "#2d4a6e44" }}>
             <div className="flex items-center gap-2 flex-wrap">
               {networkDrugs.map(drug => {
                 const data = networkData.get(drug.id);
@@ -1243,14 +1243,14 @@ export default function InteractionsPage() {
           <div className="flex" style={{ minHeight: "680px" }}>
 
             {/* ══ LEFT PANEL ══ */}
-            <div className="shrink-0 border-r flex flex-col" style={{ width: "268px", borderColor: "#1e3a5f", overflowY: "auto", maxHeight: "680px" }}>
+            <div className="shrink-0 border-r flex flex-col" style={{ width: "268px", borderColor: "#2d4a6e", background: "#162440", overflowY: "auto", maxHeight: "680px" }}>
 
               {/* Search */}
               <div className="px-3 pt-3 pb-2">
-                <div className="text-[9px] font-extrabold uppercase tracking-widest mb-2" style={{ color: "#334155" }}>Search Drug</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#7dd3fc" }}>Search Drug</div>
                 <div className="relative">
-                  <div className="flex items-center gap-2 rounded-xl px-3 py-2 border" style={{ background: "#0a0f1e", borderColor: "#1e3a5f" }}>
-                    <Search size={11} style={{ color: "#334155" }} />
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2 border" style={{ background: "#1e3554", borderColor: "#2d4a6e" }}>
+                    <Search size={11} style={{ color: "#7dd3fc" }} />
                     <input
                       type="text" value={networkSearch} onChange={e => setNetworkSearch(e.target.value)}
                       placeholder="Drug name or DrugBank ID…" className="flex-1 text-xs bg-transparent outline-none" style={{ color: "#e2e8f0" }}
@@ -1258,7 +1258,7 @@ export default function InteractionsPage() {
                     {networkSearch && <button onClick={() => { setNetworkSearch(""); setNetworkSuggestions([]); }} style={{ color: "#334155" }}><X size={10} /></button>}
                   </div>
                   {networkSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-30 shadow-2xl" style={{ background: "#0a0f1e", border: "1px solid #1e3a5f" }}>
+                    <div className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-30 shadow-2xl" style={{ background: "#1e3554", border: "1px solid #2d4a6e" }}>
                       {networkSuggestions.map(d => (
                         <button key={d.id} onClick={() => addNetworkDrug(d)}
                           className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors">
@@ -1273,16 +1273,16 @@ export default function InteractionsPage() {
               </div>
 
               {/* Selected drugs */}
-              <div className="px-3 pb-2 border-b" style={{ borderColor: "#1e3a5f" }}>
+              <div className="px-3 pb-2 border-b" style={{ borderColor: "#2d4a6e" }}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: "#334155" }}>Selected ({networkDrugs.length}/6)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7dd3fc" }}>Selected ({networkDrugs.length}/6)</span>
                   {networkDrugs.length > 0 && (
                     <button onClick={() => { setNetworkDrugs([]); setNetworkData(new Map()); setSelectedNode(null); }}
                       className="text-[10px] hover:text-red-400 transition-colors" style={{ color: "#334155" }}>Clear all</button>
                   )}
                 </div>
                 {networkDrugs.length === 0
-                  ? <p className="text-[11px]" style={{ color: "#1e3a5f" }}>No drugs selected yet</p>
+                  ? <p className="text-xs" style={{ color: "#64748b" }}>No drugs selected yet</p>
                   : (
                     <div className="flex flex-wrap gap-1.5">
                       {networkDrugs.map(d => (
@@ -1329,7 +1329,7 @@ export default function InteractionsPage() {
 
               {/* Disease categories — accordion */}
               <div className="px-3 pt-2 pb-1">
-                <div className="text-[9px] font-extrabold uppercase tracking-widest mb-2" style={{ color: "#334155" }}>Disease Categories</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#7dd3fc" }}>Disease Categories</div>
                 {catLoading
                   ? <div className="flex items-center gap-1.5 py-2 text-xs" style={{ color: "#334155" }}><Loader2 size={10} className="animate-spin" /> Loading…</div>
                   : (
@@ -1449,8 +1449,8 @@ export default function InteractionsPage() {
                       <Network size={44} style={{ color: "#1e3a5f" }} />
                     </div>
                     <div>
-                      <p className="font-extrabold text-xl mb-1" style={{ color: "#1e3a5f" }}>No Drug Selected</p>
-                      <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "#1e2d47" }}>
+                      <p className="font-extrabold text-xl mb-1" style={{ color: "#93c5fd" }}>No Drug Selected</p>
+                      <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "#64748b" }}>
                         Search for a drug on the left or select from Disease Categories. The network will build automatically.
                       </p>
                     </div>
@@ -1480,7 +1480,7 @@ export default function InteractionsPage() {
                     graphData={graphData}
                     width={graphDimensions.width - (selectedNode ? 300 : 0)}
                     height={graphDimensions.height}
-                    backgroundColor="#0b1628"
+                    backgroundColor="#1e2d47"
                     nodeCanvasObject={nodeCanvasObject}
                     nodePointerAreaPaint={(raw, color, ctx) => {
                       const node = raw as GraphNode;
@@ -1538,16 +1538,16 @@ export default function InteractionsPage() {
 
           {/* Mechanism footer */}
           {hasData && networkDrugs.some(d => networkData.get(d.id)?.drug.mechanism) && (
-            <div className="px-5 py-4 border-t" style={{ borderColor: "#1e3a5f" }}>
-              <div className="text-[9px] font-extrabold uppercase tracking-widest mb-3" style={{ color: "#334155" }}>Mechanism of Action</div>
+            <div className="px-5 py-4 border-t" style={{ borderColor: "#2d4a6e", background: "#162440" }}>
+              <div className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "#7dd3fc" }}>Mechanism of Action</div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {networkDrugs.map(drug => {
                   const data = networkData.get(drug.id);
                   if (!data?.drug.mechanism) return null;
                   return (
-                    <div key={drug.id} className="rounded-2xl p-3" style={{ background: "#0a0f1e", border: "1px solid #1e3a5f" }}>
-                      <div className="text-xs font-bold mb-1" style={{ color: "#60a5fa" }}>{drug.name}</div>
-                      <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "#475569" }}>{data.drug.mechanism}</p>
+                    <div key={drug.id} className="rounded-2xl p-3.5" style={{ background: "#1e3554", border: "1px solid #2d4a6e" }}>
+                      <div className="text-xs font-bold mb-1.5" style={{ color: "#60a5fa" }}>{drug.name}</div>
+                      <p className="text-[12px] leading-relaxed line-clamp-3" style={{ color: "#cbd5e1" }}>{data.drug.mechanism}</p>
                     </div>
                   );
                 })}
