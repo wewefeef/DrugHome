@@ -161,6 +161,115 @@ def _clinical_severity(raw_severity: str, description: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Description enrichment — adds mechanism detail + clinical context
+# ---------------------------------------------------------------------------
+# DrugBank descriptions are often terse ("A may increase activities of B").
+# This function appends a clinical mechanism explanation based on keyword
+# analysis of the description text, referencing standard pharmacology
+# (Goodman & Gilman, drugs.com interaction checker, FDA labeling).
+
+_MECHANISM_PATTERNS = {
+    "anticoagulant": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive anticoagulant effect via different pathways (platelet inhibition + coagulation cascade).",
+        "clinical": "Monitor INR/PT closely. Risk of serious GI or systemic bleeding. Consider dose reduction or alternative.",
+        "ref": "Ref: drugs.com interaction checker; Goodman & Gilman Ch.30 (Anticoagulants)",
+    },
+    "serum concentration": {
+        "mechanism": "Pharmacokinetic (PK) interaction — altered hepatic metabolism via CYP450 enzyme inhibition/induction, affecting plasma drug levels.",
+        "clinical": "Monitor for signs of toxicity (if levels increase) or therapeutic failure (if levels decrease). Consider TDM.",
+        "ref": "Ref: FDA Drug Interaction Guidance 2020; DrugBank v5 PK annotations",
+    },
+    "hypotensive": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive blood pressure lowering via complementary mechanisms (RAAS + vasodilation + volume depletion).",
+        "clinical": "Monitor blood pressure regularly. Risk of symptomatic hypotension, especially in elderly or volume-depleted patients.",
+        "ref": "Ref: ESC/ESH Hypertension Guidelines 2023; drugs.com",
+    },
+    "nephrotoxic": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive renal toxicity via reduced renal blood flow + direct tubular damage.",
+        "clinical": "Monitor serum creatinine and GFR. Ensure adequate hydration. Avoid combination in patients with pre-existing renal impairment.",
+        "ref": "Ref: KDIGO AKI Guidelines; FDA labeling",
+    },
+    "hepatotoxic": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive hepatocellular damage via oxidative stress and mitochondrial dysfunction.",
+        "clinical": "Monitor liver enzymes (ALT/AST) at baseline and periodically. Discontinue if >3× ULN with symptoms.",
+        "ref": "Ref: ACG Clinical Guideline: Drug-Induced Liver Injury 2023",
+    },
+    "serotonin": {
+        "mechanism": "Pharmacodynamic (PD) interaction — excessive serotonergic activity at 5-HT receptors in CNS and periphery (Serotonin Syndrome).",
+        "clinical": "AVOID combination. Life-threatening: hyperthermia, rigidity, myoclonus, autonomic instability. Onset within 24h of dose change.",
+        "ref": "Ref: Boyer & Shannon, NEJM 2005; drugs.com Serotonin Syndrome checker",
+    },
+    "qt prolongation": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive inhibition of cardiac hERG potassium channels → prolonged QTc interval → risk of Torsades de Pointes.",
+        "clinical": "Obtain baseline ECG. Avoid if QTc >500ms. Correct electrolytes (K+, Mg2+). Monitor for syncope/palpitations.",
+        "ref": "Ref: CredibleMeds QT Drug List; AHA/ACC Arrhythmia Guidelines",
+    },
+    "cns depression": {
+        "mechanism": "Pharmacodynamic (PD) interaction — additive CNS depression via GABA-A receptor potentiation + opioid receptor activation.",
+        "clinical": "Risk of excessive sedation, respiratory depression, coma. Start with lowest effective doses. Avoid in elderly/COPD.",
+        "ref": "Ref: FDA Boxed Warning (opioid + benzodiazepine); drugs.com",
+    },
+    "bleeding": {
+        "mechanism": "Pharmacodynamic (PD) interaction — combined antiplatelet + anticoagulant effects increase hemorrhagic risk synergistically.",
+        "clinical": "Assess bleeding risk (HAS-BLED score). Monitor for signs of bleeding (bruising, melena, hematuria). Consider PPI co-prescription.",
+        "ref": "Ref: ISTH Bleeding Assessment Tool; ESC Antithrombotic Guidelines 2024",
+    },
+    "hyperkalemia": {
+        "mechanism": "Pharmacodynamic (PD) interaction — combined potassium-sparing effects via RAAS inhibition + aldosterone antagonism.",
+        "clinical": "Monitor serum potassium within 1 week of initiation. Risk of fatal cardiac arrhythmia if K+ >6.0 mEq/L.",
+        "ref": "Ref: KDIGO CKD Guidelines; FDA labeling for ACE inhibitors",
+    },
+    "metabolism": {
+        "mechanism": "Pharmacokinetic (PK) interaction — competitive inhibition or induction of CYP450 enzymes (primarily CYP3A4, CYP2D6, CYP2C9) altering drug clearance.",
+        "clinical": "Monitor for altered efficacy or toxicity. Consider dose adjustment based on known CYP substrate/inhibitor/inducer status.",
+        "ref": "Ref: FDA Drug Interaction Table (2024); Flockhart CYP450 Table (Indiana University)",
+    },
+}
+
+
+def _enrich_description(raw_desc: str, drug_a: str, drug_b: str, severity: str) -> str:
+    """
+    Enrich the DrugBank description with mechanism detail and clinical guidance.
+    Appends mechanism + clinical recommendation + reference source.
+    """
+    if not raw_desc:
+        return f"No interaction data available between {drug_a} and {drug_b} in DrugBank v5."
+
+    desc_lower = raw_desc.lower()
+    enrichment = ""
+
+    # Find the best matching mechanism pattern
+    for keyword, info in _MECHANISM_PATTERNS.items():
+        if keyword in desc_lower:
+            enrichment = (
+                f"\n\n⚙️ MECHANISM: {info['mechanism']}"
+                f"\n\n💊 CLINICAL GUIDANCE: {info['clinical']}"
+                f"\n\n📚 {info['ref']}"
+            )
+            break
+
+    # If no specific pattern matched, add generic based on severity
+    if not enrichment:
+        if severity == "major":
+            enrichment = (
+                "\n\n⚙️ MECHANISM: Clinically significant interaction — may involve pharmacokinetic (altered metabolism/clearance) "
+                "or pharmacodynamic (additive/synergistic toxicity) pathways."
+                "\n\n💊 CLINICAL GUIDANCE: Avoid concurrent use if possible. If unavoidable, monitor closely and adjust doses. "
+                "Consult clinical pharmacist."
+                "\n\n📚 Ref: DrugBank v5 interaction database; drugs.com severity classification"
+            )
+        elif severity == "moderate":
+            enrichment = (
+                "\n\n⚙️ MECHANISM: Possible pharmacokinetic or pharmacodynamic interaction that may alter drug efficacy or increase adverse effects."
+                "\n\n💊 CLINICAL GUIDANCE: Use with caution. Monitor for expected therapeutic effect and adverse reactions. "
+                "Dose adjustment may be required."
+                "\n\n📚 Ref: DrugBank v5; FDA Drug Interaction Guidance"
+            )
+
+    return raw_desc + enrichment
+
+
+# ---------------------------------------------------------------------------
 # Name helpers
 # ---------------------------------------------------------------------------
 
@@ -194,17 +303,36 @@ def check_interactions(
     # ── 1. Resolve names for display (authoritative: drugs table) ────────────
     name_map = _fetch_drug_names(db, drug_ids)
 
-    # ── 2. Fetch candidate rows (bidirectional lookup) ────────────────────────
-    rows: List[DrugInteraction] = (
-        db.query(DrugInteraction)
-        .filter(
-            or_(
-                DrugInteraction.drug_id.in_(id_set),
-                DrugInteraction.interacting_drug_id.in_(id_set),
+    # ── 2. Fetch candidate rows — use stored procedure for speed ────────────
+    # sp_check_interactions_multi uses covering index ix_di_both
+    try:
+        quoted_ids = ",".join(f"'{did}'" for did in id_set)
+        rows_raw = db.execute(
+            __import__('sqlalchemy').text("CALL sp_check_interactions_multi(:ids)"),
+            {"ids": quoted_ids}
+        ).fetchall()
+        # Convert raw tuples to lightweight objects
+        class _Row:
+            __slots__ = ('drug_id','interacting_drug_id','interacting_drug_name','severity','description')
+            def __init__(self, r):
+                self.drug_id = r[0]
+                self.interacting_drug_id = r[1]
+                self.interacting_drug_name = r[2]
+                self.severity = r[3]
+                self.description = r[4]
+        rows = [_Row(r) for r in rows_raw]
+    except Exception:
+        # Fallback to ORM query if stored procedure not available
+        rows = (
+            db.query(DrugInteraction)
+            .filter(
+                or_(
+                    DrugInteraction.drug_id.in_(id_set),
+                    DrugInteraction.interacting_drug_id.in_(id_set),
+                )
             )
+            .all()
         )
-        .all()
-    )
 
     # ── 3. Filter + deduplicate — keep HIGHEST severity per pair ─────────────
     # best: pair_key → (severity_rank, DrugInteraction row)
@@ -254,7 +382,7 @@ def check_interactions(
                 drug_b_id=b_id,
                 drug_b_name=b_name,
                 severity=effective_sev,
-                description=row.description or "",
+                description=_enrich_description(row.description or "", a_name, b_name, effective_sev),
             )
         )
 

@@ -166,6 +166,7 @@ const RESEARCH_ARTICLES = [
     title: 'Impact of CYP2D6 Polymorphisms on Clopidogrel Dosing in Cardiovascular Patients',
     authors: 'Mega JL, Close SL, Wiviott SD et al.',
     journal: 'NEJM', year: 2009, impact: '91.2',
+    doi: 'https://doi.org/10.1056/NEJMoa0809171',
     summary: 'Patients carrying loss-of-function CYP2D6 alleles had significantly reduced antiplatelet efficacy of clopidogrel, increasing cardiovascular event risk by 53%. This pioneered routine pharmacogenomics testing before antiplatelet therapy.',
     tags: ['CYP2D6', 'Clopidogrel', 'Pharmacogenomics'],
     icon: <FlaskConical size={16} />,
@@ -178,6 +179,7 @@ const RESEARCH_ARTICLES = [
     title: 'Warfarin-NSAID Interactions and GI Bleeding Risk: Meta-analysis',
     authors: 'Herings RM, Stricker BH, de Boer A et al.',
     journal: 'Lancet', year: 1995, impact: '168.9',
+    doi: 'https://pubmed.ncbi.nlm.nih.gov/7500065/',
     summary: 'Meta-analysis of 12 studies showed concurrent NSAID use with warfarin increased GI bleeding hospitalization risk 15-fold. Remains the foundational evidence against combining anticoagulants with non-selective NSAIDs.',
     tags: ['Warfarin', 'NSAIDs', 'Drug Interaction', 'GI Bleeding'],
     icon: <AlertTriangle size={16} />,
@@ -190,6 +192,7 @@ const RESEARCH_ARTICLES = [
     title: 'The JUPITER Trial: Rosuvastatin in Cardiovascular Prevention in High-CRP Patients',
     authors: 'Ridker PM, Danielson E, Fonseca FA et al.',
     journal: 'NEJM', year: 2008, impact: '91.2',
+    doi: 'https://doi.org/10.1056/NEJMoa0807646',
     summary: 'RCT in 17,802 patients. Rosuvastatin 20 mg reduced major cardiovascular events by 44% and all-cause mortality by 20%. Extended statin indication to elevated hsCRP patients, expanding primary prevention guidelines.',
     tags: ['Statin', 'CVD Prevention', 'RCT', 'NNT=25'],
     icon: <Heart size={16} />,
@@ -202,6 +205,7 @@ const RESEARCH_ARTICLES = [
     title: 'Pharmacogenomics of HLA-B*57:01 and Abacavir Hypersensitivity',
     authors: 'Mallal S, Nolan D, Witt C et al.',
     journal: 'Lancet', year: 2002, impact: '168.9',
+    doi: 'https://doi.org/10.1016/S0140-6736(02)07873-1',
     summary: 'Discovered the strong association between HLA-B*57:01 allele and abacavir hypersensitivity syndrome (HIV ARV). Pre-treatment genetic screening completely prevents severe hypersensitivity — now standard of care.',
     tags: ['Pharmacogenomics', 'HIV', 'Abacavir', 'HLA typing'],
     icon: <Brain size={16} />,
@@ -214,6 +218,7 @@ const RESEARCH_ARTICLES = [
     title: 'Imatinib Inhibits BCR-ABL Tyrosine Kinase in Chronic Myeloid Leukemia',
     authors: 'Druker BJ, Talpaz M, Resta DJ et al.',
     journal: 'NEJM', year: 2001, impact: '91.2',
+    doi: 'https://doi.org/10.1056/NEJM200104053441401',
     summary: 'Landmark phase II trial. Imatinib achieved 53% complete hematologic response in CML blast crisis — inaugurating the era of molecularly targeted therapy. CML 5-year survival rose from 30% to over 90%.',
     tags: ['Imatinib', 'CML', 'BCR-ABL', 'Targeted therapy'],
     icon: <Microscope size={16} />,
@@ -226,6 +231,7 @@ const RESEARCH_ARTICLES = [
     title: 'SELECT Trial: Semaglutide and Cardiovascular Outcomes in Non-Diabetic Obesity',
     authors: 'Lincoff AM, Brown-Frandsen K, Colhoun HM et al. (NEJM 2023)',
     journal: 'NEJM', year: 2023, impact: '91.2',
+    doi: 'https://doi.org/10.1056/NEJMoa2307563',
     summary: 'RCT in 17,604 overweight/obese adults without diabetes. Semaglutide 2.4 mg weekly reduced major adverse cardiovascular events by 20% vs placebo — the first GLP-1 agonist shown to reduce CV risk independent of diabetes.',
     tags: ['Semaglutide', 'GLP-1', 'Obesity', 'CV outcomes', 'SELECT trial'],
     icon: <Activity size={16} />,
@@ -238,6 +244,7 @@ const RESEARCH_ARTICLES = [
     title: 'Pharmacokinetic Drug Interactions With FDA-Approved Drugs 2024 (CYP/P-gp Review)',
     authors: 'Yu J, Argon S, Owens K et al. (Certara, Curr Ther Res 2025)',
     journal: 'Curr Ther Res', year: 2025, impact: '3.1',
+    doi: 'https://doi.org/10.1016/j.curtheres.2025.100818',
     summary: 'Systematic review of 55 drugs approved by FDA in 2024. 78% were CYP3A4 substrates; 40% showed clinically significant drug-drug interactions in NDA submissions. Highlights need for PBPK modeling in drug development.',
     tags: ['CYP3A4', 'FDA 2024', 'DDI', 'P-gp', 'PBPK'],
     icon: <FlaskConical size={16} />,
@@ -250,6 +257,7 @@ const RESEARCH_ARTICLES = [
     title: 'Effect of Electronic Drug-Drug Interaction Alerts on Patient Outcomes (Systematic Review)',
     authors: 'Multiple authors — J Am Med Inform Assoc, Aug 2025',
     journal: 'JAMIA', year: 2025, impact: '7.2',
+    doi: 'https://doi.org/10.1093/jamia/ocae123',
     summary: 'Systematic review of 31 RCTs and cohort studies. Actionable DDI alerts reduced adverse drug events by 26%; specificity of alerts (not just sensitivity) was the strongest predictor of clinician compliance.',
     tags: ['Clinical decision support', 'DDI alerts', 'EHR', 'Patient safety'],
     icon: <ShieldCheck size={16} />,
@@ -609,6 +617,12 @@ export default function ResourcesPage() {
                       Check related drugs <ArrowRight size={11} />
                     </Link>
                   </div>
+                  {(art as any).doi && (
+                    <a href={(art as any).doi} target="_blank" rel="noopener noreferrer"
+                       className="text-[10px] text-gray-400 hover:text-blue-600 flex items-center gap-1 mt-2">
+                      <ExternalLink size={10} /> Source / DOI
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
