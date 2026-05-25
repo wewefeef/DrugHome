@@ -10,6 +10,7 @@ import { apiFetchDrugs, apiSearchProteins } from '../lib/api';
 import type { Drug } from '../types/drug';
 import type { Protein } from '../lib/proteinCache';
 import { useAuth, getUserInitials } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 type SearchMode = 'drug' | 'protein' | 'interaction';
 type Suggestion =
@@ -53,6 +54,7 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { lang, setLang } = useLanguage();
 
   // Live search suggestions — calls API, debounced by useEffect
   const [isSearching, setIsSearching] = useState(false);
@@ -287,8 +289,17 @@ export default function Header() {
             </form>
           </div>
 
-          {/* Auth */}
+          {/* Auth + Language */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
+            {/* Language Switcher */}
+            <button
+              onClick={() => setLang(lang === 'en' ? 'vi' : 'en')}
+              className="flex items-center gap-1.5 text-blue-200 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-primary-700 transition-colors text-xs font-semibold"
+              title={lang === 'en' ? 'Chuyển sang Tiếng Việt' : 'Switch to English'}
+            >
+              <span className="text-sm">{lang === 'en' ? '🇬🇧' : '🇻🇳'}</span>
+              <span>{lang === 'en' ? 'EN' : 'VI'}</span>
+            </button>
             <button className="text-blue-200 hover:text-white p-2 rounded-lg hover:bg-primary-700 transition-colors">
               <Bell size={18} />
             </button>

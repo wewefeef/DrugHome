@@ -10,6 +10,7 @@ import AnalysisPage from './pages/AnalysisPage'
 import ResourcesPage from './pages/ResourcesPage'
 import AuthPage from './pages/AuthPage'
 import { AuthProvider } from './context/AuthContext'
+import { LanguageProvider } from './context/LanguageContext'
 
 /** Wrapper layout: header + footer */
 function MainLayout() {
@@ -27,6 +28,7 @@ function MainLayout() {
 function App() {
   return (
     <BrowserRouter>
+      <LanguageProvider>
       <AuthProvider>
         <Routes>
           {/* Full-screen auth pages — no header / footer */}
@@ -46,6 +48,7 @@ function App() {
           </Route>
         </Routes>
       </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   )
 }
