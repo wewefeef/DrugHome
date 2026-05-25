@@ -309,10 +309,11 @@ export interface SiteStats {
   import_date?: string | null;
 }
 
-/** Fetch live totals from /api/v1/stats — single request, cached 10 min on server */
+/** Fetch live totals from /api/v1/stats — single request, cached 5 min on server */
 export async function apiFetchSiteStats(): Promise<SiteStats> {
   try {
-    const res = await fetch(`${BASE}/stats`);
+    // no-store: bỏ qua browser cache, luôn lấy từ server để data_year/drugbank_version đúng
+    const res = await fetch(`${BASE}/stats`, { cache: 'no-store' });
     if (res.ok) return await res.json() as SiteStats;
   } catch { /* fallback below */ }
 
@@ -333,9 +334,9 @@ export async function apiFetchSiteStats(): Promise<SiteStats> {
     moderate_count: 0,
     minor_count: 0,
     data_source: 'DrugBank® v5',
-    last_updated: '2026',
-    drugbank_version: '5.1.12',
-    data_year: '2026',
+    last_updated: '',
+    drugbank_version: '',
+    data_year: '',
   };
 }
 

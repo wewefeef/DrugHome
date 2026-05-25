@@ -57,7 +57,10 @@ function HeroBanner({ dataYear, drugbankVersion }: { dataYear: string; drugbankV
           <div className="inline-flex items-center gap-2 bg-primary-700/60 border border-primary-600 rounded-full px-4 py-1.5 mb-6">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-blue-200 text-sm font-medium">
-              Latest System — DrugBank {dataYear} Data {drugbankVersion && `(v${drugbankVersion})`}
+              {dataYear
+                ? `Latest System — DrugBank ${dataYear} Data${drugbankVersion ? ` (v${drugbankVersion})` : ''}`
+                : 'Latest System — Loading...'
+              }
             </span>
           </div>
 
@@ -372,8 +375,8 @@ export default function HomePage() {
   const [interactionCount, setInteractionCount] = useState('...');
   const [proteinCount, setProteinCount] = useState('...');
   const [dpiCount, setDpiCount] = useState('...');
-  const [dataYear, setDataYear] = useState('2026');
-  const [drugbankVersion, setDrugbankVersion] = useState('5.1.12');
+  const [dataYear, setDataYear] = useState('');
+  const [drugbankVersion, setDrugbankVersion] = useState('');
 
   useEffect(() => {
     apiFetchSiteStats()
@@ -382,16 +385,16 @@ export default function HomePage() {
         setInteractionCount(s.interaction_count.toLocaleString() + '+');
         setProteinCount(s.protein_count.toLocaleString());
         setDpiCount(s.drug_protein_interaction_count.toLocaleString());
-        setDataYear(s.data_year || '2026');
-        setDrugbankVersion(s.drugbank_version || '5.1.12');
+        setDataYear(s.data_year || '');
+        setDrugbankVersion(s.drugbank_version || '');
       })
       .catch(() => {
         setDrugCount('17,590');
         setInteractionCount('1,427,924+');
         setProteinCount('5,309');
         setDpiCount('33,227');
-        setDataYear('2026');
-        setDrugbankVersion('5.1.12');
+        setDataYear('');
+        setDrugbankVersion('');
       });
   }, []);
 

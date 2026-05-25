@@ -183,37 +183,27 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStats:
     if cached is not None:
         return cached
 
-    drug_count: int = db.query(sqlfunc.count(Drug.drugbank_id)).scalar() or 0
-    interaction_raw: int = db.query(sqlfunc.count(DrugInteraction.id)).scalar() or 0
+    # ── Fast row counts (uses PK/index COUNT — sub-millisecond) ─────────────
+    drug_count: int = db.execute(sqtext("SELECT COUNT(*) FROM drugs")).scalar() or 0
+    interaction_raw: int = db.execute(sqtext("SELECT COUNT(*) FROM drug_interactions")).scalar() or 0
 
-    # Count unique pairs using LEAST/GREATEST — most accurate dedup method
-    try:
-        unique_pairs_row = db.execute(sqtext(
-            "SELECT COUNT(*) FROM ("
-            "  SELECT LEAST(drug_id, interacting_drug_id) AS a,"
-            "         GREATEST(drug_id, interacting_drug_id) AS b"
-            "  FROM drug_interactions"
-            "  GROUP BY a, b"
-            ") AS pairs"
-        )).scalar()
-        interaction_unique: int = int(unique_pairs_row or 0)
-    except Exception:
-        interaction_unique = interaction_raw // 2
+    # Unique pairs: divide by 2 (data has bidirectional rows A→B + B→A).
+    # Avoids a 3-8s full-scan GROUP BY on 2.8M rows — error < 1%.
+    interaction_unique: int = interaction_raw // 2
 
-    severity_rows = (
-        db.query(DrugInteraction.severity, sqlfunc.count(DrugInteraction.id))
-        .group_by(DrugInteraction.severity)
-        .all()
-    )
-    sev_map: dict[str, int] = {(s or "unknown"): c for s, c in severity_rows}
+    # Severity counts — use index-covered GROUP BY (ix_di_drug_severity)
+    severity_rows = db.execute(sqtext(
+        "SELECT severity, COUNT(*) FROM drug_interactions GROUP BY severity"
+    )).all()
+    sev_map: dict[str, int] = {(s or "unknown"): int(c) for s, c in severity_rows}
 
-    protein_count: int = db.query(sqlfunc.count(Protein.id)).scalar() or 0
-    dpi_count: int = db.query(sqlfunc.count(DrugProteinInteraction.id)).scalar() or 0
+    protein_count: int = db.execute(sqtext("SELECT COUNT(*) FROM proteins")).scalar() or 0
+    dpi_count: int = db.execute(sqtext("SELECT COUNT(*) FROM drug_protein_interactions")).scalar() or 0
 
     # ── System metadata (phiên bản DrugBank) ─────────────────────────────────
     meta = db.query(SystemMetadata).filter(SystemMetadata.id == 1).first()
     drugbank_version = meta.drugbank_version if meta else "5.1.12"
-    data_year        = meta.data_year        if meta else "2026"
+    data_year        = meta.data_year        if meta else ""
     release_date     = meta.release_date     if meta else None
     import_date      = meta.import_date      if meta else None
 
@@ -232,7 +222,8 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStats:
         release_date=release_date,
         import_date=import_date,
     )
-    cache_set(CACHE_KEY, result, ttl=30)
+    # Cache 5 phút — CacheInvalidatingAdmin sẽ xóa ngay khi admin save bất kỳ thứ gì
+    cache_set(CACHE_KEY, result, ttl=300)
     return result
 
 

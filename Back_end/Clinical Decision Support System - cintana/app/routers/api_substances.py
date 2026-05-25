@@ -155,7 +155,7 @@ def list_proteins(
         total_pages=ceil(total / per_page) if total else 0,
         items=items,
     )
-    cache_set(cache_key, result, ttl=300)
+    cache_set(cache_key, result, ttl=600)
     return result
 
 

@@ -184,7 +184,7 @@ def list_drugs(
         total_pages=ceil(total / per_page) if total else 0,
         items=items,
     )
-    cache_set(cache_key, result, ttl=300)
+    cache_set(cache_key, result, ttl=600)
     return result
 
 
@@ -400,7 +400,7 @@ def get_drug_network(
             "drug_interactions": len(interactions),
         },
     }
-    cache_set(cache_key, result, ttl=300)
+    cache_set(cache_key, result, ttl=600)
     return result
 
 
@@ -413,6 +413,14 @@ def get_drug(drugbank_id: str, db: Session = Depends(get_db)):
 
     drug = (
         db.query(Drug)
+        .options(
+            selectinload(Drug.synonyms_rel),
+            selectinload(Drug.products_rel),
+            selectinload(Drug.food_interactions_rel),
+            selectinload(Drug.dosages_rel),
+            selectinload(Drug.group_maps).selectinload(DrugGroupMap.group),
+            selectinload(Drug.category_maps).selectinload(DrugCategoryMap.category),
+        )
         .filter(Drug.drugbank_id == drugbank_id.upper())
         .first()
     )
