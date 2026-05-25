@@ -18,7 +18,8 @@ import re
 from math import ceil
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,7 @@ from app.database import get_db
 from app.models import (
     Drug, DrugProteinInteraction, Protein, DrugInteraction,
     DrugGroup, DrugGroupMap, DrugCategory, DrugCategoryMap,
+    DrugFoodInteraction,
 )
 from app.schemas import DrugCreate, DrugOut, DrugDetailOut, DrugUpdate, PaginatedResponse
 from app.core.simple_cache import cache_get, cache_set, cache_delete, cache_delete_prefix
@@ -618,3 +620,88 @@ def delete_drug(drugbank_id: str, db: Session = Depends(get_db)):
     db.commit()
     cache_delete(f"drugs:detail:{drugbank_id.upper()}")
     cache_delete_prefix("drugs:list:")
+
+
+# ── Food Interactions ─────────────────────────────────────────────────────────
+
+
+class FoodInteractionsBatchRequest(BaseModel):
+    drug_ids: List[str]
+
+
+@router.get(
+    "/{drugbank_id}/food-interactions",
+    summary="Get food interactions for a drug",
+)
+def get_food_interactions(drugbank_id: str, db: Session = Depends(get_db)):
+    """Return all food/drink interaction warnings for a single drug."""
+    drug = db.query(Drug).filter(Drug.drugbank_id == drugbank_id.upper()).first()
+    if not drug:
+        raise HTTPException(status_code=404, detail=f"Drug '{drugbank_id}' not found")
+
+    interactions = (
+        db.query(DrugFoodInteraction)
+        .filter(DrugFoodInteraction.drug_id == drug.drugbank_id)
+        .all()
+    )
+
+    return {
+        "drugbank_id": drug.drugbank_id,
+        "drug_name": drug.name,
+        "food_interactions": [
+            {"id": fi.id, "interaction": fi.interaction}
+            for fi in interactions
+        ],
+        "total": len(interactions),
+    }
+
+
+@router.post(
+    "/food-interactions-batch",
+    summary="Get food interactions for multiple drugs",
+)
+def get_food_interactions_batch(
+    payload: FoodInteractionsBatchRequest,
+    db: Session = Depends(get_db),
+):
+    """Return food/drink interaction warnings for multiple drugs at once."""
+    if not payload.drug_ids:
+        return {"results": [], "total_drugs": 0}
+
+    # Normalize IDs
+    drug_ids = [did.upper() for did in payload.drug_ids[:50]]  # limit to 50
+
+    # Fetch drugs
+    drugs = (
+        db.query(Drug)
+        .filter(Drug.drugbank_id.in_(drug_ids))
+        .all()
+    )
+    drug_map = {d.drugbank_id: d.name for d in drugs}
+
+    # Fetch all food interactions for these drugs in one query
+    interactions = (
+        db.query(DrugFoodInteraction)
+        .filter(DrugFoodInteraction.drug_id.in_(drug_ids))
+        .all()
+    )
+
+    # Group by drug_id
+    grouped: dict[str, list] = {did: [] for did in drug_ids if did in drug_map}
+    for fi in interactions:
+        if fi.drug_id in grouped:
+            grouped[fi.drug_id].append({"id": fi.id, "interaction": fi.interaction})
+
+    results = []
+    for did in drug_ids:
+        if did not in drug_map:
+            continue
+        fi_list = grouped.get(did, [])
+        results.append({
+            "drugbank_id": did,
+            "drug_name": drug_map[did],
+            "food_interactions": fi_list,
+            "total": len(fi_list),
+        })
+
+    return {"results": results, "total_drugs": len(results)}

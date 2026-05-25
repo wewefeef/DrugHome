@@ -5,11 +5,13 @@ import {
   Zap, Search, X, ChevronRight, Plus, Loader2, RefreshCw, Maximize2,
   ExternalLink, AlertTriangle, AlertCircle, CheckCircle2, Info, Network,
   FlaskConical, ShieldAlert, Activity, ChevronDown, ChevronUp, BookmarkPlus,
+  FileDown,
 } from "lucide-react";
 import { getDrugs } from "../lib/drugCache";
 import { apiSearchDrugs, apiFetchDrugsByCategory, apiFetchDrugNetwork } from "../lib/api";
 import type { DrugNetworkData } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { exportInteractionReport } from "../lib/exportPdf";
 
 /* ─────────── TYPES ─────────── */
 interface DrugEntry { id: string; name: string; targetCount?: number; enzymeCount?: number; }
@@ -384,6 +386,55 @@ function InteractionAnalysisPanel({
             >
               {saving ? <Loader2 size={11} className="animate-spin" /> : saved ? <CheckCircle2 size={11} /> : <Activity size={11} />}
               {saving ? "Saving…" : saved ? "Saved!" : "Save Session"}
+            </button>
+            <button
+              onClick={() => {
+                const pairs = apiInteractions.length > 0
+                  ? apiInteractions.map(ix => ({
+                      drug_a_id: ix.drug_a_id, drug_a_name: ix.drug_a_name,
+                      drug_b_id: ix.drug_b_id, drug_b_name: ix.drug_b_name,
+                      severity: ix.severity, description: ix.description,
+                    }))
+                  : (() => {
+                      const seen = new Set<string>();
+                      const result: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string | null }[] = [];
+                      for (const drug of networkDrugs) {
+                        const data = networkData.get(drug.id);
+                        if (!data) continue;
+                        for (const ix of data.interactions) {
+                          const partner = networkDrugs.find(d => d.id === ix.drug_id);
+                          if (!partner) continue;
+                          const key = [drug.id, ix.drug_id].sort().join(":");
+                          if (seen.has(key)) continue;
+                          seen.add(key);
+                          result.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? null });
+                        }
+                      }
+                      return result;
+                    })();
+                const majorCount = pairs.filter(p => p.severity === "major").length;
+                const moderateCount = pairs.filter(p => p.severity === "moderate").length;
+                const minorCount = pairs.filter(p => p.severity === "minor").length;
+                const riskLevel = majorCount > 0 ? "high" : moderateCount > 0 ? "moderate" : "low";
+                exportInteractionReport({
+                  drugs: networkDrugs.map(d => ({ id: d.id, name: d.name })),
+                  interactions: pairs,
+                  riskScore: majorCount > 0 ? 3 : moderateCount > 0 ? 2 : 1,
+                  riskLevel,
+                  majorCount,
+                  moderateCount,
+                  minorCount,
+                });
+              }}
+              className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all"
+              style={{
+                background: "#7c3aed20",
+                color: "#c4b5fd",
+                border: "1px solid #7c3aed50",
+              }}
+            >
+              <FileDown size={11} />
+              Export PDF
             </button>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-white/10" style={{ color: "#475569" }}>
               <X size={16} />

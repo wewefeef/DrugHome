@@ -9,6 +9,7 @@ import ProteinsPage from './pages/ProteinsPage'
 import AnalysisPage from './pages/AnalysisPage'
 import ResourcesPage from './pages/ResourcesPage'
 import AuthPage from './pages/AuthPage'
+import FoodInteractionsPage from './pages/FoodInteractionsPage'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 
@@ -41,6 +42,7 @@ function App() {
             <Route path="/drugs" element={<DrugsPage />} />
             <Route path="/drugs/:id" element={<DrugDetailPage />} />
             <Route path="/interactions" element={<InteractionsPage />} />
+            <Route path="/food-interactions" element={<FoodInteractionsPage />} />
             <Route path="/proteins" element={<ProteinsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
             <Route path="/resources" element={<ResourcesPage />} />

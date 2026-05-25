@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Menu, X, ChevronDown, Pill, FlaskConical,
   Zap, BookOpen, BarChart2, LogIn, Bell, ArrowRight,
-  LogOut, BarChart, UserCircle
+  LogOut, BarChart, UserCircle, UtensilsCrossed
 } from 'lucide-react';
 import { apiFetchDrugs, apiSearchProteins } from '../lib/api';
 import type { Drug } from '../types/drug';
@@ -24,6 +24,7 @@ const menuItems = [
       { label: 'nav.drugDatabase', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,000+ drugs' },
       { label: 'nav.targetProteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,000+ target proteins' },
       { label: 'nav.drugInteractions', icon: <Zap size={16} />, to: '/interactions', desc: '1.4M+ interaction pairs' },
+      { label: 'nav.foodInteractions', icon: <UtensilsCrossed size={16} />, to: '/food-interactions', desc: 'Drug-food interaction warnings' },
     ],
   },
   {
