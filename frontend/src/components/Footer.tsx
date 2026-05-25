@@ -51,10 +51,8 @@ export default function Footer() {
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Resources</h4>
             <ul className="space-y-2.5 text-sm">
               {[
-                { label: 'Documentation', to: '/resources' },
-                { label: 'API Reference', to: '/api-docs' },
+                { label: 'Pharmacology Library', to: '/resources' },
                 { label: 'DrugBank Database', href: 'https://www.drugbank.ca', external: true },
-                { label: 'Project Report', to: '/report' },
               ].map(item => (
                 <li key={item.label}>
                   {'href' in item ? (
@@ -75,18 +73,17 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">About</h4>
             <ul className="space-y-2.5 text-sm">
-              {[
-                { label: 'About the project', to: '/about' },
-                { label: 'Development team', to: '/team' },
-                { label: 'Terms of use', to: '/terms' },
-                { label: 'Privacy policy', to: '/privacy' },
-              ].map(item => (
-                <li key={item.to}>
-                  <Link to={item.to} className="text-gray-400 hover:text-blue-300 transition-colors">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <a href="mailto:support@medidb.edu.vn" className="text-gray-400 hover:text-blue-300 transition-colors">
+                  Contact us
+                </a>
+              </li>
+              <li>
+                <a href="https://www.drugbank.ca/legal/terms_of_service" target="_blank" rel="noopener noreferrer"
+                   className="text-gray-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+                  DrugBank Terms <ExternalLink size={11} />
+                </a>
+              </li>
             </ul>
           </div>
         </div>

@@ -856,7 +856,7 @@ export default function AnalysisPage() {
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [selectedInteraction, setSelectedInteraction] = useState<InteractionRec | null>(null);
   const [openSession, setOpenSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<'history' | 'stats' | 'compare'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'stats'>('history');
   const [backendOk, setBackendOk] = useState(true);
   const navigate = useNavigate();
 
@@ -1027,7 +1027,6 @@ export default function AnalysisPage() {
             {([
               { id: 'history', label: 'Session History', icon: <Clock size={14} /> },
               { id: 'stats', label: 'Statistics', icon: <TrendingUp size={14} /> },
-              { id: 'compare', label: 'Drug Comparison', icon: <Activity size={14} /> },
             ] as const).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
@@ -1222,8 +1221,7 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        {/* ═══════════════════ TAB: COMPARE ═══════════════════ */}
-        {activeTab === 'compare' && <DrugComparePanel />}
+        {/* ═══════════════════ TAB: COMPARE — REMOVED ═══════════════════ */}
       </div>
 
       {/* Edit modal */}
