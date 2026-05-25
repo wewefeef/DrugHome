@@ -151,42 +151,43 @@ function StatsSection({ drugCount, interactionCount, proteinCount, dpiCount }: {
 function FeaturesSection({ drugCount, interactionCount, proteinCount }: {
   drugCount: string; interactionCount: string; proteinCount: string;
 }) {
+  const { t } = useLanguage();
   const features = [
     {
       icon: <Pill size={32} />,
-      title: 'Drug Database',
-      desc: 'Detailed drug information: mechanism of action, indications, contraindications, pharmacokinetics and clinical data.',
+      title: t('home.feat.drugDb'),
+      desc: t('home.feat.drugDbDesc'),
       to: '/drugs',
       color: 'from-blue-600 to-blue-800',
-      badge: `${drugCount} drugs`,
-      highlights: ['Full FDA data', 'Mechanism of action', 'Pharmacokinetics', 'ATC classification'],
+      badge: `${drugCount} ${t('nav.drugs').toLowerCase()}`,
+      highlights: [t('home.feat.drugH1'), t('home.feat.drugH2'), t('home.feat.drugH3'), t('home.feat.drugH4')],
     },
     {
       icon: <Zap size={32} />,
-      title: 'Interaction Checker',
-      desc: 'Analyze interactions between multiple drugs simultaneously, classify severity levels and provide clinical recommendations.',
+      title: t('home.feat.checker'),
+      desc: t('home.feat.checkerDesc'),
       to: '/interactions',
       color: 'from-amber-500 to-orange-600',
-      badge: `${interactionCount} interactions`,
-      highlights: ['Multi-drug checker', 'Risk classification', 'Interaction mechanism', 'Clinical alerts'],
+      badge: `${interactionCount} ${t('nav.interactions').toLowerCase()}`,
+      highlights: [t('home.feat.checkH1'), t('home.feat.checkH2'), t('home.feat.checkH3'), t('home.feat.checkH4')],
     },
     {
       icon: <FlaskConical size={32} />,
-      title: 'Target Proteins',
-      desc: 'Explore molecular target protein data, gene information, structures and relationships with therapeutic drugs.',
+      title: t('home.feat.proteins'),
+      desc: t('home.feat.proteinsDesc'),
       to: '/proteins',
       color: 'from-emerald-600 to-teal-700',
       badge: `${proteinCount} proteins`,
-      highlights: ['UniProt data', '3D structure', 'Gene info', 'Drug binding'],
+      highlights: [t('home.feat.protH1'), t('home.feat.protH2'), t('home.feat.protH3'), t('home.feat.protH4')],
     },
     {
       icon: <BarChart2 size={32} />,
-      title: 'Analysis Tools',
-      desc: 'Comprehensive drug profile analysis, interaction report generation and intelligent clinical decision support.',
+      title: t('home.feat.analysis'),
+      desc: t('home.feat.analysisDesc'),
       to: '/analysis',
       color: 'from-purple-600 to-indigo-700',
       badge: 'AI-Powered',
-      highlights: ['Multi-drug analysis', 'PDF reports', 'Risk scoring', 'Smart CDS'],
+      highlights: [t('home.feat.anaH1'), t('home.feat.anaH2'), t('home.feat.anaH3'), t('home.feat.anaH4')],
     },
   ];
 
@@ -194,9 +195,9 @@ function FeaturesSection({ drugCount, interactionCount, proteinCount }: {
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12">
-          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Key Features</span>
-          <h2 className="section-title mt-2">All pharmaceutical tools<br />in one platform</h2>
-          <p className="text-gray-500 mt-3 max-w-xl mx-auto">Built for students, researchers and healthcare professionals to look up and analyze pharmaceutical information.</p>
+          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">{t('home.features')}</span>
+          <h2 className="section-title mt-2">{t('home.featuresTitle')}</h2>
+          <p className="text-gray-500 mt-3 max-w-xl mx-auto">{t('home.featuresSub')}</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -226,7 +227,7 @@ function FeaturesSection({ drugCount, interactionCount, proteinCount }: {
                   ))}
                 </ul>
                 <div className="flex items-center gap-1 text-primary-700 text-sm font-semibold group-hover:gap-2 transition-all">
-                  Explore <ArrowRight size={14} />
+                  {t('common.viewDetails')} <ArrowRight size={14} />
                 </div>
               </div>
             </Link>
@@ -241,19 +242,20 @@ function FeaturesSection({ drugCount, interactionCount, proteinCount }: {
 // How It Works
 // ──────────────────────────────────────────────
 function HowItWorksSection() {
+  const { t } = useLanguage();
   const steps = [
-    { num: '01', title: 'Search for a drug', desc: 'Enter the drug name, substance or DrugBank code in the search box.', icon: <Search size={20} /> },
-    { num: '02', title: 'View detailed info', desc: 'See full pharmacology, indications, contraindications and target proteins.', icon: <BookOpen size={20} /> },
-    { num: '03', title: 'Check interactions', desc: 'Add multiple drugs to the list to check multi-directional interactions.', icon: <Shield size={20} /> },
-    { num: '04', title: 'Analyze & Report', desc: 'Export analysis reports, risk assessments and clinical recommendations.', icon: <TrendingUp size={20} /> },
+    { num: '01', title: t('home.step1'), desc: t('home.step1Desc'), icon: <Search size={20} /> },
+    { num: '02', title: t('home.step2'), desc: t('home.step2Desc'), icon: <BookOpen size={20} /> },
+    { num: '03', title: t('home.step3'), desc: t('home.step3Desc'), icon: <Shield size={20} /> },
+    { num: '04', title: t('home.step4'), desc: t('home.step4Desc'), icon: <TrendingUp size={20} /> },
   ];
 
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12">
-          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">How it works</span>
-          <h2 className="section-title mt-2">Just 4 simple steps</h2>
+          <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">{t('home.howItWorks')}</span>
+          <h2 className="section-title mt-2">{t('home.howItWorksTitle')}</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {steps.map((step, i) => (
@@ -285,6 +287,7 @@ function HowItWorksSection() {
 // Recent / Popular Drugs
 // ──────────────────────────────────────────────
 function PopularDrugs() {
+  const { t } = useLanguage();
   const drugs = [
     { id: 'DB00945', name: 'Aspirin', generic: 'Acetylsalicylic acid', category: 'NSAID / Antiplatelet', status: 'approved', risk: 'Low' },
     { id: 'DB01050', name: 'Ibuprofen', generic: 'Ibuprofen', category: 'NSAID / Anti-inflammatory', status: 'approved', risk: 'Low' },
@@ -305,11 +308,11 @@ function PopularDrugs() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">Most Popular</span>
-            <h2 className="section-title mt-1">Most frequently searched drugs</h2>
+            <span className="text-primary-700 font-semibold text-sm uppercase tracking-widest">{t('home.popular')}</span>
+            <h2 className="section-title mt-1">{t('home.popularTitle')}</h2>
           </div>
           <Link to="/drugs" className="flex items-center gap-1 text-primary-700 hover:text-primary-900 font-medium text-sm transition-colors">
-            View all <ChevronRight size={16} />
+            {t('home.viewAll')} <ChevronRight size={16} />
           </Link>
         </div>
 
@@ -343,6 +346,7 @@ function PopularDrugs() {
 // CTA Banner
 // ──────────────────────────────────────────────
 function CTASection() {
+  const { t } = useLanguage();
   return (
     <section className="py-16 bg-gradient-to-r from-primary-900 to-primary-800">
       <div className="max-w-4xl mx-auto px-4 text-center">
@@ -350,19 +354,19 @@ function CTASection() {
           <Star size={32} className="text-yellow-300" />
         </div>
         <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
-          Ready to explore the pharmaceutical system?
+          {t('home.cta')}
         </h2>
         <p className="text-blue-200 text-lg mb-8 max-w-xl mx-auto">
-          Start searching drugs, checking interactions and analyzing pharmacology now — free for academic use.
+          {t('home.ctaSub')}
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/drugs" className="bg-white text-primary-800 hover:bg-blue-50 font-bold px-8 py-3.5 rounded-xl transition-colors shadow-lg flex items-center gap-2 justify-center">
             <Search size={18} />
-            Search drugs now
+            {t('home.ctaSearch')}
           </Link>
           <Link to="/analysis" className="border-2 border-blue-300 text-white hover:bg-primary-700 font-bold px-8 py-3.5 rounded-xl transition-colors flex items-center gap-2 justify-center">
             <Zap size={18} />
-            Check interactions
+            {t('home.ctaCheck')}
           </Link>
         </div>
       </div>
