@@ -19,23 +19,23 @@ type Suggestion =
 
 const menuItems = [
   {
-    label: 'Explore',
+    label: 'nav.explore',
     children: [
-      { label: 'Drug Database', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,000+ drugs' },
-      { label: 'Target Proteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,000+ target proteins' },
-      { label: 'Drug Interactions', icon: <Zap size={16} />, to: '/interactions', desc: '1.4M+ interaction pairs' },
+      { label: 'nav.drugDatabase', icon: <Pill size={16} />, to: '/drugs', desc: 'Browse 17,000+ drugs' },
+      { label: 'nav.targetProteins', icon: <FlaskConical size={16} />, to: '/proteins', desc: '5,000+ target proteins' },
+      { label: 'nav.drugInteractions', icon: <Zap size={16} />, to: '/interactions', desc: '1.4M+ interaction pairs' },
     ],
   },
   {
-    label: 'Resources',
+    label: 'nav.resources',
     children: [
-      { label: 'Scientific Resources', icon: <BookOpen size={16} />, to: '/resources', desc: 'Research & references' },
+      { label: 'nav.scientificResources', icon: <BookOpen size={16} />, to: '/resources', desc: 'Research & references' },
     ],
   },
   {
-    label: 'Tools',
+    label: 'nav.tools',
     children: [
-      { label: 'Analysis & Check', icon: <BarChart2 size={16} />, to: '/analysis', desc: 'Multi-drug interaction checker' },
+      { label: 'nav.analysisCheck', icon: <BarChart2 size={16} />, to: '/analysis', desc: 'Multi-drug interaction checker' },
     ],
   },
 ];
@@ -54,7 +54,7 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, t } = useLanguage();
 
   // Live search suggestions — calls API, debounced by useEffect
   const [isSearching, setIsSearching] = useState(false);
@@ -406,7 +406,7 @@ export default function Header() {
               onMouseLeave={() => setOpenMenu(null)}
             >
               <button className="flex items-center gap-1.5 text-blue-100 hover:text-white hover:bg-primary-700 px-4 py-3 text-sm font-medium transition-colors rounded-sm">
-                {item.label}
+                {t(item.label)}
                 <ChevronDown size={14} className={`transition-transform duration-200 ${openMenu === item.label ? 'rotate-180' : ''}`} />
               </button>
 
@@ -421,7 +421,7 @@ export default function Header() {
                     >
                       <span className="mt-0.5 text-primary-700 group-hover/item:text-primary-900">{child.icon}</span>
                       <div>
-                        <div className="text-gray-800 font-medium text-sm group-hover/item:text-primary-800">{child.label}</div>
+                        <div className="text-gray-800 font-medium text-sm group-hover/item:text-primary-800">{t(child.label)}</div>
                         <div className="text-gray-500 text-xs mt-0.5">{child.desc}</div>
                       </div>
                     </Link>
@@ -434,17 +434,17 @@ export default function Header() {
           {/* Quick links */}
           <div className="ml-auto flex items-center gap-0.5">
             {[
-            { label: 'Drugs', to: '/drugs' },
-              { label: 'Interactions', to: '/interactions' },
-              { label: 'Proteins', to: '/proteins' },
-              { label: 'Analysis', to: '/analysis' },
+              { label: 'nav.drugs', to: '/drugs' },
+              { label: 'nav.interactions', to: '/interactions' },
+              { label: 'nav.proteins', to: '/proteins' },
+              { label: 'nav.analysis', to: '/analysis' },
             ].map(link => (
               <Link
                 key={link.to}
                 to={link.to}
                 className="text-blue-200 hover:text-white hover:bg-primary-700 px-3 py-3 text-xs font-medium transition-colors rounded-sm"
               >
-                {link.label}
+                {t(link.label)}
               </Link>
             ))}
           </div>
@@ -456,7 +456,7 @@ export default function Header() {
         <div className="md:hidden bg-primary-900 border-t border-primary-700 px-4 py-3 space-y-1">
           {menuItems.map(item => (
             <div key={item.label}>
-              <div className="text-blue-300 text-xs font-semibold uppercase tracking-wider px-2 pt-2 pb-1">{item.label}</div>
+              <div className="text-blue-300 text-xs font-semibold uppercase tracking-wider px-2 pt-2 pb-1">{t(item.label)}</div>
               {item.children?.map(child => (
                 <Link
                   key={child.to}
@@ -465,7 +465,7 @@ export default function Header() {
                   onClick={() => setMobileOpen(false)}
                 >
                   {child.icon}
-                  {child.label}
+                  {t(child.label)}
                 </Link>
               ))}
             </div>

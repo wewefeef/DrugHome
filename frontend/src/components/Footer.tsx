@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Pill, Mail, Code2, ExternalLink } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Footer() {
+  const { t } = useLanguage();
   return (
     <footer className="bg-primary-950 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 pt-12 pb-6">
@@ -15,13 +17,13 @@ export default function Footer() {
               <span className="text-white font-bold text-lg">MediDB</span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Intelligent pharmaceutical information system supporting clinical decision-making, built from DrugBank data.
+              {t('home.subtitle')}
             </p>
             <div className="flex gap-3 mt-4">
               <a href="mailto:support@medidb.edu.vn" className="text-gray-400 hover:text-blue-300 transition-colors">
                 <Mail size={18} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-blue-300 transition-colors">
+              <a href="https://github.com/wewefeef/DrugHome" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-300 transition-colors">
                 <Code2 size={18} />
               </a>
             </div>
@@ -29,13 +31,13 @@ export default function Footer() {
 
           {/* Explore */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Explore</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{t('footer.explore')}</h4>
             <ul className="space-y-2.5 text-sm">
               {[
-                { label: 'Drug Database', to: '/drugs' },
-                { label: 'Target Proteins', to: '/proteins' },
-                { label: 'Drug Interactions', to: '/interactions' },
-                { label: 'Interaction Analysis', to: '/analysis' },
+                { label: t('nav.drugDatabase'), to: '/drugs' },
+                { label: t('nav.targetProteins'), to: '/proteins' },
+                { label: t('nav.drugInteractions'), to: '/interactions' },
+                { label: t('nav.analysisCheck'), to: '/analysis' },
               ].map(item => (
                 <li key={item.to}>
                   <Link to={item.to} className="text-gray-400 hover:text-blue-300 transition-colors">
@@ -48,30 +50,24 @@ export default function Footer() {
 
           {/* Resources */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Resources</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{t('footer.resources')}</h4>
             <ul className="space-y-2.5 text-sm">
-              {[
-                { label: 'Pharmacology Library', to: '/resources' },
-                { label: 'DrugBank Database', href: 'https://www.drugbank.ca', external: true },
-              ].map(item => (
-                <li key={item.label}>
-                  {'href' in item ? (
-                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-300 transition-colors flex items-center gap-1">
-                      {item.label} <ExternalLink size={11} />
-                    </a>
-                  ) : (
-                    <Link to={(item as {to: string}).to} className="text-gray-400 hover:text-blue-300 transition-colors">
-                      {item.label}
-                    </Link>
-                  )}
-                </li>
-              ))}
+              <li>
+                <Link to="/resources" className="text-gray-400 hover:text-blue-300 transition-colors">
+                  {t('nav.scientificResources')}
+                </Link>
+              </li>
+              <li>
+                <a href="https://www.drugbank.ca" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+                  DrugBank Database <ExternalLink size={11} />
+                </a>
+              </li>
             </ul>
           </div>
 
           {/* About */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">About</h4>
+            <h4 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">{t('footer.about')}</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <a href="mailto:support@medidb.edu.vn" className="text-gray-400 hover:text-blue-300 transition-colors">
@@ -90,8 +86,8 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-500">
-          <span>© 2025 MediDB. Data from DrugBank® licensed for academic use.</span>
-          <span className="text-primary-600">Powered by FastAPI + React + DrugBank</span>
+          <span>{t('footer.copyright')}</span>
+          <span className="text-primary-600">{t('footer.poweredBy')}</span>
         </div>
       </div>
     </footer>

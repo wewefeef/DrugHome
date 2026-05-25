@@ -6,6 +6,7 @@ import {
   TrendingUp, BookOpen, CheckCircle2, Star
 } from 'lucide-react';
 import { apiFetchSiteStats } from '../lib/api';
+import { useLanguage } from '../context/LanguageContext';
 
 // ──────────────────────────────────────────────
 // Trending drugs — read from localStorage (min 3 searches)
@@ -41,6 +42,7 @@ function useTrendingDrugs(): string[] {
 function HeroBanner({ dataYear, drugbankVersion }: { dataYear: string; drugbankVersion: string }) {
   const navigate = useNavigate();
   const trending = useTrendingDrugs();
+  const { t } = useLanguage();
 
   return (
     <section className="relative bg-gradient-to-br from-primary-950 via-primary-900 to-primary-800 overflow-hidden">
@@ -53,25 +55,25 @@ function HeroBanner({ dataYear, drugbankVersion }: { dataYear: string; drugbankV
 
       <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
         <div className="max-w-3xl mx-auto text-center">
-          {/* Badge — hiển thị data_year từ system_metadata */}
+          {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-primary-700/60 border border-primary-600 rounded-full px-4 py-1.5 mb-6">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-blue-200 text-sm font-medium">
               {dataYear
-                ? `Latest System — DrugBank ${dataYear} Data${drugbankVersion ? ` (v${drugbankVersion})` : ''}`
-                : 'Latest System — Loading...'
+                ? `${t('home.badge')} — DrugBank ${dataYear} Data${drugbankVersion ? ` (v${drugbankVersion})` : ''}`
+                : `${t('home.badge')} — ${t('common.loading')}`
               }
             </span>
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-4">
-            Intelligent Pharmaceutical<br />
+            {t('home.title1')}<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-300">
-              Information System
+              {t('home.title2')}
             </span>
           </h1>
           <p className="text-blue-200 text-lg md:text-xl mb-10 leading-relaxed max-w-2xl mx-auto">
-            Search drugs, check interactions, analyze target proteins — all in one clinical decision support platform.
+            {t('home.subtitle')}
           </p>
 
           {/* Trending searches — only shown when data exists */}
@@ -111,19 +113,20 @@ function HeroBanner({ dataYear, drugbankVersion }: { dataYear: string; drugbankV
 function StatsSection({ drugCount, interactionCount, proteinCount, dpiCount }: {
   drugCount: string; interactionCount: string; proteinCount: string; dpiCount: string;
 }) {
+  const { t } = useLanguage();
   const stats = [
-    { value: drugCount,        label: 'Drugs',                    sub: 'Approved & experimental',   icon: <Pill size={28} />,        color: 'text-blue-600',    bg: 'bg-blue-50'    },
-    { value: interactionCount, label: 'Drug Interactions',         sub: 'Unique interaction pairs',  icon: <Zap size={28} />,         color: 'text-amber-600',   bg: 'bg-amber-50'   },
-    { value: proteinCount,     label: 'Target Proteins',           sub: 'Molecular target proteins', icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { value: dpiCount,         label: 'Drug-Protein Interactions', sub: 'Pharmacodynamic bindings',  icon: <Database size={28} />,    color: 'text-purple-600',  bg: 'bg-purple-50'  },
+    { value: drugCount,        label: t('home.drugs'),        sub: t('home.drugsSub'),        icon: <Pill size={28} />,        color: 'text-blue-600',    bg: 'bg-blue-50'    },
+    { value: interactionCount, label: t('home.interactions'), sub: t('home.interactionsSub'), icon: <Zap size={28} />,         color: 'text-amber-600',   bg: 'bg-amber-50'   },
+    { value: proteinCount,     label: t('home.targetProteins'), sub: t('home.targetProteinsSub'), icon: <FlaskConical size={28} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { value: dpiCount,         label: t('home.dpi'),          sub: t('home.dpiSub'),          icon: <Database size={28} />,    color: 'text-purple-600',  bg: 'bg-purple-50'  },
   ];
 
   return (
     <section className="py-12 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-primary-900">Live data from the system</h2>
-          <p className="text-gray-500 mt-1 text-sm">Continuously updated from DrugBank® and biomedical data sources</p>
+          <h2 className="text-2xl font-bold text-primary-900">{t('home.liveData')}</h2>
+          <p className="text-gray-500 mt-1 text-sm">{t('home.liveDataSub')}</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((s) => (
