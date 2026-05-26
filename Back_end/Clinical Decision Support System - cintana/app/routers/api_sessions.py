@@ -222,7 +222,19 @@ def list_sessions(
     if current_user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
 
-    q = db.query(AnalysisSession).filter(AnalysisSession.user_id == current_user.id)
+    from sqlalchemy.orm import load_only
+    # Không load interactions_found (JSON lớn) trong list view — chỉ load khi xem detail
+    q = (
+        db.query(AnalysisSession)
+        .options(load_only(
+            AnalysisSession.id, AnalysisSession.title, AnalysisSession.tags,
+            AnalysisSession.total_drugs, AnalysisSession.total_interactions,
+            AnalysisSession.major_count, AnalysisSession.moderate_count, AnalysisSession.minor_count,
+            AnalysisSession.risk_score, AnalysisSession.risk_level,
+            AnalysisSession.drugs_snapshot, AnalysisSession.created_at, AnalysisSession.updated_at,
+        ))
+        .filter(AnalysisSession.user_id == current_user.id)
+    )
     if search:
         q = q.filter(
             or_(

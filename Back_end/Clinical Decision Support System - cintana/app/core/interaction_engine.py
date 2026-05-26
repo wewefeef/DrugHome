@@ -229,44 +229,12 @@ _MECHANISM_PATTERNS = {
 
 def _enrich_description(raw_desc: str, drug_a: str, drug_b: str, severity: str) -> str:
     """
-    Enrich the DrugBank description with mechanism detail and clinical guidance.
-    Appends mechanism + clinical recommendation + reference source.
+    Return the original DrugBank description ONLY — clean, không thêm text dài.
+    Mechanism/clinical/ref sẽ được frontend hiển thị riêng biệt qua InteractionAnalysisPanel.
     """
     if not raw_desc:
         return f"No interaction data available between {drug_a} and {drug_b} in DrugBank v5."
-
-    desc_lower = raw_desc.lower()
-    enrichment = ""
-
-    # Find the best matching mechanism pattern
-    for keyword, info in _MECHANISM_PATTERNS.items():
-        if keyword in desc_lower:
-            enrichment = (
-                f"\n\n⚙️ MECHANISM: {info['mechanism']}"
-                f"\n\n💊 CLINICAL GUIDANCE: {info['clinical']}"
-                f"\n\n📚 {info['ref']}"
-            )
-            break
-
-    # If no specific pattern matched, add generic based on severity
-    if not enrichment:
-        if severity == "major":
-            enrichment = (
-                "\n\n⚙️ MECHANISM: Clinically significant interaction — may involve pharmacokinetic (altered metabolism/clearance) "
-                "or pharmacodynamic (additive/synergistic toxicity) pathways."
-                "\n\n💊 CLINICAL GUIDANCE: Avoid concurrent use if possible. If unavoidable, monitor closely and adjust doses. "
-                "Consult clinical pharmacist."
-                "\n\n📚 Ref: DrugBank v5 interaction database; drugs.com severity classification"
-            )
-        elif severity == "moderate":
-            enrichment = (
-                "\n\n⚙️ MECHANISM: Possible pharmacokinetic or pharmacodynamic interaction that may alter drug efficacy or increase adverse effects."
-                "\n\n💊 CLINICAL GUIDANCE: Use with caution. Monitor for expected therapeutic effect and adverse reactions. "
-                "Dose adjustment may be required."
-                "\n\n📚 Ref: DrugBank v5; FDA Drug Interaction Guidance"
-            )
-
-    return raw_desc + enrichment
+    return raw_desc
 
 
 # ---------------------------------------------------------------------------
