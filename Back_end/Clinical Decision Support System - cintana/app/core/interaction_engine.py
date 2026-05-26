@@ -243,9 +243,9 @@ def _enrich_description(raw_desc: str, drug_a: str, drug_b: str, severity: str) 
         if keyword in desc_lower:
             enrichment = (
                 f"\n\n"
-                f"CƠ CHẾ: {info['mechanism']}\n\n"
-                f"HƯỚNG DẪN LÂM SÀNG: {info['clinical']}\n\n"
-                f"Tham khảo: {info['ref']}"
+                f"MECHANISM: {info['mechanism']}\n\n"
+                f"CLINICAL GUIDANCE: {info['clinical']}\n\n"
+                f"Reference: {info['ref']}"
             )
             break
 
@@ -254,20 +254,20 @@ def _enrich_description(raw_desc: str, drug_a: str, drug_b: str, severity: str) 
         if severity == "major":
             enrichment = (
                 "\n\n"
-                "CƠ CHẾ: Tương tác có ý nghĩa lâm sàng — có thể liên quan đến dược động học "
-                "(thay đổi chuyển hóa/thanh thải) hoặc dược lực học (độc tính cộng gộp/hiệp đồng).\n\n"
-                "HƯỚNG DẪN LÂM SÀNG: Tránh dùng đồng thời nếu có thể. Nếu bắt buộc, theo dõi sát "
-                "và điều chỉnh liều. Tham khảo ý kiến dược sĩ lâm sàng.\n\n"
-                "Tham khảo: DrugBank v5; drugs.com severity classification; FDA Drug Interaction Guidance"
+                "MECHANISM: Clinically significant interaction — may involve pharmacokinetic "
+                "(altered metabolism/clearance) or pharmacodynamic (additive/synergistic toxicity) pathways.\n\n"
+                "CLINICAL GUIDANCE: Avoid concurrent use if possible. If unavoidable, monitor closely "
+                "and adjust doses. Consult clinical pharmacist.\n\n"
+                "Reference: DrugBank v5; drugs.com severity classification; FDA Drug Interaction Guidance"
             )
         elif severity == "moderate":
             enrichment = (
                 "\n\n"
-                "CƠ CHẾ: Tương tác dược động học hoặc dược lực học có thể làm thay đổi hiệu quả thuốc "
-                "hoặc tăng tác dụng phụ.\n\n"
-                "HƯỚNG DẪN LÂM SÀNG: Sử dụng thận trọng. Theo dõi hiệu quả điều trị và phản ứng có hại. "
-                "Có thể cần điều chỉnh liều.\n\n"
-                "Tham khảo: DrugBank v5; FDA Drug Interaction Guidance 2020"
+                "MECHANISM: Possible pharmacokinetic or pharmacodynamic interaction that may alter drug efficacy "
+                "or increase adverse effects.\n\n"
+                "CLINICAL GUIDANCE: Use with caution. Monitor for expected therapeutic effect and adverse reactions. "
+                "Dose adjustment may be required.\n\n"
+                "Reference: DrugBank v5; FDA Drug Interaction Guidance 2020"
             )
 
     return raw_desc + enrichment
