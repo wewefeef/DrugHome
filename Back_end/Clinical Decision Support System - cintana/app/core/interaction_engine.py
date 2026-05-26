@@ -229,12 +229,48 @@ _MECHANISM_PATTERNS = {
 
 def _enrich_description(raw_desc: str, drug_a: str, drug_b: str, severity: str) -> str:
     """
-    Return the original DrugBank description ONLY — clean, không thêm text dài.
-    Mechanism/clinical/ref sẽ được frontend hiển thị riêng biệt qua InteractionAnalysisPanel.
+    Enrich the DrugBank description with mechanism detail and clinical guidance.
+    Uses newlines for clean formatting — frontend renders with white-space: pre-line.
     """
     if not raw_desc:
         return f"No interaction data available between {drug_a} and {drug_b} in DrugBank v5."
-    return raw_desc
+
+    desc_lower = raw_desc.lower()
+    enrichment = ""
+
+    # Find the best matching mechanism pattern
+    for keyword, info in _MECHANISM_PATTERNS.items():
+        if keyword in desc_lower:
+            enrichment = (
+                f"\n\n"
+                f"CƠ CHẾ: {info['mechanism']}\n\n"
+                f"HƯỚNG DẪN LÂM SÀNG: {info['clinical']}\n\n"
+                f"Tham khảo: {info['ref']}"
+            )
+            break
+
+    # If no specific pattern matched, add generic based on severity
+    if not enrichment:
+        if severity == "major":
+            enrichment = (
+                "\n\n"
+                "CƠ CHẾ: Tương tác có ý nghĩa lâm sàng — có thể liên quan đến dược động học "
+                "(thay đổi chuyển hóa/thanh thải) hoặc dược lực học (độc tính cộng gộp/hiệp đồng).\n\n"
+                "HƯỚNG DẪN LÂM SÀNG: Tránh dùng đồng thời nếu có thể. Nếu bắt buộc, theo dõi sát "
+                "và điều chỉnh liều. Tham khảo ý kiến dược sĩ lâm sàng.\n\n"
+                "Tham khảo: DrugBank v5; drugs.com severity classification; FDA Drug Interaction Guidance"
+            )
+        elif severity == "moderate":
+            enrichment = (
+                "\n\n"
+                "CƠ CHẾ: Tương tác dược động học hoặc dược lực học có thể làm thay đổi hiệu quả thuốc "
+                "hoặc tăng tác dụng phụ.\n\n"
+                "HƯỚNG DẪN LÂM SÀNG: Sử dụng thận trọng. Theo dõi hiệu quả điều trị và phản ứng có hại. "
+                "Có thể cần điều chỉnh liều.\n\n"
+                "Tham khảo: DrugBank v5; FDA Drug Interaction Guidance 2020"
+            )
+
+    return raw_desc + enrichment
 
 
 # ---------------------------------------------------------------------------

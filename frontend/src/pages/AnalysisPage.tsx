@@ -744,7 +744,7 @@ function IxDetailInline({ ix }: { ix: InteractionRec }) {
         <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
           <FileText size={14} className="text-blue-500"/> Detailed description (DrugBank)
         </h3>
-        <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100">
+        <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-4 border border-gray-100 whitespace-pre-line">
           {ix.description || 'No detailed description available in DrugBank for this drug pair.'}
         </p>
       </div>

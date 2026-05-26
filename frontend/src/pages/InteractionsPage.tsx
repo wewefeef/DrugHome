@@ -538,7 +538,7 @@ function InteractionAnalysisPanel({
                                 {pair.description && (
                                   <div>
                                     <span className="text-[10px] font-bold uppercase tracking-widest block mb-1.5" style={{ color: "#94a3b8" }}>Interaction Description</span>
-                                    <p className="text-[12px] leading-relaxed" style={{ color: "#e2e8f0" }}>{pair.description}</p>
+                                    <p className="text-[12px] leading-relaxed whitespace-pre-line" style={{ color: "#e2e8f0" }}>{pair.description}</p>
                                   </div>
                                 )}
                                 {/* 3-column: route, pharmacology, warning */}
