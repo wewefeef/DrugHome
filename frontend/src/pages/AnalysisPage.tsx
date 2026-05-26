@@ -399,9 +399,9 @@ function SessionCard({ session, onDelete, onEdit, onOpen }: {
 function SessionDetailModal({ session, onClose }: { session: Session; onClose: () => void }) {
   const drugs = session.drugs_snapshot ?? [];
 
-  // Detect data gap: interactions_found not stored (old sessions) but counts say there are interactions
+  // Detect data gap: interactions_found not stored (old sessions) OR stored empty despite having interactions
   const dataGap = (!session.interactions_found || session.interactions_found.length === 0)
-    && (session.total_interactions > 0 || session.major_count > 0);
+    && (session.total_interactions > 0 || session.major_count > 0 || session.moderate_count > 0);
 
   // When dataGap, fetch live interaction data from the database
   const [liveIxs, setLiveIxs] = useState<InteractionRec[] | null>(null);
@@ -418,57 +418,47 @@ function SessionDetailModal({ session, onClose }: { session: Session; onClose: (
     const drugById = Object.fromEntries(sessionDrugs.map(d => [d.id, d.name]));
 
     setFetchLoading(true);
-    Promise.all(
-      sessionDrugs.map(drug =>
-        apiFetchDrugInteractions(drug.id, 1, 500)
-          .then(data =>
-            data.items
-              // Keep only interactions where the other drug is also in this session
-              .filter(ix =>
-                ix.interacting_drug_id !== drug.id && drugIds.has(ix.interacting_drug_id)
-              )
-              .map(ix => ({
-                drug_a_id: ix.drug_id ?? drug.id,
-                drug_a_name: drugById[ix.drug_id ?? ''] ?? drug.name,
-                drug_b_id: ix.interacting_drug_id,
-                drug_b_name: ix.interacting_drug_name ?? ix.interacting_drug_id,
-                severity: ix.severity ?? 'unknown',
-                description: ix.description ?? '',
-                source: 'DrugBank',
-              } as InteractionRec)
-            )
-          )
-          .catch(() => [] as InteractionRec[])
-      )
-    ).then(results => {
-      const all = results.flat();
-      // Deduplicate: same pair A-B may appear from both drug A's and drug B's query
-      const seen = new Set<string>();
-      const deduped = all.filter(ix => {
-        const key = [ix.drug_a_id, ix.drug_b_id].sort().join('|');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setLiveIxs(deduped);
-      setFetchLoading(false);
+    
+    // Dùng check-interactions API (chính xác nhất) thay vì fetch từng thuốc riêng lẻ
+    fetch('/api/v1/analysis/check-interactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ drug_ids: sessionDrugs.map(d => d.id) }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const ixs: InteractionRec[] = (data.interactions_found ?? []).map((ix: any) => ({
+          drug_a_id: ix.drug_a_id,
+          drug_a_name: ix.drug_a_name,
+          drug_b_id: ix.drug_b_id,
+          drug_b_name: ix.drug_b_name,
+          severity: ix.severity,
+          description: ix.description ?? '',
+          source: 'DrugBank',
+        }));
+        setLiveIxs(ixs);
+        setFetchLoading(false);
 
-      // Auto-select first pair that has an interaction
-      let firstIxIdx = 0;
-      let pairCount = 0;
-      let found = false;
-      for (let i = 0; i < sessionDrugs.length && !found; i++) {
-        for (let j = i + 1; j < sessionDrugs.length && !found; j++) {
-          const hasIx = deduped.some(
-            ix => (ix.drug_a_id === sessionDrugs[i].id && ix.drug_b_id === sessionDrugs[j].id) ||
-                  (ix.drug_a_id === sessionDrugs[j].id && ix.drug_b_id === sessionDrugs[i].id)
-          );
-          if (hasIx) { firstIxIdx = pairCount; found = true; }
-          pairCount++;
+        // Auto-select first pair that has an interaction
+        let firstIxIdx = 0;
+        let pairCount = 0;
+        let found = false;
+        for (let i = 0; i < sessionDrugs.length && !found; i++) {
+          for (let j = i + 1; j < sessionDrugs.length && !found; j++) {
+            const hasIx = ixs.some(
+              ix => (ix.drug_a_id === sessionDrugs[i].id && ix.drug_b_id === sessionDrugs[j].id) ||
+                    (ix.drug_a_id === sessionDrugs[j].id && ix.drug_b_id === sessionDrugs[i].id)
+            );
+            if (hasIx) { firstIxIdx = pairCount; found = true; }
+            pairCount++;
+          }
         }
-      }
-      setActivePairIdx(firstIxIdx);
-    });
+        setActivePairIdx(firstIxIdx);
+      })
+      .catch(() => {
+        setLiveIxs([]);
+        setFetchLoading(false);
+      });
   }, [session.id]);
 
   // Build all pairs — use liveIxs when dataGap and available, else interactions_found

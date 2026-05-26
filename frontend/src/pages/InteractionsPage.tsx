@@ -1105,20 +1105,46 @@ export default function InteractionsPage() {
   const handleQuickSave = async () => {
     setQuickSaving(true); setQuickSaveError(null); setQuickSaved(false);
     try {
-      const pairs: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string }[] = [];
-      const seen = new Set<string>();
-      for (const drug of networkDrugs) {
-        const data = networkData.get(drug.id);
-        if (!data) continue;
-        for (const ix of data.interactions) {
-          const partner = networkDrugs.find(d => d.id === ix.drug_id);
-          if (!partner) continue;
-          const key = [drug.id, ix.drug_id].sort().join(':');
-          if (seen.has(key)) continue;
-          seen.add(key);
-          pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? '' });
+      // Gọi check-interactions API để lấy tương tác CHÍNH XÁC giữa các thuốc đã chọn
+      // (không dùng networkData vì nó chỉ có max 80 interactions/thuốc — có thể bỏ sót)
+      let pairs: { drug_a_id: string; drug_a_name: string; drug_b_id: string; drug_b_name: string; severity: string; description: string }[] = [];
+      
+      if (networkDrugs.length >= 2) {
+        try {
+          const checkRes = await fetch('/api/v1/analysis/check-interactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ drug_ids: networkDrugs.map(d => d.id) }),
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            pairs = (checkData.interactions_found ?? []).map((ix: any) => ({
+              drug_a_id: ix.drug_a_id,
+              drug_a_name: ix.drug_a_name,
+              drug_b_id: ix.drug_b_id,
+              drug_b_name: ix.drug_b_name,
+              severity: ix.severity,
+              description: ix.description ?? '',
+            }));
+          }
+        } catch {
+          // Fallback: dùng networkData nếu API lỗi
+          const seen = new Set<string>();
+          for (const drug of networkDrugs) {
+            const data = networkData.get(drug.id);
+            if (!data) continue;
+            for (const ix of data.interactions) {
+              const partner = networkDrugs.find(d => d.id === ix.drug_id);
+              if (!partner) continue;
+              const key = [drug.id, ix.drug_id].sort().join(':');
+              if (seen.has(key)) continue;
+              seen.add(key);
+              pairs.push({ drug_a_id: drug.id, drug_a_name: drug.name, drug_b_id: partner.id, drug_b_name: partner.name, severity: ix.severity, description: ix.description ?? '' });
+            }
+          }
         }
       }
+
       const majorCount = pairs.filter(p => p.severity === 'major').length;
       const moderateCount = pairs.filter(p => p.severity === 'moderate').length;
       const minorCount = pairs.filter(p => p.severity === 'minor').length;
