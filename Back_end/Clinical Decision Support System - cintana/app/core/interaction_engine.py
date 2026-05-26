@@ -307,15 +307,29 @@ def check_interactions(
     # ── 1. Resolve names for display (authoritative: drugs table) ────────────
     name_map = _fetch_drug_names(db, drug_ids)
 
-    # ── 2. Fetch candidate rows — use stored procedure for speed ────────────
-    # sp_check_interactions_multi uses covering index ix_di_both
+    # ── 2. Fetch candidate rows — use direct SQL for accuracy + speed ────────
+    # Query: WHERE drug_id IN (ids) AND interacting_drug_id IN (ids)
+    # This ensures we ONLY get rows where BOTH drugs are in the user's selection.
+    # Using raw SQL with covering index ix_di_both for maximum performance.
+    from sqlalchemy import text as _sqtext
+
     try:
-        quoted_ids = ",".join(f"'{did}'" for did in id_set)
-        rows_raw = db.execute(
-            __import__('sqlalchemy').text("CALL sp_check_interactions_multi(:ids)"),
-            {"ids": quoted_ids}
-        ).fetchall()
-        # Convert raw tuples to lightweight objects
+        # Build parameterized IN clause
+        id_list = list(id_set)
+        placeholders_a = ",".join(f":a{i}" for i in range(len(id_list)))
+        placeholders_b = ",".join(f":b{i}" for i in range(len(id_list)))
+        params = {}
+        for i, did in enumerate(id_list):
+            params[f"a{i}"] = did
+            params[f"b{i}"] = did
+
+        sql = _sqtext(
+            f"SELECT drug_id, interacting_drug_id, interacting_drug_name, severity, description "
+            f"FROM drug_interactions "
+            f"WHERE drug_id IN ({placeholders_a}) AND interacting_drug_id IN ({placeholders_b})"
+        )
+        rows_raw = db.execute(sql, params).fetchall()
+
         class _Row:
             __slots__ = ('drug_id','interacting_drug_id','interacting_drug_name','severity','description')
             def __init__(self, r):
@@ -326,7 +340,7 @@ def check_interactions(
                 self.description = r[4]
         rows = [_Row(r) for r in rows_raw]
     except Exception:
-        # Fallback to ORM query if stored procedure not available
+        # Ultimate fallback: ORM with OR + Python filter
         rows = (
             db.query(DrugInteraction)
             .filter(
